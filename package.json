@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc -p tsconfig.build.json",
     "check:claude": "tsx scripts/check-claude-md.ts",
+    "smoke": "tsx scripts/smoke.ts",
     "verify": "npm run typecheck && npm run test && npm run check:claude"
   },
   "dependencies": {

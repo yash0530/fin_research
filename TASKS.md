@@ -35,9 +35,10 @@ and tested with fakes/mocks; wiring to live I/O is the remaining integration wor
 - [x] M1.1 Dual-taxonomy sector seeds (GICS 11 + AI-infra 12) in `config/sectors.ts`
 - [x] M1.2 `prisma/schema.prisma` (30 models) + `migrations/0001_init.sql` — validated with `npx prisma validate`
 - [~] M1.3 `lib/universe.ts` CSV → GICS mapping (done + tested); seed script + `sp500.csv` data file pending _(app/data layer)_
-- [~] M1.4 Backfill orchestration — resumable (skip-done) + catch-per-item done & tested (`src/jobs/backfill`, `src/jobs/runner` chain); live Yahoo/EDGAR `fetchOne` impls pending _(live-service)_
+- [~] M1.4 Backfill orchestration (resumable + catch-per-item) **and** Yahoo/EDGAR response
+  parsing (`parseChart`/`parseQuoteBatch`/`parseSubmissions`) done & tested; live fetch round-trips pending _(live-service)_
 - [x] M1.5 Generalized synthesis families (market breadth / GICS pulse / AI-lens) + hard caps + provenance — see `src/research/`
-- [ ] M1.6 Stats split (daily batched quote) _(live-service)_
+- [~] M1.6 Quote-batch parsing done & tested (`parseQuoteBatch`); daily stats job wiring pending _(live-service)_
 - [ ] M1.7 6am `node-cron` + manual "Run morning" trigger _(needs scheduler/UI)_
 
 ## M2 — Tool registry + evidence primitives + screener + discovery
@@ -111,14 +112,16 @@ remaining integration work, tracked honestly above.
 ## Verification evidence (last run)
 
 - `tsc --noEmit` → exit 0 (clean).
-- `vitest run` → **155 passed** across 29 files (incl. 5 dossier-runner scenarios, QoE
-  golden M=−2.3735 / Z=4.455 / F=8, DCF closed-form, governor cap/lift, buy-list
-  allocation, capture parse, HTTP transport, migration runner, job chain + backfill,
-  EDGAR limiter ≤8 req/s proven, sentiment, news-tape, discovery lifecycle).
+- `vitest run` → **160 passed** across 31 files — incl. an end-to-end
+  `pipeline.integration.test` (prices→despike→synthesize→screen→dossier→governed
+  buy-list→story), 5 dossier-runner scenarios, QoE golden M=−2.3735 / Z=4.455 / F=8,
+  DCF, governor cap/lift, EDGAR limiter ≤8 req/s proven, Yahoo parsers, HTTP transport,
+  migration runner, sentiment, news-tape, discovery.
+- `npm run smoke` → **SMOKE PASSED** (runnable deterministic pipeline end-to-end).
 - `npx prisma validate` → schema valid (30 models).
 - `next build` (web/) → **compiled + type-checked** against the engine, 8 routes generated
   (/, screener, dossiers, buylist, capture, story/[id], _not-found).
 - `tsx scripts/apply-migration.ts` → applies `0001_init.sql` to a real SQLite DB (WAL);
   `migrate.test.ts` confirms all 30 tables materialize, idempotency, and insert/read-back.
 - `scripts/check-claude-md.ts` → CLAUDE.md present in all 33 directories (core + web).
-- `git log` → 13 commits at regular milestone boundaries.
+- `git log` → 14 commits at regular milestone boundaries.

@@ -12,6 +12,9 @@ calls are thin wrappers over these; everything here is tested with fakes/fixture
   `EDGAR_LIMITER` (the ONE shared 8 req/s bucket every EDGAR caller must use), and
   `parseSubmissions(cik, symbol, json)` → typed filing rows, filtered to
   10-K/10-Q/8-K/4/DEF 14A. Pure parser → fixture-tested, no network.
+- `yahoo.ts` — `parseChart` (unix ts → YYYY-MM-DD, null-close filtering → Price rows) +
+  `parseQuoteBatch` (per-symbol stats). Pure parsers → fixture-tested; the live fetch is a
+  thin wrapper.
 
 ## Tests
 

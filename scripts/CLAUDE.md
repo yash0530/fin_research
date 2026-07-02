@@ -13,3 +13,6 @@ Standalone `tsx` scripts (not part of the library build).
   + `busy_timeout=8000`, and applies pending `prisma/migrations/*.sql` in order via the
   runner in `src/db/migrate.ts`. Additive-only, idempotent, tracked in `_migrations`.
   Run: `tsx scripts/apply-migration.ts`.
+- `smoke.ts` — end-to-end smoke of the deterministic pipeline (digest → screener →
+  FakeProvider dossier → governed buy-list); prints ✓/✗ and exits non-zero on failure.
+  Run: `npm run smoke`.
