@@ -74,7 +74,9 @@ and tested with fakes/mocks; wiring to live I/O is the remaining integration wor
 - [x] M3.7 Queue + dedupe + drain-when-idle
 - [x] M3.8 Tests: happy path · resume-after-bear · budget exhaustion · uncited-claim drop · malformed-judge fallback
 - [ ] M3.9 Live smoke on Qwen (`job dossier --symbol=MU`) — **BLOCKED this session**: llama-server not reachable at localhost:8000 (probed → NO_HEALTH). The full pipeline is FakeProvider-tested + `HttpProvider` is mock-tested; only the live round-trip needs a running server.
-- [~] M3.10 Dossier UI — `web/app/dossiers` list route renders + `next build` passes; live stage-polling + memo apply pending
+- [~] M3.10 Dossier UI — `web/app/dossiers` list route renders + `next build` passes; a
+  `/live` route reads the real digest from SQLite at request time (the live-data-wiring
+  pattern); live stage-polling + memo apply pending
 
 ## M4 — Story pages (flagship)
 - [x] M4.1 `story/schema.ts` zod `StoryPageData`
@@ -130,8 +132,8 @@ remaining integration work, tracked honestly above.
 - `npm run smoke` → **SMOKE PASSED**; `scripts/scheduler.ts --once` → exit 0;
   `npm run seed` → 23 sectors / 5 tickers / 9 links / 1 digest into a real SQLite DB.
 - `npx prisma validate` → schema valid (30 models).
-- `next build` (web/) → **compiled + type-checked** against the engine, 8 routes generated
-  (/, screener, dossiers, buylist, capture, story/[id], _not-found).
+- `next build` (web/) → **compiled + type-checked** against the engine, **9 routes** incl.
+  `/live` which reads the real SQLite digest at request time via the tested data layer.
 - `tsx scripts/apply-migration.ts` → applies `0001_init.sql` to a real SQLite DB (WAL);
   `migrate.test.ts` confirms all 30 tables materialize, idempotency, and insert/read-back.
 - `scripts/check-claude-md.ts` → CLAUDE.md present in all 35 directories (core + web + deploy).
