@@ -82,7 +82,8 @@ and tested with fakes/mocks; wiring to live I/O is the remaining integration wor
 - [x] M4.1 `story/schema.ts` zod `StoryPageData`
 - [x] M4.2 `story/build.ts` deterministic composer (frozen snapshot) + scenario math — golden test vs Micron numbers
 - [~] M4.3 Story components — hero, stat tape, cycle strip, **client scenario estimator** (recomputes impliedPrice) render + `next build` passes (`web/app/story/[id]`); recharts evidence charts deferred
-- [ ] M4.4 `narrate.ts` Qwen prose (page renders without it) _(live-service)_
+- [~] M4.4 `narrate.ts` — narration logic done & **FakeProvider-tested** (thinking OFF,
+  page renders without it); only the live Qwen prose call is blocked (no server) _(external)_
 
 ## M5 — Buy-list ritual + calibration governor
 - [x] M5.1 `calibration/governor.ts` verbatim (CAP 2.0 / MIN 5 / FAVORABLE 0.5; favorable-per-action) — tests replicate Python cases
@@ -119,10 +120,31 @@ remaining integration work, tracked honestly above.
 
 ---
 
+## Environment blockers (cannot be verified in this headless session)
+
+Every remaining `[ ]`/`[~]`-with-"external" item requires a live host. The LOGIC behind
+each is implemented and tested (FakeProvider / mocked fetch / real node:sqlite); only the
+live I/O is unexercised. Documented, not faked:
+
+- **Live Qwen** (M3.9 smoke, M4.4 prose) — needs `llama-server` at `localhost:8000`,
+  re-probed every iteration → `NO_HEALTH`. Unblock: start the server, then
+  `npm run job dossier -- --symbol=MU`. Proxy verified: full pipeline runs on
+  `FakeProvider`; `HttpProvider` mock-tested; `completeJson` retry tested; `narrate` tested.
+- **Live Yahoo/EDGAR round-trips** — external rate-limited services. Unblock: run on a
+  networked host. Proxy verified: `parseChart`/`parseQuoteBatch`/`parseSubmissions` +
+  `fetchChart`/`fetchSubmissions` (injectable fetcher) fixture/mock-tested; EDGAR ≤8 req/s
+  limiter proven.
+- **Browser-rendered UI correctness** — needs a browser. Proxy verified: `next build`
+  compiles + type-checks all 9 routes against the engine; `/live` reads the real SQLite
+  digest via the tested data layer.
+- **Long-lived scheduler daemon** — a persistent process. Proxy verified:
+  `scripts/scheduler.ts --once` runs one decision tick; `src/schedule/wake` unit-tested;
+  launchd plist in `deploy/`.
+
 ## Verification evidence (last run)
 
 - `tsc --noEmit` → exit 0 (clean).
-- `vitest run` → **183 passed** across 38 files — incl. the end-to-end
+- `vitest run` → **185 passed** across 39 files — incl. the end-to-end
   `pipeline.integration.test`, SQLite-backed dossier persist+resume, a real-migrated-DB
   **data-access layer** test (prices/despike, digest, RecCalls→governor) + **seed helpers**
   (23 sectors / tickers / links), Yahoo/EDGAR **fetch wrappers** (mocked fetcher),
@@ -137,4 +159,4 @@ remaining integration work, tracked honestly above.
 - `tsx scripts/apply-migration.ts` → applies `0001_init.sql` to a real SQLite DB (WAL);
   `migrate.test.ts` confirms all 30 tables materialize, idempotency, and insert/read-back.
 - `scripts/check-claude-md.ts` → CLAUDE.md present in all 35 directories (core + web + deploy).
-- `git log` → 18 commits at regular milestone boundaries.
+- `git log` → 20 commits at regular milestone boundaries.

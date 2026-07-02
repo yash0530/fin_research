@@ -14,6 +14,8 @@ is the deterministic, frozen DATA behind it (React components + Qwen narrative l
   - `scenarioPrices(data)` — bear/base/bull implied prices.
   - `buildStory(input)` — validate + freeze (throws on invalid shape).
   - `baseUpsidePct(data)` — base implied vs frozen build price.
+- `narrate.ts` — `narrateStory(provider, data)`: optional Qwen prose over already-true
+  facts (thinking OFF, invents nothing); the page renders fully without it. FakeProvider-tested.
 
 ## Invariants
 
