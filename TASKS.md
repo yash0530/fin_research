@@ -39,7 +39,8 @@ and tested with fakes/mocks; wiring to live I/O is the remaining integration wor
   parsing (`parseChart`/`parseQuoteBatch`/`parseSubmissions`) done & tested; live fetch round-trips pending _(live-service)_
 - [x] M1.5 Generalized synthesis families (market breadth / GICS pulse / AI-lens) + hard caps + provenance — see `src/research/`
 - [~] M1.6 Quote-batch parsing done & tested (`parseQuoteBatch`); daily stats job wiring pending _(live-service)_
-- [ ] M1.7 6am `node-cron` + manual "Run morning" trigger _(needs scheduler/UI)_
+- [~] M1.7 Scheduler decision logic (`shouldCatchUp` / `detectedWake` / same-market-date
+  guard) done & tested (`src/schedule/wake`); the 6am cron daemon + manual-trigger button are runtime wiring
 
 ## M2 — Tool registry + evidence primitives + screener + discovery
 - [x] M2.1 `ToolResult` + never-throw `execute` wrapper + in-memory `EvidenceLedger` + `evidencePrompt`
@@ -51,8 +52,10 @@ and tested with fakes/mocks; wiring to live I/O is the remaining integration wor
 - [x] M2.7 Port `technicals` math (RSI/MACD/SMA/golden-cross/52w) over despiked closes
 - [x] M2.8 Port `qoe_forensics` (Beneish/Altman/Piotroski/accruals) — golden tests vs Python values
 - [x] M2.9 Port `relative_rank` (percentiles/spotlight) + `sector_heat` (both taxonomies)
-- [~] M2.10 Network-tool logic done & tested — `sentiment` scoring, `news-tape` merge,
-  EDGAR limiter (≤8 req/s **proven**) + submissions parser (`src/net`); live fetch wrappers pending _(live-service)_
+- [~] M2.10 All network/analysis tool logic done & tested — `sentiment`, `news-tape`,
+  `macro` (regime), `peer-compare`, `catalysts`, `insider-form4` (XML parse + cluster-buy),
+  `institutional` (ownership), `options-metrics` (P/C, ATM IV), EDGAR limiter (≤8 req/s
+  **proven**) + submissions parser, Yahoo `parseChart`/`parseQuoteBatch`; live fetch wrappers pending _(live-service)_
 - [x] M2.11 Screener engine + field resolvers + universe spec (sp500|ai_infra|watchlist|sector:code)
 - [x] M2.12 Discovery candidate lifecycle (observe/decide/promote → watchlisted ticker) — pure logic done & tested (`src/discovery`)
 
@@ -112,16 +115,17 @@ remaining integration work, tracked honestly above.
 ## Verification evidence (last run)
 
 - `tsc --noEmit` → exit 0 (clean).
-- `vitest run` → **160 passed** across 31 files — incl. an end-to-end
+- `vitest run` → **173 passed** across 34 files — incl. an end-to-end
   `pipeline.integration.test` (prices→despike→synthesize→screen→dossier→governed
   buy-list→story), 5 dossier-runner scenarios, QoE golden M=−2.3735 / Z=4.455 / F=8,
-  DCF, governor cap/lift, EDGAR limiter ≤8 req/s proven, Yahoo parsers, HTTP transport,
-  migration runner, sentiment, news-tape, discovery.
+  DCF, governor cap/lift, EDGAR limiter ≤8 req/s proven, Yahoo parsers, Form 4 parse +
+  cluster-buy, options/institutional/macro/peer/catalysts, scheduler decisions,
+  HTTP transport, migration runner, sentiment, news-tape, discovery.
 - `npm run smoke` → **SMOKE PASSED** (runnable deterministic pipeline end-to-end).
 - `npx prisma validate` → schema valid (30 models).
 - `next build` (web/) → **compiled + type-checked** against the engine, 8 routes generated
   (/, screener, dossiers, buylist, capture, story/[id], _not-found).
 - `tsx scripts/apply-migration.ts` → applies `0001_init.sql` to a real SQLite DB (WAL);
   `migrate.test.ts` confirms all 30 tables materialize, idempotency, and insert/read-back.
-- `scripts/check-claude-md.ts` → CLAUDE.md present in all 33 directories (core + web).
-- `git log` → 14 commits at regular milestone boundaries.
+- `scripts/check-claude-md.ts` → CLAUDE.md present in all 34 directories (core + web).
+- `git log` → 15 commits at regular milestone boundaries.

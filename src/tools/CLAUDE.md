@@ -30,6 +30,12 @@ that agents cite from.
 - `sentiment.ts` — composite 0–10 score (Reddit mentions/polarity + news volume + RSS);
   deterministic scoring, tested. `news-tape.ts` — merge local + fetched news (dedup by
   id + normalized title, newest-first, capped).
+- `macro.ts` — macro regime classifier (VIX / yield-curve inversion / HYG-IEF credit).
+  `peer-compare.ts` — percentile position within a sector cohort. `catalysts.ts` —
+  upcoming-events window filter.
+- `insider-form4.ts` — Form 4 XML parse (fast-xml-parser) + cluster-buy detection.
+  `institutional.ts` — yahoo ownership parse. `options-metrics.ts` — P/C ratio, ATM IV,
+  unusual-volume count. (Live fetch wrappers are thin; the parsing/scoring is tested here.)
 
 ## Invariants
 
