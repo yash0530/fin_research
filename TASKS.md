@@ -65,25 +65,25 @@ and tested with fakes/mocks; wiring to live I/O is the remaining integration wor
 - [x] M3.7 Queue + dedupe + drain-when-idle
 - [x] M3.8 Tests: happy path · resume-after-bear · budget exhaustion · uncited-claim drop · malformed-judge fallback
 - [ ] M3.9 Live smoke on Qwen (`job dossier --symbol=MU`) — **BLOCKED this session**: llama-server not reachable at localhost:8000 (probed → NO_HEALTH). The full pipeline is FakeProvider-tested + `HttpProvider` is mock-tested; only the live round-trip needs a running server.
-- [ ] M3.10 Dossier + memo UI (Next.js) _(UI layer)_
+- [~] M3.10 Dossier UI — `web/app/dossiers` list route renders + `next build` passes; live stage-polling + memo apply pending
 
 ## M4 — Story pages (flagship)
 - [x] M4.1 `story/schema.ts` zod `StoryPageData`
 - [x] M4.2 `story/build.ts` deterministic composer (frozen snapshot) + scenario math — golden test vs Micron numbers
-- [ ] M4.3 React components (KPI tape, cycle strip, evidence charts, scenario estimator) _(UI layer)_
+- [~] M4.3 Story components — hero, stat tape, cycle strip, **client scenario estimator** (recomputes impliedPrice) render + `next build` passes (`web/app/story/[id]`); recharts evidence charts deferred
 - [ ] M4.4 `narrate.ts` Qwen prose (page renders without it) _(live-service)_
 
 ## M5 — Buy-list ritual + calibration governor
 - [x] M5.1 `calibration/governor.ts` verbatim (CAP 2.0 / MIN 5 / FAVORABLE 0.5; favorable-per-action) — tests replicate Python cases
 - [x] M5.2 `calibration/outcomes.ts` horizon math (1m/3m/6m/1y from local closes)
 - [x] M5.3 `buylist/build.ts` allocation (rank, min(judge,governed) size, $2500, min lot $100, residual→cash) — tests
-- [ ] M5.4 Buy-list + calibration UI (log buy → JournalEntry) _(UI layer)_
+- [~] M5.4 Buy-list UI — `web/app/buylist` renders governed allocation + cash + `next build` passes; calibration page + log-buy→JournalEntry pending
 
 ## M6 — Paste-capture channel
 - [x] M6.1 `capture/parse.ts` (JSON-block + legacy fallback) — tests on Signal Desk-style fixtures
 - [x] M6.2 `capture/theme-map.ts` (theme slugs → Sector codes)
 - [x] M6.3 `capture/render.ts` (4 prompt templates + local-data injection)
-- [ ] M6.4 Capture UI + commit → EvidenceItem/DiscoveryCandidate/Catalyst _(UI layer)_
+- [~] M6.4 Capture UI — `web/app/capture` renders a real prompt template + `next build` passes; paste-back parse→commit pending
 
 ## Documentation & housekeeping
 - [x] D.1 `TASKS.md` master checklist (this file)
@@ -116,7 +116,9 @@ remaining integration work, tracked honestly above.
   allocation, capture parse, HTTP transport, migration runner, job chain + backfill,
   EDGAR limiter ≤8 req/s proven, sentiment, news-tape, discovery lifecycle).
 - `npx prisma validate` → schema valid (30 models).
+- `next build` (web/) → **compiled + type-checked** against the engine, 8 routes generated
+  (/, screener, dossiers, buylist, capture, story/[id], _not-found).
 - `tsx scripts/apply-migration.ts` → applies `0001_init.sql` to a real SQLite DB (WAL);
   `migrate.test.ts` confirms all 30 tables materialize, idempotency, and insert/read-back.
-- `scripts/check-claude-md.ts` → CLAUDE.md present in all 23 directories.
-- `git log` → 12 commits at regular milestone boundaries.
+- `scripts/check-claude-md.ts` → CLAUDE.md present in all 33 directories (core + web).
+- `git log` → 13 commits at regular milestone boundaries.

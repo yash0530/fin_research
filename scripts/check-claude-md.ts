@@ -14,6 +14,7 @@ const IGNORE = new Set([
   "coverage",
   ".vitest",
   "__fixtures__",
+  ".next",
 ]);
 
 function walk(dir: string, out: string[]): void {
