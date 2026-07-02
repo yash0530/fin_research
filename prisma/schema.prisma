@@ -1,0 +1,432 @@
+// ENGINE data model. SQLite (WAL) + hand-written additive migrations via
+// scripts/apply-migration.ts. Market-data dates are YYYY-MM-DD strings; audit
+// timestamps are DateTime. JSON payloads are stored as String (SQLite).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum TickerClass {
+  stock
+  etf
+  benchmark
+}
+
+enum Stage {
+  early
+  inflecting
+  popping
+  crowded
+  reset
+}
+
+enum Severity {
+  info
+  warn
+  critical
+}
+
+// ─────────────────────────── full_market ───────────────────────────
+
+model Sector {
+  code         String         @id // "g_energy".. or "ai_memory"..
+  name         String
+  taxonomy     String         @default("gics") // "gics" | "ai_infra"
+  driver       Int            @default(0)
+  stage        Stage          @default(early)
+  note         String?
+  tickerLinks  TickerSector[]
+  stageHistory StageHistory[]
+}
+
+model StageHistory {
+  id         Int      @id @default(autoincrement())
+  sectorCode String
+  sector     Sector   @relation(fields: [sectorCode], references: [code], onDelete: Cascade)
+  stage      Stage
+  ratedBy    String
+  rationale  String?
+  ratedAt    DateTime @default(now())
+
+  @@index([sectorCode, ratedAt])
+}
+
+model Ticker {
+  symbol           String         @id
+  class            TickerClass    @default(stock)
+  active           Boolean        @default(true)
+  name             String?
+  source           String         @default("seed") // seed | discovery | capture
+  watchlisted      Boolean        @default(false)
+  cik              String?
+  marketCap        Float?
+  forwardPE        Float?
+  trailingPE       Float?
+  profitMargin     Float?
+  revenueGrowth    Float?
+  fiftyTwoWeekHigh Float?
+  fiftyTwoWeekLow  Float?
+  beta             Float?
+  eps              Float?
+  yearChange       Float?
+  statsUpdatedAt   DateTime?
+  sectorLinks      TickerSector[]
+
+  @@index([watchlisted])
+}
+
+model TickerSector {
+  symbol     String
+  sectorCode String
+  ticker     Ticker @relation(fields: [symbol], references: [symbol], onDelete: Cascade)
+  sector     Sector @relation(fields: [sectorCode], references: [code], onDelete: Cascade)
+
+  @@id([symbol, sectorCode])
+  @@index([sectorCode])
+}
+
+model Price {
+  symbol String
+  d      String // YYYY-MM-DD
+  close  Float
+  volume Float?
+
+  @@id([symbol, d])
+  @@index([d])
+}
+
+model FundamentalsQuarter {
+  symbol          String
+  periodEnd       String // YYYY-MM-DD
+  revenue         Float?
+  grossProfit     Float?
+  operatingIncome Float?
+  netIncome       Float?
+  fcf             Float?
+  capex           Float?
+  totalAssets     Float?
+  totalDebt       Float?
+  cash            Float?
+  equity          Float?
+  sharesOut       Float?
+
+  @@id([symbol, periodEnd])
+  @@index([symbol])
+}
+
+model EdgarFiling {
+  accessionNo String   @id
+  symbol      String
+  cik         String
+  form        String // 10-K | 10-Q | 8-K | 4 | DEF 14A
+  filedAt     DateTime
+  primaryDoc  String?
+
+  @@index([symbol, form])
+}
+
+model BackfillProgress {
+  task      String // prices10y | fundamentals | edgar_index
+  symbol    String
+  status    String   @default("pending") // pending | done | error
+  rows      Int      @default(0)
+  updatedAt DateTime @default(now())
+
+  @@id([task, symbol])
+}
+
+// ─────────────────────────── news / catalysts / series ───────────────────────────
+
+model NewsItem {
+  urlHash     String    @id
+  url         String
+  title       String
+  snippet     String?
+  source      String?
+  sectorCode  String?
+  symbol      String?
+  publishedAt DateTime?
+  fetchedAt   DateTime  @default(now())
+
+  @@index([sectorCode, fetchedAt])
+  @@index([fetchedAt])
+}
+
+model Catalyst {
+  id         Int     @id @default(autoincrement())
+  d          String?
+  kind       String
+  sectorCode String?
+  symbol     String?
+  title      String
+  note       String?
+  captureId  Int?
+
+  @@index([d])
+}
+
+model ManualSeries {
+  series String
+  d      String
+  value  Float
+  note   String?
+
+  @@id([series, d])
+}
+
+model Digest {
+  id          Int      @id @default(autoincrement())
+  d           String
+  createdAt   DateTime @default(now())
+  dataJson    String
+  llmMd       String?
+  llmProvider String?
+  llmModel    String?
+
+  @@index([createdAt])
+}
+
+// ─────────────────────────── tools_screener ───────────────────────────
+
+model ToolCacheEntry {
+  key         String   @id // tool:sha1(args)
+  tool        String
+  resultJson  String
+  sourcesJson String?
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+
+  @@index([tool])
+}
+
+model ScreenerConfig {
+  id          Int      @id @default(autoincrement())
+  name        String
+  universe    String
+  filtersJson String
+  sortJson    String?
+  createdAt   DateTime @default(now())
+}
+
+model DiscoveryCandidate {
+  symbol      String   @id
+  source      String // movers | screener | capture | dossier
+  status      String   @default("new") // new | accepted | rejected | ignored
+  occurrences Int      @default(1)
+  firstSeen   DateTime @default(now())
+  lastSeen    DateTime @default(now())
+  note        String?
+}
+
+// ─────────────────────────── dossiers ───────────────────────────
+
+model Dossier {
+  id          String         @id
+  symbol      String
+  sectorCode  String?
+  status      String         @default("queued") // queued | running | done | failed | cancelled
+  priority    Int            @default(0)
+  requestedBy String         @default("user") // user | digest | discovery | screener
+  budgetJson  String?
+  spentJson   String?
+  verdictJson String?
+  reportJson  String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  startedAt   DateTime?
+  stages      DossierStage[]
+  toolCalls   ToolCall[]
+
+  @@index([status, priority])
+  @@index([symbol])
+}
+
+model DossierStage {
+  id           Int      @id @default(autoincrement())
+  dossierId    String
+  dossier      Dossier  @relation(fields: [dossierId], references: [id], onDelete: Cascade)
+  name         String // classify | research | bull | bear | rebuttal | judge | critique | judge_rev | memo
+  outputJson   String?
+  inputTokens  Int?
+  outputTokens Int?
+  at           DateTime @default(now())
+
+  @@unique([dossierId, name])
+}
+
+model ToolCall {
+  id          Int      @id @default(autoincrement())
+  dossierId   String?
+  dossier     Dossier? @relation(fields: [dossierId], references: [id], onDelete: SetNull)
+  tool        String
+  argsJson    String?
+  resultJson  String?
+  sourcesJson String?
+  confidence  String?
+  cached      Boolean  @default(false)
+  latencyMs   Int?
+  createdAt   DateTime @default(now())
+
+  @@index([dossierId])
+}
+
+model Memo {
+  symbol      String   @id
+  contentJson String // 10 sections
+  version     Int      @default(1)
+  updatedAt   DateTime @updatedAt
+}
+
+model MemoVersion {
+  id              Int      @id @default(autoincrement())
+  symbol          String
+  version         Int
+  contentJson     String
+  state           String   @default("staged") // staged | active | superseded | rejected
+  deltaSummary    String?
+  sourceDossierId String?
+  createdAt       DateTime @default(now())
+
+  @@index([symbol, version])
+}
+
+model EvidenceItem {
+  id         Int      @id @default(autoincrement())
+  origin     String // agent | tool | paste
+  kind       String // claim|risk|catalyst|target|verdict|theme_signal|watch|question|ticker_mention
+  symbol     String?
+  sectorCode String?
+  text       String
+  refsJson   String?
+  confidence String?
+  asOf       String?
+  captureId  Int?
+  dossierId  String?
+  createdAt  DateTime @default(now())
+
+  @@index([symbol, createdAt])
+  @@index([origin, createdAt])
+}
+
+model RecCall {
+  id              Int      @id @default(autoincrement())
+  dossierId       String   @unique
+  symbol          String
+  action          String // BUY | HOLD | TRIM | AVOID
+  conviction      String // HIGH | MEDIUM | LOW
+  priceAtCall     Float
+  targetLow       Float?
+  targetHigh      Float?
+  stopPrice       Float?
+  judgeSizePct    Float
+  governedSizePct Float
+  governorReason  String?
+  model           String?
+  thinkingMode    Boolean  @default(false)
+  wwcmJson        String?
+  outcome1mPct    Float?
+  outcome3mPct    Float?
+  outcome6mPct    Float?
+  outcome1yPct    Float?
+  thesisFalsified Boolean?
+  createdAt       DateTime @default(now())
+
+  @@index([symbol, createdAt])
+  @@index([conviction])
+}
+
+// ─────────────────────────── story_pages ───────────────────────────
+
+model StoryPage {
+  id            Int      @id @default(autoincrement())
+  dossierId     String   @unique
+  symbol        String
+  title         String
+  storyJson     String
+  narrativeJson String?
+  createdAt     DateTime @default(now())
+
+  @@index([symbol])
+}
+
+// ─────────────────────────── buylist ───────────────────────────
+
+model BuyList {
+  month      String        @id // YYYY-MM
+  status     String        @default("draft") // draft | final
+  capitalUsd Float         @default(2500)
+  createdAt  DateTime      @default(now())
+  items      BuyListItem[]
+}
+
+model BuyListItem {
+  id              Int       @id @default(autoincrement())
+  buyListMonth    String
+  buyList         BuyList   @relation(fields: [buyListMonth], references: [month], onDelete: Cascade)
+  rank            Int
+  dossierId       String?
+  symbol          String
+  plannedUsd      Float
+  governedSizePct Float?
+  governorReason  String?
+  skipped         Boolean   @default(false)
+  actualUsd       Float?
+  actualPrice     Float?
+  executedAt      DateTime?
+
+  @@index([buyListMonth])
+}
+
+// ─────────────────────────── capture ───────────────────────────
+
+model PromptTemplate {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  title     String
+  body      String
+  createdAt DateTime @default(now())
+}
+
+model Capture {
+  id             Int      @id @default(autoincrement())
+  templateKey    String?
+  renderedPrompt String
+  rawOutput      String?
+  parseStatus    String   @default("empty") // json | legacy | empty
+  createdAt      DateTime @default(now())
+}
+
+// ─────────────────────────── journal / ops ───────────────────────────
+
+model JournalEntry {
+  id           Int      @id @default(autoincrement())
+  symbol       String
+  action       String
+  thesis       String
+  invalidation String?
+  createdAt    DateTime @default(now())
+
+  @@index([symbol, createdAt])
+}
+
+model Position {
+  symbol   String  @id
+  qty      Float
+  avgCost  Float
+  openedAt String?
+}
+
+model JobRun {
+  id        Int      @id @default(autoincrement())
+  job       String
+  startedAt DateTime @default(now())
+  ok        Boolean
+  detail    String?
+
+  @@index([job, startedAt])
+}
