@@ -35,12 +35,15 @@ and tested with fakes/mocks; wiring to live I/O is the remaining integration wor
 - [x] M1.1 Dual-taxonomy sector seeds (GICS 11 + AI-infra 12) in `config/sectors.ts`
 - [x] M1.2 `prisma/schema.prisma` (30 models) + `migrations/0001_init.sql` — validated with `npx prisma validate`
 - [~] M1.3 `lib/universe.ts` CSV → GICS mapping (done + tested); seed script + `sp500.csv` data file pending _(app/data layer)_
-- [~] M1.4 Backfill orchestration (resumable + catch-per-item) **and** Yahoo/EDGAR response
-  parsing (`parseChart`/`parseQuoteBatch`/`parseSubmissions`) done & tested; live fetch round-trips pending _(live-service)_
+- [~] M1.4 Backfill orchestration (resumable + catch-per-item), Yahoo/EDGAR **parsers**
+  (`parseChart`/`parseQuoteBatch`/`parseSubmissions`), **and fetch wrappers**
+  (`fetchChart`/`fetchSubmissions` over an injectable fetcher, mock-tested incl. EDGAR UA +
+  limiter) all done & tested; only the live external endpoints are unexercised _(external)_
 - [x] M1.5 Generalized synthesis families (market breadth / GICS pulse / AI-lens) + hard caps + provenance — see `src/research/`
 - [~] M1.6 Quote-batch parsing done & tested (`parseQuoteBatch`); daily stats job wiring pending _(live-service)_
-- [~] M1.7 Scheduler decision logic (`shouldCatchUp` / `detectedWake` / same-market-date
-  guard) done & tested (`src/schedule/wake`); the 6am cron daemon + manual-trigger button are runtime wiring
+- [~] M1.7 Scheduler decision logic + **daemon skeleton** (`scripts/scheduler.ts --once`
+  runs a verifiable single tick) + **launchd plist** (`deploy/com.engine.scheduler.plist`);
+  the long-lived loop wiring to live jobs is runtime
 
 ## M2 — Tool registry + evidence primitives + screener + discovery
 - [x] M2.1 `ToolResult` + never-throw `execute` wrapper + in-memory `EvidenceLedger` + `evidencePrompt`
@@ -115,18 +118,17 @@ remaining integration work, tracked honestly above.
 ## Verification evidence (last run)
 
 - `tsc --noEmit` → exit 0 (clean).
-- `vitest run` → **175 passed** across 35 files — incl. an end-to-end
-  `pipeline.integration.test` (prices→despike→synthesize→screen→dossier→governed
-  buy-list→story), a **SQLite-backed dossier persist + resume** test (real node:sqlite DB),
-  5 dossier-runner scenarios, QoE golden M=−2.3735 / Z=4.455 / F=8, DCF, governor cap/lift,
-  EDGAR limiter ≤8 req/s proven, Yahoo parsers, Form 4 parse + cluster-buy,
-  options/institutional/macro/peer/catalysts, scheduler decisions, HTTP transport,
-  migration runner, sentiment, news-tape, discovery.
-- `npm run smoke` → **SMOKE PASSED** (runnable deterministic pipeline end-to-end).
+- `vitest run` → **181 passed** across 37 files — incl. the end-to-end
+  `pipeline.integration.test`, SQLite-backed dossier persist+resume, a real-migrated-DB
+  **data-access layer** test (prices/despike, digest, RecCalls→governor), Yahoo/EDGAR
+  **fetch wrappers** (mocked fetcher), 5 dossier-runner scenarios, QoE/DCF/governor golden,
+  EDGAR limiter ≤8 req/s, Form 4 + cluster-buy, options/institutional/macro/peer/catalysts,
+  scheduler decisions, HTTP transport, migration runner, sentiment/news-tape/discovery.
+- `npm run smoke` → **SMOKE PASSED**; `tsx scripts/scheduler.ts --once` → single tick, exit 0.
 - `npx prisma validate` → schema valid (30 models).
 - `next build` (web/) → **compiled + type-checked** against the engine, 8 routes generated
   (/, screener, dossiers, buylist, capture, story/[id], _not-found).
 - `tsx scripts/apply-migration.ts` → applies `0001_init.sql` to a real SQLite DB (WAL);
   `migrate.test.ts` confirms all 30 tables materialize, idempotency, and insert/read-back.
-- `scripts/check-claude-md.ts` → CLAUDE.md present in all 34 directories (core + web).
-- `git log` → 16 commits at regular milestone boundaries.
+- `scripts/check-claude-md.ts` → CLAUDE.md present in all 35 directories (core + web + deploy).
+- `git log` → 17 commits at regular milestone boundaries.

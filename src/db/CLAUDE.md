@@ -12,6 +12,10 @@ WAL + busy_timeout, applies `prisma/migrations/*.sql` in order).
   interface over the injectable `SqlDb`, persisting `DossierState` to a self-managed table.
   It's the **durable** store (InMemory is the test double) — proving dossiers survive a
   restart and resume against a real database.
+- `queries.ts` — data-access layer over `SqlDb`: `insertPrices` (chunked INSERT OR IGNORE),
+  `loadCloses` (**despiked on read**), `saveDigest`/`loadLatestDigest`, `saveRecCall`/
+  `loadRecCallsForGovernor`/`updateRecCallOutcome`. Tested against a DB seeded from
+  `0001_init.sql`, incl. persisted RecCalls feeding the calibration governor.
 
 ## Tests
 

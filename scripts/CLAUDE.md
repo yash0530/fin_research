@@ -16,3 +16,6 @@ Standalone `tsx` scripts (not part of the library build).
 - `smoke.ts` — end-to-end smoke of the deterministic pipeline (digest → screener →
   FakeProvider dossier → governed buy-list); prints ✓/✗ and exits non-zero on failure.
   Run: `npm run smoke`.
+- `scheduler.ts` — the scheduler daemon. `--once` evaluates a single decision tick and
+  exits (verifiable); default runs the 60s tick loop with wake detection. Decisions come
+  from the tested `src/schedule/wake`; the launchd agent is `deploy/com.engine.scheduler.plist`.
