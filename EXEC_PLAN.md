@@ -1,0 +1,64 @@
+# EXEC_PLAN — the vacation month (Jul 2026)
+
+Yash is away ~1 month. Claude (Fable 5) is acting CEO with a standing goal: when he
+returns, fin_research is his **personal production-grade finance engine** — fully
+implemented, live-verified, and documented. This file is the operating plan; see
+ROADMAP.md (program phases), NEXT_RUN.md (build contract), TASKS.md (ground truth).
+
+## Org
+
+| Team | Who | Mandate |
+|---|---|---|
+| CEO / integrator / verifier | Claude (this session, + Explore subagents) | Planning, specs, reviews, live verification, git hygiene, docs of record |
+| Core engineering | **kiro** (`kiro-cli`, model opus 4.8, effort per task) | Implementation batches against written specs in `scratch/kiro/*.md` |
+| Research | **agy** (`agy` CLI, gemini 3.5 flash, medium/high) | Market research, competitive scans, data-source due diligence |
+| Ops | Claude via launchd/Bash | llama-server, scheduler daemon, backups |
+
+**Delegation protocol (hard rules):** every kiro batch gets a spec file
+(`scratch/kiro/<task>.md`) with intent, exact files, donor paths, gates
+(`npm run verify` green), and "append ## Result; do NOT commit". One kiro batch at a
+time; no workspace edits while a background batch runs. After every batch: `git diff
+--stat` sync, judgment review (line-by-line for business logic), then I commit.
+Every claim gets independently verified before its task closes — tests-green alone
+is not done (lesson from run 1).
+
+## Waves (sequenced, each gated)
+
+- **Wave 0 — Ops + governance (Day 1):** task board, llama-server up, EXEC_PLAN,
+  CLIs verified. Gate: llama `/health` ok.
+- **Wave 1 — Research & architecture (Days 1–3, parallel with Wave 2):**
+  market scan (me + agy) → `docs/research/market-scan.md` with adopt/reject
+  decisions; `docs/architecture.md` with mermaid diagrams. Gate: both docs merged.
+- **Wave 2 — Donor pack (Days 1–4):** kiro batch A (rich prompts + analyzer depth),
+  batch B (universe CSV/seed, tripwire rules, synthesize families, capture
+  fidelity, TASKS.md honesty fixes). Gate: verify green + my line review + commit.
+- **Wave 3 — Live data (Days 4–7):** backfill 10y × full universe against live
+  Yahoo/EDGAR (known risk: Yahoo 429 without crumb/cookie handling — fetchers must
+  implement crumb dance or fall back to chart API host rotation), stats/news/earnings
+  jobs, real overnight chain → real digest. Gate: ≥1.2M price rows, digest with real
+  provenance, spot-checks pass.
+- **Wave 4 — Live Qwen (Days 7–10):** dossier smoke MU → tune → 2 more sectors.
+  Gate: schema-valid verdict, ≤60 min, RecCall written, transcript archived.
+- **Wave 5 — UI parity (Days 10–18):** kiro batches per route group; reference
+  `docs/reference-micron.html` for story pages. Gate: manual walkthrough evidence
+  per route, `next build` green.
+- **Wave 6 — Daemon + production hardening (Days 18–22):** scheduler loop, wake
+  catch-up live test, install scripts, backups. Gate: sleep/wake test evidence.
+- **Wave 7 — Acceptance + docs + final audit (Days 22–28):** Phase-6 end-to-end
+  acceptance; user guide + dev guide refreshed to reality; final audit of every
+  TASKS.md claim; `WELCOME_BACK.md` for Yash (what shipped, what to check, how to
+  run the first real buy-list).
+
+## Standing risks being managed
+- **Yahoo 429** (seen in preflight curl): fetchers need browser-like headers +
+  crumb/cookie session (yahoo-finance2's approach) — assigned to Wave 3 spec.
+- **agy reliability** (went non-functional once in ENGINE history): verify each agy
+  run produced output; fall back to my own WebSearch if it stalls.
+- **Context longevity:** task board + this file + TASKS.md are the durable state;
+  any session can resume from them.
+
+## Status log
+- **Jul 2:** Wave 0 done except llama health confirm (service bootstrapped, model
+  loading). Task board #1–#10 created. Market scan started (TradingAgents identified
+  as closest OSS analogue — 80k★, bull/bear debate, structured outputs, local-model
+  support; validates our dossier architecture). Kiro spec A written.

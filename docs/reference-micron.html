@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<!-- REFERENCE ARTIFACT — Yash's hand-built Micron story page (Jun 2026).
+     This is the design + interaction spec for ENGINE's flagship story pages
+     (Phase 4.5 in NEXT_RUN.md): editorial hero, KPI tape, cycle strip,
+     evidence charts, interactive scenario estimator, honest footnotes,
+     dark/light via prefers-color-scheme. Replicate the aesthetic and the
+     estimator semantics with recharts/React components; do not ship Chart.js. -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Micron · the cycle, the multiple, the price</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F4F6F6; --surface:#FFFFFF; --surface-2:#EBEEEE; --inset:#F0F2F2;
+    --ink:#13191B; --muted:#586064; --faint:#8B9296;
+    --line:rgba(19,25,27,0.10); --line-2:rgba(19,25,27,0.20);
+    --accent:#0E8C6B; --accent-deep:#0A6A51; --accent-soft:#E3F2EC;
+    --pos:#0E8C6B; --neg:#C2403B; --warn:#A8761B;
+    --b1:#9FE1CB; --b2:#B5D4F4; --b3:#FAC775; --b4:#F5C4B3;
+    --fdisp:"Space Grotesk",system-ui,sans-serif;
+    --fbody:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,sans-serif;
+    --fmono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0D1113; --surface:#161B1E; --surface-2:#1E2427; --inset:#11161800;
+      --ink:#EBEFF0; --muted:#99A1A6; --faint:#69716F;
+      --line:rgba(255,255,255,0.10); --line-2:rgba(255,255,255,0.20);
+      --accent:#2BCB99; --accent-deep:#23B084; --accent-soft:#15302A;
+      --pos:#2BCB99; --neg:#E5706B; --warn:#D8A441;
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--fbody);line-height:1.65;-webkit-font-smoothing:antialiased}
+  .num{font-variant-numeric:tabular-nums lining-nums}
+  .page{max-width:1000px;margin:0 auto;padding:0 24px}
+  section{padding:56px 0;border-top:1px solid var(--line)}
+
+  .eyebrow{display:flex;align-items:center;gap:9px;font-family:var(--fmono);font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin:0 0 14px}
+  .eyebrow::before{content:"";width:9px;height:9px;background:var(--accent);border-radius:2px}
+  h1{font-family:var(--fdisp);font-weight:500;font-size:clamp(34px,5.4vw,56px);line-height:1.05;letter-spacing:-0.02em;margin:0 0 18px}
+  h2{font-family:var(--fdisp);font-weight:500;font-size:clamp(24px,3.6vw,32px);line-height:1.12;letter-spacing:-0.015em;margin:0 0 10px}
+  .lead{font-size:18px;color:var(--muted);max-width:62ch;margin:0 0 8px}
+  p.body{font-size:16px;color:var(--ink);max-width:64ch}
+  p.body.dim{color:var(--muted)}
+  a{color:var(--accent-deep)}
+
+  /* hero */
+  .hero{padding:64px 0 50px}
+  .kicker{font-family:var(--fmono);font-size:13px;color:var(--accent-deep);letter-spacing:0.04em;margin:0 0 20px}
+  .tape{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:34px 0 30px}
+  .tape .cell{background:var(--surface);padding:16px 18px}
+  .tape .k{font-size:12px;color:var(--muted);margin:0 0 7px}
+  .tape .v{font-family:var(--fdisp);font-size:26px;font-weight:500;letter-spacing:-0.01em}
+  .tape .d{font-size:12.5px;margin-top:5px;color:var(--muted)}
+  .up{color:var(--pos)} .down{color:var(--neg)}
+
+  /* cycle strip (shared) */
+  .strip-wrap{margin:6px 0 4px}
+  .strip{position:relative;height:38px;border-radius:8px;overflow:hidden;display:flex}
+  .strip>div{height:100%}
+  .strip .mk{position:absolute;top:-5px;bottom:-5px;width:2px;background:var(--ink);border-radius:2px;transition:left .12s ease}
+  .ticks{display:flex;font-size:11px;color:var(--faint);margin-top:6px}
+  .ticks span{display:block}
+
+  /* charts */
+  .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:26px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 18px 14px}
+  .card.full{grid-column:1/-1}
+  .card h3{font-family:var(--fdisp);font-weight:500;font-size:16px;margin:0 0 2px}
+  .card .sub{font-size:12.5px;color:var(--muted);margin:0 0 12px}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted);margin:0 0 8px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .swatch{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .chart-h{position:relative;width:100%;height:230px}
+  .chart-h.tall{height:260px}
+
+  /* estimator */
+  .est{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:26px 26px 24px;margin-top:26px}
+  .est-top{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}
+  #price{font-family:var(--fdisp);font-size:clamp(44px,7vw,60px);font-weight:500;line-height:1;letter-spacing:-0.02em}
+  #upside{font-size:15px;font-weight:500}
+  .reln{font-size:13px;color:var(--faint);margin-top:8px}
+  .chips{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:20px 0 24px}
+  .chip{background:var(--surface-2);border-radius:10px;padding:11px 13px}
+  .chip .k{font-size:12px;color:var(--muted)}
+  .chip .v{font-family:var(--fdisp);font-size:18px;font-weight:500;margin-top:3px}
+  .presets{display:flex;gap:8px;margin:0 0 22px;flex-wrap:wrap}
+  .presets button{font:inherit;font-size:13px;padding:7px 15px;border-radius:999px;cursor:pointer;background:var(--surface);color:var(--ink);border:1px solid var(--line-2);transition:.15s}
+  .presets button:hover{background:var(--surface-2)}
+  .presets button.on{border-color:var(--accent);color:var(--accent-deep)}
+  .row{display:flex;align-items:center;gap:14px;margin:0 0 16px}
+  .row label{font-size:14px;color:var(--muted);flex:0 0 132px}
+  .row .val{font-family:var(--fmono);font-size:13px;font-weight:500;flex:0 0 56px;text-align:right}
+  input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:4px;background:var(--line-2);outline:none;min-width:80px}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid var(--surface)}
+  input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid var(--surface)}
+  input[type=range]:focus-visible{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 32%,transparent)}
+  #regime{font-size:13px;color:var(--muted);margin-top:11px;min-height:36px}
+  .callout{background:var(--accent-soft);border-left:3px solid var(--accent);border-radius:0 10px 10px 0;padding:14px 16px;margin-top:22px;font-size:14px}
+  .callout b{font-weight:500;color:var(--accent-deep)}
+
+  footer{padding:40px 0 64px;border-top:1px solid var(--line);font-size:12.5px;color:var(--faint);line-height:1.7}
+  footer .big{font-family:var(--fdisp);font-size:15px;color:var(--muted);margin-bottom:10px}
+
+  @media (max-width:680px){
+    .grid2{grid-template-columns:1fr}
+    .row{flex-wrap:wrap}
+    .row label{flex-basis:100%}
+    .row input[type=range]{order:3;flex-basis:100%}
+    .ticks{font-size:10px}
+    section{padding:44px 0}
+  }
+</style>
+</head>
+<body>
+<main class="page">
+
+  <header class="hero">
+    <p class="kicker">Micron Technology · NASDAQ: MU</p>
+    <div class="eyebrow">A memory supercycle, read three ways</div>
+    <h1>The cycle, the multiple,<br>and the price.</h1>
+    <p class="lead">Every fundamental Micron reports is at an all-time extreme. Its forward earnings multiple is <em>below</em> its long-run average. That contradiction is the whole story of this stock — and it's exactly what makes the price so hard to call.</p>
+
+    <div class="tape num">
+      <div class="cell"><div class="k">Price (Fri close)</div><div class="v">$1,132</div><div class="d down">▼ 6.7% on Friday</div></div>
+      <div class="cell"><div class="k">Forward P/E</div><div class="v">~9.8x</div><div class="d">vs ~17x 5-yr avg</div></div>
+      <div class="cell"><div class="k">Revenue (FQ3)</div><div class="v">$41.5B</div><div class="d up">▲ 346% YoY</div></div>
+      <div class="cell"><div class="k">Gross margin</div><div class="v">~85%</div><div class="d up">from 39% a year ago</div></div>
+      <div class="cell"><div class="k">52-week range</div><div class="v" style="font-size:20px">$103 → $1,255</div><div class="d">+870% in a year</div></div>
+    </div>
+
+    <div class="strip-wrap">
+      <div class="strip" role="img" aria-label="Forward P/E cycle position: Micron currently near 9.8x, in the elevated-peak band">
+        <div style="width:19%;background:var(--b1)"></div>
+        <div style="width:19%;background:var(--b2)"></div>
+        <div style="width:28.6%;background:var(--b3)"></div>
+        <div style="width:33.4%;background:var(--b4)"></div>
+        <div class="mk" style="left:26%"></div>
+      </div>
+      <div class="ticks"><span style="width:19%">peak 4–8x</span><span style="width:19%">elevated 8–12x</span><span style="width:28.6%">mid-cycle 12–18x</span><span style="width:33.4%">downturn 18–25x</span></div>
+    </div>
+    <p class="body dim" style="margin-top:14px">Where the forward multiple sits today (~9.8x). For a memory maker, a low multiple signals a <em>peak</em>, not a bargain — the market is pricing in the cycle turning.</p>
+  </header>
+
+  <section>
+    <div class="eyebrow">The setup</div>
+    <h2>Why it moved, and what's underneath</h2>
+    <p class="body" style="margin-bottom:14px">Micron fell ~6.7% Friday despite blowout earnings — a sector-wide chip selloff plus a report that OpenAI may delay its IPO to 2027, which would push back the AI-infrastructure spending that drives memory demand. None of it was about the business.</p>
+    <p class="body dim">Underneath sits a genuine AI-driven memory shortage. Data centers are absorbing DRAM and NAND supply, prices have roughly doubled, and the squeeze is now reaching consumers — Apple raised Mac and iPad prices mid-cycle for the first time in years, blaming the same shortage that's powering Micron's ~85% gross margins. The debate isn't whether memory is tight; it's how long it lasts, and whether the market keeps treating Micron as a cyclical or re-rates it as a durable AI supplier.</p>
+  </section>
+
+  <section>
+    <div class="eyebrow">The evidence</div>
+    <h2>Extremes everywhere — and a compressed multiple</h2>
+    <p class="body dim" style="max-width:64ch">Annual figures are GAAP from Micron's SEC filings; FY26 is an estimate (three quarters actual or guided, one estimated). The FY23 columns are the reminder of what the downside of this cycle looks like.</p>
+
+    <div class="grid2">
+      <div class="card">
+        <h3>Revenue</h3><div class="sub">fiscal year, $ billions</div>
+        <div class="chart-h"><canvas id="revChart" role="img" aria-label="Annual revenue: FY21 27.7B, FY22 30.8B, FY23 15.5B, FY24 25.1B, FY25 37.4B, FY26 estimate 125B"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>Earnings per share</h3><div class="sub">GAAP diluted, $ / share</div>
+        <div class="chart-h"><canvas id="epsChart" role="img" aria-label="Annual diluted EPS, swinging from a loss in FY23 to an estimated 66 dollars in FY26"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>Margins</h3><div class="sub">% of revenue · gross vs net</div>
+        <div class="legend"><span><i class="swatch" id="sw-g"></i>Gross</span><span><i class="swatch" id="sw-n"></i>Net</span></div>
+        <div class="chart-h"><canvas id="marginChart" role="img" aria-label="Gross and net margins by year, both going negative in FY23 then to record highs"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>P/E — now vs history</h3><div class="sub">multiple (x)</div>
+        <div class="chart-h"><canvas id="peChart" role="img" aria-label="Trailing P/E now 25.5x, forward P/E now 9.8x, 5-year average 17.1x, 10-year average 16.9x"></canvas></div>
+      </div>
+      <div class="card full">
+        <h3>The ramp</h3><div class="sub">quarterly revenue, $ billions · the AI-memory acceleration</div>
+        <div class="chart-h tall"><canvas id="qChart" role="img" aria-label="Quarterly revenue rising from about 8 billion through fiscal 2025 to a guided 50 billion by Q4 fiscal 2026"></canvas></div>
+      </div>
+    </div>
+    <p class="body dim" style="margin-top:18px">The tension in one line: fundamentals have never been higher, yet the forward multiple of ~9.8x is below Micron's 5- and 10-year averages — because peak earnings earn a compressed multiple. Historically that multiple only expands to 18–24x when earnings collapse.</p>
+  </section>
+
+  <section>
+    <div class="eyebrow">The model</div>
+    <h2>Estimate the price yourself</h2>
+    <p class="body dim" style="max-width:64ch">Implied price = annualized forward EPS × forward P/E. Defaults use Micron's Q4 FY26 guidance plus an estimate for Q1 FY27. Drag the inputs; the cycle strip shows where your multiple sits.</p>
+
+    <div class="est">
+      <div class="est-top">
+        <div id="price" class="num">$1,232</div>
+        <div id="upside" class="num"></div>
+      </div>
+      <div class="reln num">Current price $1,132 · ~1.15B diluted shares · today's forward P/E ~9.8x</div>
+
+      <div class="chips">
+        <div class="chip"><div class="k">Q4 FY26 EPS</div><div class="v num" id="eps1"></div></div>
+        <div class="chip"><div class="k">Q1 FY27 EPS</div><div class="v num" id="eps2"></div></div>
+        <div class="chip"><div class="k">Annualized EPS</div><div class="v num" id="annual"></div></div>
+      </div>
+
+      <div class="presets" id="presets">
+        <button data-p="bear">Cycle cools</button>
+        <button data-p="base" class="on">Guidance base</button>
+        <button data-p="bull">Upcycle extends</button>
+      </div>
+
+      <div class="row"><label for="q1rev">Q4 FY26 revenue</label><input type="range" id="q1rev" min="30" max="70" value="50" step="1"><span class="val num" id="q1rev-o">$50B</span></div>
+      <div class="row"><label for="q2rev">Q1 FY27 revenue</label><input type="range" id="q2rev" min="30" max="80" value="55" step="1"><span class="val num" id="q2rev-o">$55B</span></div>
+      <div class="row"><label for="margin">Net margin</label><input type="range" id="margin" min="30" max="75" value="71" step="1"><span class="val num" id="margin-o">71%</span></div>
+      <div class="row"><label for="pe">Forward P/E</label><input type="range" id="pe" min="4" max="25" value="9.5" step="0.5"><span class="val num" id="pe-o">9.5x</span></div>
+
+      <div class="strip-wrap" style="margin-top:24px">
+        <div class="strip">
+          <div style="width:19%;background:var(--b1)"></div>
+          <div style="width:19%;background:var(--b2)"></div>
+          <div style="width:28.6%;background:var(--b3)"></div>
+          <div style="width:33.4%;background:var(--b4)"></div>
+          <div class="mk" id="emk" style="left:26%"></div>
+        </div>
+        <div class="ticks"><span style="width:19%">peak 4–8x</span><span style="width:19%">elevated 8–12x</span><span style="width:28.6%">mid-cycle 12–18x</span><span style="width:33.4%">downturn 18–25x</span></div>
+      </div>
+      <div id="regime"></div>
+      <div class="callout" id="callout"></div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="big">How to read this</div>
+    Annual figures are GAAP from Micron's SEC filings; the headline EPS (~$25) and ~85% margins Micron reports are non-GAAP, so they read higher than the GAAP series here. FY26 bars and the Q1 FY27 estimate are not final results. The estimator is a scenario sandbox, not a forecast — and a reminder that for a cyclical, earnings and the multiple move inversely, so cranking both to extremes describes a world that has never existed. Data as of Jun 26–27, 2026. This is not investment advice.
+  </footer>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+(function(){
+  var isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme:dark)').matches;
+  var C = {
+    accent: isDark?'#2BCB99':'#0E8C6B',
+    accent2: isDark?'#E0B14A':'#A8761B',
+    neg: isDark?'#E5706B':'#C2403B',
+    ink: isDark?'#EBEFF0':'#13191B',
+    muted: isDark?'#99A1A6':'#586064',
+    grid: isDark?'rgba(255,255,255,0.08)':'rgba(19,25,27,0.08)',
+    surface: isDark?'#161B1E':'#FFFFFF',
+    greyBar: isDark?'#5C656A':'#AEB4B6',
+    greyBar2: isDark?'#3A4145':'#CDD2D2'
+  };
+  var numFont = "'Space Grotesk',system-ui,sans-serif";
+
+  var sw=document.getElementById('sw-g'); if(sw) sw.style.background=C.accent;
+  var sw2=document.getElementById('sw-n'); if(sw2) sw2.style.background=C.accent2;
+
+  var YR=['FY21','FY22','FY23','FY24','FY25','FY26e'];
+  var REV=[27.7,30.8,15.5,25.1,37.4,125];
+  var EPS=[5.14,7.75,-5.34,0.70,7.59,66];
+  var GM=[37.6,45.2,-9.1,22.4,39.0,85];
+  var NM=[21.2,28.2,-37.5,3.1,22.8,62];
+  var QL=['Q1 25','Q2 25','Q3 25','Q4 25','Q1 26','Q2 26','Q3 26','Q4 26e'];
+  var QREV=[8.71,8.05,9.3,11.3,13.6,20,41.5,50];
+  var PEL=['Trailing\nnow','Forward\nnow','5-yr\navg','10-yr\navg'];
+  var PEV=[25.5,9.8,17.1,16.9];
+
+  Chart.defaults.font.family = "system-ui,-apple-system,'Segoe UI',Roboto,sans-serif";
+  Chart.defaults.color = C.muted;
+
+  var labels = {
+    id:'vlab',
+    afterDatasetsDraw:function(chart,a,opts){
+      if(!opts||!opts.on) return;
+      var ctx=chart.ctx;
+      chart.data.datasets.forEach(function(ds,di){
+        var meta=chart.getDatasetMeta(di);
+        if(meta.type&&meta.type!=='bar') return;
+        meta.data.forEach(function(el,i){
+          var v=ds.data[i]; if(v===null||v===undefined) return;
+          ctx.save();
+          ctx.font="500 11px "+numFont; ctx.fillStyle=C.ink; ctx.textAlign='center';
+          var txt=opts.fmt?opts.fmt(v):(''+v);
+          ctx.fillText(txt, el.x, v>=0?el.y-6:el.y+15);
+          ctx.restore();
+        });
+      });
+    }
+  };
+
+  var baseOpts=function(extra){
+    var o={responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{enabled:true}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:11}}},
+              y:{grid:{color:C.grid},ticks:{font:{size:11}},border:{display:false}}}};
+    return Object.assign(o, extra||{});
+  };
+
+  function barColors(arr){return arr.map(function(v){return v<0?C.neg:C.accent;});}
+
+  new Chart(document.getElementById('revChart'),{type:'bar',plugins:[labels],
+    data:{labels:YR,datasets:[{data:REV,backgroundColor:barColors(REV),borderRadius:4,maxBarThickness:46}]},
+    options:baseOpts({plugins:{legend:{display:false},vlab:{on:true,fmt:function(v){return v;}},tooltip:{callbacks:{label:function(c){return '$'+c.parsed.y+'B';}}}}})});
+
+  new Chart(document.getElementById('epsChart'),{type:'bar',plugins:[labels],
+    data:{labels:YR,datasets:[{data:EPS,backgroundColor:barColors(EPS),borderRadius:4,maxBarThickness:46}]},
+    options:baseOpts({plugins:{legend:{display:false},vlab:{on:true,fmt:function(v){return '$'+v;}},tooltip:{callbacks:{label:function(c){return '$'+c.parsed.y;}}}}})});
+
+  new Chart(document.getElementById('marginChart'),{type:'line',
+    data:{labels:YR,datasets:[
+      {data:GM,borderColor:C.accent,backgroundColor:C.accent,tension:.3,pointRadius:3,borderWidth:2},
+      {data:NM,borderColor:C.accent2,backgroundColor:C.accent2,borderDash:[5,4],tension:.3,pointRadius:3,pointStyle:'rect',borderWidth:2}
+    ]},
+    options:baseOpts({plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return (c.datasetIndex===0?'Gross ':'Net ')+c.parsed.y+'%';}}}},
+      scales:{x:{grid:{display:false}},y:{grid:{color:C.grid},ticks:{callback:function(v){return v+'%';},font:{size:11}},border:{display:false}}}})});
+
+  new Chart(document.getElementById('peChart'),{type:'bar',plugins:[labels],
+    data:{labels:PEL,datasets:[{data:PEV,backgroundColor:[C.greyBar,C.accent,C.greyBar2,C.greyBar2],borderRadius:4,maxBarThickness:60}]},
+    options:baseOpts({plugins:{legend:{display:false},vlab:{on:true,fmt:function(v){return v+'x';}},tooltip:{callbacks:{label:function(c){return c.parsed.y+'x';}}}}})});
+
+  new Chart(document.getElementById('qChart'),{type:'bar',plugins:[labels],
+    data:{labels:QL,datasets:[{data:QREV,backgroundColor:QL.map(function(l){return l.indexOf('26')>-1?C.accent:C.greyBar;}),borderRadius:4,maxBarThickness:54}]},
+    options:baseOpts({plugins:{legend:{display:false},vlab:{on:true,fmt:function(v){return v;}},tooltip:{callbacks:{label:function(c){return '$'+c.parsed.y+'B';}}}},scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:C.grid},border:{display:false}}}})});
+
+  // ---- estimator ----
+  var shares=1.15, current=1132;
+  function $(id){return document.getElementById(id);}
+  var q1rev=$('q1rev'),q2rev=$('q2rev'),margin=$('margin'),pe=$('pe');
+  function usd(n){return '$'+Math.round(n).toLocaleString();}
+  var presets={bear:{q1rev:44,q2rev:42,margin:55,pe:8},base:{q1rev:50,q2rev:55,margin:71,pe:9.5},bull:{q1rev:50,q2rev:62,margin:72,pe:13}};
+  function update(){
+    var r1=+q1rev.value,r2=+q2rev.value,m=+margin.value/100,p=+pe.value;
+    var e1=r1*m/shares,e2=r2*m/shares,an=(e1+e2)*2,price=an*p,up=(price/current-1)*100;
+    $('q1rev-o').textContent='$'+r1+'B';$('q2rev-o').textContent='$'+r2+'B';
+    $('margin-o').textContent=Math.round(+margin.value)+'%';$('pe-o').textContent=p.toFixed(1)+'x';
+    $('eps1').textContent='$'+e1.toFixed(2);$('eps2').textContent='$'+e2.toFixed(2);$('annual').textContent='$'+an.toFixed(0);
+    $('price').textContent=usd(price);
+    var u=$('upside');u.textContent=(up>=0?'+':'')+up.toFixed(1)+'% vs current';u.style.color=up>=0?'var(--pos)':'var(--neg)';
+    $('emk').style.left=Math.max(0,Math.min(100,(p-4)/21*100))+'%';
+    var rg;
+    if(p<8) rg='Cyclical-peak zone: earnings near the top, so the market deliberately assigns a low multiple.';
+    else if(p<12) rg='Elevated-peak zone: roughly where Micron trades today (~9.8x), a touch above its classic peak band.';
+    else if(p<18) rg='Mid-cycle zone: this multiple appears as earnings normalize off the peak, or if Micron re-rates as a secular grower.';
+    else rg='Downturn zone: historically these high multiples coincide with collapsed earnings — a buy-the-dip region, not a high-price one.';
+    $('regime').textContent=rg;
+    var peNeed=1500/an,epsNeed=1500/p;
+    $('callout').innerHTML='<b>To reach $1,500 from here:</b> hold this earnings assumption and the forward P/E would need to be <b>'+peNeed.toFixed(1)+'x</b> — or hold '+p.toFixed(1)+'x and annualized EPS would need to climb to <b>$'+epsNeed.toFixed(0)+'</b> (vs $'+an.toFixed(0)+' now).';
+    var hit=null;for(var k in presets){var s=presets[k];if(s.q1rev===r1&&s.q2rev===r2&&s.margin===+margin.value&&s.pe===p)hit=k;}
+    document.querySelectorAll('#presets button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-p')===hit);});
+  }
+  [q1rev,q2rev,margin,pe].forEach(function(el){el.addEventListener('input',update);});
+  document.querySelectorAll('#presets button').forEach(function(b){b.addEventListener('click',function(){var s=presets[b.getAttribute('data-p')];q1rev.value=s.q1rev;q2rev.value=s.q2rev;margin.value=s.margin;pe.value=s.pe;update();});});
+  update();
+})();
+</script>
+</body>
+</html>
