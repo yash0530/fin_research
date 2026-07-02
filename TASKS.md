@@ -34,7 +34,9 @@ and tested with fakes/mocks; wiring to live I/O is the remaining integration wor
 ## M1 — Full market: universe, backfill, generalized digest, scheduling
 - [x] M1.1 Dual-taxonomy sector seeds (GICS 11 + AI-infra 12) in `config/sectors.ts`
 - [x] M1.2 `prisma/schema.prisma` (30 models) + `migrations/0001_init.sql` — validated with `npx prisma validate`
-- [~] M1.3 `lib/universe.ts` CSV → GICS mapping (done + tested); seed script + `sp500.csv` data file pending _(app/data layer)_
+- [~] M1.3 `lib/universe.ts` CSV→GICS mapping + **`scripts/seed.ts`** (dual-taxonomy sectors
+  + demo tickers + links + sample digest — verified against a real DB, 23 sectors/5 tickers)
+  done & tested; loading the full 503-row `sp500.csv` is a data-copy step
 - [~] M1.4 Backfill orchestration (resumable + catch-per-item), Yahoo/EDGAR **parsers**
   (`parseChart`/`parseQuoteBatch`/`parseSubmissions`), **and fetch wrappers**
   (`fetchChart`/`fetchSubmissions` over an injectable fetcher, mock-tested incl. EDGAR UA +
@@ -118,17 +120,19 @@ remaining integration work, tracked honestly above.
 ## Verification evidence (last run)
 
 - `tsc --noEmit` → exit 0 (clean).
-- `vitest run` → **181 passed** across 37 files — incl. the end-to-end
+- `vitest run` → **183 passed** across 38 files — incl. the end-to-end
   `pipeline.integration.test`, SQLite-backed dossier persist+resume, a real-migrated-DB
-  **data-access layer** test (prices/despike, digest, RecCalls→governor), Yahoo/EDGAR
-  **fetch wrappers** (mocked fetcher), 5 dossier-runner scenarios, QoE/DCF/governor golden,
-  EDGAR limiter ≤8 req/s, Form 4 + cluster-buy, options/institutional/macro/peer/catalysts,
-  scheduler decisions, HTTP transport, migration runner, sentiment/news-tape/discovery.
-- `npm run smoke` → **SMOKE PASSED**; `tsx scripts/scheduler.ts --once` → single tick, exit 0.
+  **data-access layer** test (prices/despike, digest, RecCalls→governor) + **seed helpers**
+  (23 sectors / tickers / links), Yahoo/EDGAR **fetch wrappers** (mocked fetcher),
+  5 dossier-runner scenarios, QoE/DCF/governor golden, EDGAR limiter ≤8 req/s,
+  Form 4 + cluster-buy, options/institutional/macro/peer/catalysts, scheduler decisions,
+  HTTP transport, migration runner, sentiment/news-tape/discovery.
+- `npm run smoke` → **SMOKE PASSED**; `scripts/scheduler.ts --once` → exit 0;
+  `npm run seed` → 23 sectors / 5 tickers / 9 links / 1 digest into a real SQLite DB.
 - `npx prisma validate` → schema valid (30 models).
 - `next build` (web/) → **compiled + type-checked** against the engine, 8 routes generated
   (/, screener, dossiers, buylist, capture, story/[id], _not-found).
 - `tsx scripts/apply-migration.ts` → applies `0001_init.sql` to a real SQLite DB (WAL);
   `migrate.test.ts` confirms all 30 tables materialize, idempotency, and insert/read-back.
 - `scripts/check-claude-md.ts` → CLAUDE.md present in all 35 directories (core + web + deploy).
-- `git log` → 17 commits at regular milestone boundaries.
+- `git log` → 18 commits at regular milestone boundaries.

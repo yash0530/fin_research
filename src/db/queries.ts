@@ -103,3 +103,56 @@ export function updateRecCallOutcome(
     dossierId,
   );
 }
+
+
+// ── Seed helpers (universe) ──────────────────────────────────────────────
+
+export type SectorSeedRow = { code: string; name: string; taxonomy: string; driver: number };
+
+export function insertSectors(db: SqlDb, seeds: SectorSeedRow[]): number {
+  const stmt = db.prepare('INSERT OR IGNORE INTO "Sector" ("code","name","taxonomy","driver","stage") VALUES (?,?,?,?,?)');
+  db.exec("BEGIN");
+  try {
+    for (const s of seeds) stmt.run(s.code, s.name, s.taxonomy, s.driver, "early");
+    db.exec("COMMIT");
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  }
+  return seeds.length;
+}
+
+export type TickerSeed = {
+  symbol: string;
+  name?: string;
+  source?: string;
+  watchlisted?: boolean;
+  cik?: string;
+  marketCap?: number | null;
+  forwardPE?: number | null;
+};
+
+export function upsertTicker(db: SqlDb, t: TickerSeed): void {
+  db.prepare(
+    'INSERT INTO "Ticker" ("symbol","name","source","watchlisted","cik","marketCap","forwardPE") VALUES (?,?,?,?,?,?,?) ' +
+      "ON CONFLICT(\"symbol\") DO UPDATE SET name=excluded.name, watchlisted=excluded.watchlisted, marketCap=excluded.marketCap, forwardPE=excluded.forwardPE",
+  ).run(
+    t.symbol.toUpperCase(),
+    t.name ?? null,
+    t.source ?? "seed",
+    t.watchlisted ? 1 : 0,
+    t.cik ?? null,
+    t.marketCap ?? null,
+    t.forwardPE ?? null,
+  );
+}
+
+export function linkTickerSector(db: SqlDb, symbol: string, sectorCode: string): void {
+  db.prepare('INSERT OR IGNORE INTO "TickerSector" ("symbol","sectorCode") VALUES (?,?)').run(symbol.toUpperCase(), sectorCode);
+}
+
+/** Count rows in a table (table name is a trusted literal, never user input). */
+export function countRows(db: SqlDb, table: string): number {
+  const row = db.prepare(`SELECT count(*) AS c FROM "${table}"`).get() as { c: number };
+  return row.c;
+}

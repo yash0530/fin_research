@@ -19,3 +19,5 @@ Standalone `tsx` scripts (not part of the library build).
 - `scheduler.ts` — the scheduler daemon. `--once` evaluates a single decision tick and
   exits (verifiable); default runs the 60s tick loop with wake detection. Decisions come
   from the tested `src/schedule/wake`; the launchd agent is `deploy/com.engine.scheduler.plist`.
+- `seed.ts` — populates the DB (migrations + GICS 11 + AI-infra 12 sectors + demo tickers +
+  links + a sample digest) via the data layer. Run: `npm run seed`.
