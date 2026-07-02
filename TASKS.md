@@ -35,7 +35,7 @@ and tested with fakes/mocks; wiring to live I/O is the remaining integration wor
 - [x] M1.1 Dual-taxonomy sector seeds (GICS 11 + AI-infra 12) in `config/sectors.ts`
 - [x] M1.2 `prisma/schema.prisma` (30 models) + `migrations/0001_init.sql` — validated with `npx prisma validate`
 - [~] M1.3 `lib/universe.ts` CSV → GICS mapping (done + tested); seed script + `sp500.csv` data file pending _(app/data layer)_
-- [ ] M1.4 Resumable backfill jobs (prices10y / fundamentals / edgar_index) _(live-service: Yahoo/EDGAR)_
+- [~] M1.4 Backfill orchestration — resumable (skip-done) + catch-per-item done & tested (`src/jobs/backfill`, `src/jobs/runner` chain); live Yahoo/EDGAR `fetchOne` impls pending _(live-service)_
 - [x] M1.5 Generalized synthesis families (market breadth / GICS pulse / AI-lens) + hard caps + provenance — see `src/research/`
 - [ ] M1.6 Stats split (daily batched quote) _(live-service)_
 - [ ] M1.7 6am `node-cron` + manual "Run morning" trigger _(needs scheduler/UI)_
@@ -110,11 +110,11 @@ remaining integration work, tracked honestly above.
 ## Verification evidence (last run)
 
 - `tsc --noEmit` → exit 0 (clean).
-- `vitest run` → **133 passed** across 25 files (incl. 5 dossier-runner scenarios, QoE
+- `vitest run` → **137 passed** across 26 files (incl. 5 dossier-runner scenarios, QoE
   golden M=−2.3735 / Z=4.455 / F=8, DCF closed-form, governor cap/lift, buy-list
-  allocation, capture parse, HTTP transport via mocked fetch, migration runner).
+  allocation, capture parse, HTTP transport, migration runner, job chain + backfill).
 - `npx prisma validate` → schema valid (30 models).
 - `tsx scripts/apply-migration.ts` → applies `0001_init.sql` to a real SQLite DB (WAL);
   `migrate.test.ts` confirms all 30 tables materialize, idempotency, and insert/read-back.
-- `scripts/check-claude-md.ts` → CLAUDE.md present in all 20 directories.
-- `git log` → 10 commits at regular milestone boundaries.
+- `scripts/check-claude-md.ts` → CLAUDE.md present in all 21 directories.
+- `git log` → 11 commits at regular milestone boundaries.
