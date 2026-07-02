@@ -50,9 +50,10 @@ and tested with fakes/mocks; wiring to live I/O is the remaining integration wor
 - [x] M2.7 Port `technicals` math (RSI/MACD/SMA/golden-cross/52w) over despiked closes
 - [x] M2.8 Port `qoe_forensics` (Beneish/Altman/Piotroski/accruals) — golden tests vs Python values
 - [x] M2.9 Port `relative_rank` (percentiles/spotlight) + `sector_heat` (both taxonomies)
-- [ ] M2.10 Network tools (fundamentals live-fill, sentiment, news_tape, edgar_filings, insider_form4, institutional, options) _(live-service)_
+- [~] M2.10 Network-tool logic done & tested — `sentiment` scoring, `news-tape` merge,
+  EDGAR limiter (≤8 req/s **proven**) + submissions parser (`src/net`); live fetch wrappers pending _(live-service)_
 - [x] M2.11 Screener engine + field resolvers + universe spec (sp500|ai_infra|watchlist|sector:code)
-- [ ] M2.12 Discovery candidate accept→watchlist flow _(DiscoveryCandidate model in schema; accept-flow needs the app layer)_
+- [x] M2.12 Discovery candidate lifecycle (observe/decide/promote → watchlisted ticker) — pure logic done & tested (`src/discovery`)
 
 ## M3 — Dossier engine (queued full-debate deep dives)
 - [x] M3.1 `Budget` + `evidence-validation` (drop uncited claims — "no naked numbers")
@@ -63,7 +64,7 @@ and tested with fakes/mocks; wiring to live I/O is the remaining integration wor
 - [x] M3.6 Judge HOLD/LOW fallback (never crash)
 - [x] M3.7 Queue + dedupe + drain-when-idle
 - [x] M3.8 Tests: happy path · resume-after-bear · budget exhaustion · uncited-claim drop · malformed-judge fallback
-- [ ] M3.9 Live smoke on Qwen (`job dossier --symbol=MU`) _(live-service)_
+- [ ] M3.9 Live smoke on Qwen (`job dossier --symbol=MU`) — **BLOCKED this session**: llama-server not reachable at localhost:8000 (probed → NO_HEALTH). The full pipeline is FakeProvider-tested + `HttpProvider` is mock-tested; only the live round-trip needs a running server.
 - [ ] M3.10 Dossier + memo UI (Next.js) _(UI layer)_
 
 ## M4 — Story pages (flagship)
@@ -110,11 +111,12 @@ remaining integration work, tracked honestly above.
 ## Verification evidence (last run)
 
 - `tsc --noEmit` → exit 0 (clean).
-- `vitest run` → **137 passed** across 26 files (incl. 5 dossier-runner scenarios, QoE
+- `vitest run` → **155 passed** across 29 files (incl. 5 dossier-runner scenarios, QoE
   golden M=−2.3735 / Z=4.455 / F=8, DCF closed-form, governor cap/lift, buy-list
-  allocation, capture parse, HTTP transport, migration runner, job chain + backfill).
+  allocation, capture parse, HTTP transport, migration runner, job chain + backfill,
+  EDGAR limiter ≤8 req/s proven, sentiment, news-tape, discovery lifecycle).
 - `npx prisma validate` → schema valid (30 models).
 - `tsx scripts/apply-migration.ts` → applies `0001_init.sql` to a real SQLite DB (WAL);
   `migrate.test.ts` confirms all 30 tables materialize, idempotency, and insert/read-back.
-- `scripts/check-claude-md.ts` → CLAUDE.md present in all 21 directories.
-- `git log` → 11 commits at regular milestone boundaries.
+- `scripts/check-claude-md.ts` → CLAUDE.md present in all 23 directories.
+- `git log` → 12 commits at regular milestone boundaries.

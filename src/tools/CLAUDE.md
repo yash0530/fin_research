@@ -27,6 +27,9 @@ that agents cite from.
 - `financial-trends.ts` — multi-quarter revenue/margin/FCF trajectory.
 - `relative-rank.ts` — percentile ranks + spotlight tags across a universe.
 - `sector-heat.ts` — sector return aggregation across both taxonomies.
+- `sentiment.ts` — composite 0–10 score (Reddit mentions/polarity + news volume + RSS);
+  deterministic scoring, tested. `news-tape.ts` — merge local + fetched news (dedup by
+  id + normalized title, newest-first, capped).
 
 ## Invariants
 
