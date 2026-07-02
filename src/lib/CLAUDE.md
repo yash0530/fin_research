@@ -10,6 +10,9 @@ Small, dependency-free numeric helpers used at every price read path.
     The wide window keeps a **multi-day spike block** a minority so it can't pull the
     median with it. Returns a cleaned copy — never mutates the input.
   - `median(values)` · `pctChange(from, to)` (null on divide-by-zero) · `maxDrawdownPct(closes)`.
+- `universe.ts` — `parseUniverseCsv(csv)`: S&P rows (ticker/company/sector/industry) →
+  `UniverseRow` with the GICS name mapped to its `g_*` code (unmapped → null). Quoted-field
+  aware. `countByGics(rows)` tallies constituents per code.
 
 ## Why it matters
 

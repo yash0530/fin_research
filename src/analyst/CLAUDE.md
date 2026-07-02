@@ -10,6 +10,7 @@ model (Qwen 3.6 27B) can drive a 9–12 call debate without crashing the pipelin
 - `fake-provider.ts` — `FakeProvider`: scripted responses + call recording. Drives every engine test deterministically.
 - `llmjson.ts` — `completeJson(provider, msg, schema, opts)`: jsonsafe → `zod.safeParse` → **retry with the validation error appended**. Throws `LlmJsonError` (carrying the last raw output) after `maxAttempts`.
 - `singleflight.ts` — `withLlmLock(endpointKey, fn)`: promise-chain mutex **keyed by endpoint**. One llama-server = one call at a time (`-np 1`); a second local model on another port runs concurrently.
+- `http-provider.ts` — `HttpProvider`: the live transport for both protocols (openai_compat + anthropic) over plain `fetch`. `fetchImpl` is injectable → unit-tested with no server; non-2xx/network failure → `ProviderError` (connectivity, distinct from a validation failure).
 
 ## Invariants
 

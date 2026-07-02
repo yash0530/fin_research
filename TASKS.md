@@ -29,12 +29,12 @@ and tested with fakes/mocks; wiring to live I/O is the remaining integration wor
 - [x] M0.6 `despike` + metrics (rolling-median bad-tick filter, multi-day block safe) — _7 tests_
 - [x] M0.7 Provider profiles w/ `contextWindow` + `thinkingMode`; Gemma seam documented
 - [x] M0.8 Per-role model routing (`default` + sparse `overrides`) + thinking-by-role — _4 tests_
-- [ ] M0.9 Live HTTP provider (`openai_compat` + `anthropic`) — real fetch adapter _(live-service)_
+- [x] M0.9 Live HTTP provider (`openai_compat` + `anthropic`) via `HttpProvider` — injectable fetch, `ProviderError` on non-2xx/network failure; tested with mocks + end-to-end through completeJson
 
 ## M1 — Full market: universe, backfill, generalized digest, scheduling
 - [x] M1.1 Dual-taxonomy sector seeds (GICS 11 + AI-infra 12) in `config/sectors.ts`
 - [x] M1.2 `prisma/schema.prisma` (30 models) + `migrations/0001_init.sql` — validated with `npx prisma validate`
-- [ ] M1.3 `lib/universe.ts` CSV → GICS mapping + seed script _(needs sp500.csv)_
+- [~] M1.3 `lib/universe.ts` CSV → GICS mapping (done + tested); seed script + `sp500.csv` data file pending _(app/data layer)_
 - [ ] M1.4 Resumable backfill jobs (prices10y / fundamentals / edgar_index) _(live-service: Yahoo/EDGAR)_
 - [x] M1.5 Generalized synthesis families (market breadth / GICS pulse / AI-lens) + hard caps + provenance — see `src/research/`
 - [ ] M1.6 Stats split (daily batched quote) _(live-service)_
@@ -110,9 +110,9 @@ remaining integration work, tracked honestly above.
 ## Verification evidence (last run)
 
 - `tsc --noEmit` → exit 0 (clean).
-- `vitest run` → **119 passed** across 22 files (incl. 5 dossier-runner scenarios, QoE
+- `vitest run` → **130 passed** across 24 files (incl. 5 dossier-runner scenarios, QoE
   golden M=−2.3735 / Z=4.455 / F=8, DCF closed-form, governor cap/lift, buy-list
-  allocation, capture parse).
+  allocation, capture parse, HTTP transport via mocked fetch).
 - `npx prisma validate` → schema valid (30 models); `0001_init.sql` = 30 tables.
 - `scripts/check-claude-md.ts` → CLAUDE.md present in all 18 directories.
-- `git log` → 8 commits at regular milestone boundaries.
+- `git log` → 9 commits at regular milestone boundaries.
