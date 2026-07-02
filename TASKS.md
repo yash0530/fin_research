@@ -110,9 +110,11 @@ remaining integration work, tracked honestly above.
 ## Verification evidence (last run)
 
 - `tsc --noEmit` → exit 0 (clean).
-- `vitest run` → **130 passed** across 24 files (incl. 5 dossier-runner scenarios, QoE
+- `vitest run` → **133 passed** across 25 files (incl. 5 dossier-runner scenarios, QoE
   golden M=−2.3735 / Z=4.455 / F=8, DCF closed-form, governor cap/lift, buy-list
-  allocation, capture parse, HTTP transport via mocked fetch).
-- `npx prisma validate` → schema valid (30 models); `0001_init.sql` = 30 tables.
-- `scripts/check-claude-md.ts` → CLAUDE.md present in all 18 directories.
-- `git log` → 9 commits at regular milestone boundaries.
+  allocation, capture parse, HTTP transport via mocked fetch, migration runner).
+- `npx prisma validate` → schema valid (30 models).
+- `tsx scripts/apply-migration.ts` → applies `0001_init.sql` to a real SQLite DB (WAL);
+  `migrate.test.ts` confirms all 30 tables materialize, idempotency, and insert/read-back.
+- `scripts/check-claude-md.ts` → CLAUDE.md present in all 20 directories.
+- `git log` → 10 commits at regular milestone boundaries.

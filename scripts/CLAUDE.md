@@ -9,7 +9,7 @@ Standalone `tsx` scripts (not part of the library build).
   Exits non-zero listing offenders. Run via `npm run check:claude`; part of
   `npm run verify`. This is what enforces the "CLAUDE.md everywhere" invariant.
 
-## Planned (documented in TASKS.md)
-
-- `apply-migration.ts` — additive hand-written SQL migration runner (matches the ENGINE
-  convention) once Prisma/SQLite is wired.
+- `apply-migration.ts` — opens the `DATABASE_URL` SQLite file, sets `PRAGMA journal_mode=WAL`
+  + `busy_timeout=8000`, and applies pending `prisma/migrations/*.sql` in order via the
+  runner in `src/db/migrate.ts`. Additive-only, idempotent, tracked in `_migrations`.
+  Run: `tsx scripts/apply-migration.ts`.
