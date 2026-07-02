@@ -115,12 +115,13 @@ remaining integration work, tracked honestly above.
 ## Verification evidence (last run)
 
 - `tsc --noEmit` → exit 0 (clean).
-- `vitest run` → **173 passed** across 34 files — incl. an end-to-end
+- `vitest run` → **175 passed** across 35 files — incl. an end-to-end
   `pipeline.integration.test` (prices→despike→synthesize→screen→dossier→governed
-  buy-list→story), 5 dossier-runner scenarios, QoE golden M=−2.3735 / Z=4.455 / F=8,
-  DCF, governor cap/lift, EDGAR limiter ≤8 req/s proven, Yahoo parsers, Form 4 parse +
-  cluster-buy, options/institutional/macro/peer/catalysts, scheduler decisions,
-  HTTP transport, migration runner, sentiment, news-tape, discovery.
+  buy-list→story), a **SQLite-backed dossier persist + resume** test (real node:sqlite DB),
+  5 dossier-runner scenarios, QoE golden M=−2.3735 / Z=4.455 / F=8, DCF, governor cap/lift,
+  EDGAR limiter ≤8 req/s proven, Yahoo parsers, Form 4 parse + cluster-buy,
+  options/institutional/macro/peer/catalysts, scheduler decisions, HTTP transport,
+  migration runner, sentiment, news-tape, discovery.
 - `npm run smoke` → **SMOKE PASSED** (runnable deterministic pipeline end-to-end).
 - `npx prisma validate` → schema valid (30 models).
 - `next build` (web/) → **compiled + type-checked** against the engine, 8 routes generated
@@ -128,4 +129,4 @@ remaining integration work, tracked honestly above.
 - `tsx scripts/apply-migration.ts` → applies `0001_init.sql` to a real SQLite DB (WAL);
   `migrate.test.ts` confirms all 30 tables materialize, idempotency, and insert/read-back.
 - `scripts/check-claude-md.ts` → CLAUDE.md present in all 34 directories (core + web).
-- `git log` → 15 commits at regular milestone boundaries.
+- `git log` → 16 commits at regular milestone boundaries.

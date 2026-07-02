@@ -8,6 +8,11 @@
 The CLI wrapper is `scripts/apply-migration.ts` (opens the DATABASE_URL file, sets
 WAL + busy_timeout, applies `prisma/migrations/*.sql` in order).
 
+- `sqlite-store.ts` — `SqliteDossierStore` implements the dossier engine's `DossierStore`
+  interface over the injectable `SqlDb`, persisting `DossierState` to a self-managed table.
+  It's the **durable** store (InMemory is the test double) — proving dossiers survive a
+  restart and resume against a real database.
+
 ## Tests
 
 `migrate.test.ts` applies the real `prisma/migrations/0001_init.sql` to an in-memory
