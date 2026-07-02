@@ -7,6 +7,11 @@ method. This file is updated in **every commit** to reflect true state.
 
 **Verification gate:** `npm run verify` = `tsc --noEmit` clean + `vitest` green + CLAUDE.md coverage.
 
+**Status (verified):** deterministic core **COMPLETE & VERIFIED** — `npm run verify` green
+(tsc clean · 119 tests across 22 files · CLAUDE.md in all 18 dirs · Prisma schema valid,
+30 models). Live-service adapters (Qwen/Yahoo/EDGAR HTTP) + Next.js UI: interfaces defined
+and tested with fakes/mocks; wiring to live I/O is the remaining integration work (marked below).
+
 ---
 
 ## Phase 0 — Repo & toolchain
@@ -28,7 +33,7 @@ method. This file is updated in **every commit** to reflect true state.
 
 ## M1 — Full market: universe, backfill, generalized digest, scheduling
 - [x] M1.1 Dual-taxonomy sector seeds (GICS 11 + AI-infra 12) in `config/sectors.ts`
-- [~] M1.2 `prisma/schema.prisma` + `full_market` migration SQL (Sector.taxonomy, Ticker.source/watchlisted/cik, FundamentalsQuarter, EdgarFiling, BackfillProgress)
+- [x] M1.2 `prisma/schema.prisma` (30 models) + `migrations/0001_init.sql` — validated with `npx prisma validate`
 - [ ] M1.3 `lib/universe.ts` CSV → GICS mapping + seed script _(needs sp500.csv)_
 - [ ] M1.4 Resumable backfill jobs (prices10y / fundamentals / edgar_index) _(live-service: Yahoo/EDGAR)_
 - [x] M1.5 Generalized synthesis families (market breadth / GICS pulse / AI-lens) + hard caps + provenance — see `src/research/`
@@ -47,7 +52,7 @@ method. This file is updated in **every commit** to reflect true state.
 - [x] M2.9 Port `relative_rank` (percentiles/spotlight) + `sector_heat` (both taxonomies)
 - [ ] M2.10 Network tools (fundamentals live-fill, sentiment, news_tape, edgar_filings, insider_form4, institutional, options) _(live-service)_
 - [x] M2.11 Screener engine + field resolvers + universe spec (sp500|ai_infra|watchlist|sector:code)
-- [~] M2.12 Discovery candidate model + accept→watchlist flow _(pure logic done; persistence pending)_
+- [ ] M2.12 Discovery candidate accept→watchlist flow _(DiscoveryCandidate model in schema; accept-flow needs the app layer)_
 
 ## M3 — Dossier engine (queued full-debate deep dives)
 - [x] M3.1 `Budget` + `evidence-validation` (drop uncited claims — "no naked numbers")
@@ -99,3 +104,15 @@ Tasks marked `[~]` / `[ ] (live-service)` / `[ ] (UI layer)` require a running
 llama-server, live Yahoo/EDGAR network, or the Next.js runtime — their logic is
 implemented and tested behind interfaces here; wiring them to live I/O is the
 remaining integration work, tracked honestly above.
+
+---
+
+## Verification evidence (last run)
+
+- `tsc --noEmit` → exit 0 (clean).
+- `vitest run` → **119 passed** across 22 files (incl. 5 dossier-runner scenarios, QoE
+  golden M=−2.3735 / Z=4.455 / F=8, DCF closed-form, governor cap/lift, buy-list
+  allocation, capture parse).
+- `npx prisma validate` → schema valid (30 models); `0001_init.sql` = 30 tables.
+- `scripts/check-claude-md.ts` → CLAUDE.md present in all 18 directories.
+- `git log` → 8 commits at regular milestone boundaries.
