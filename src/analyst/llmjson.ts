@@ -45,12 +45,12 @@ export type CompleteJsonOpts = CompleteOpts & {
   maxAttempts?: number;
 };
 
-export async function completeJson<T>(
+export async function completeJson<S extends z.ZodTypeAny>(
   provider: Provider,
   msg: LlmMessage,
-  schema: z.ZodType<T>,
+  schema: S,
   opts: CompleteJsonOpts = {},
-): Promise<CompleteJsonResult<T>> {
+): Promise<CompleteJsonResult<z.infer<S>>> {
   const { maxAttempts = 2, ...completeOpts } = opts;
   const attempts = Math.max(1, maxAttempts);
   let userMessage = msg.user;
