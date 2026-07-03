@@ -25,12 +25,17 @@ export type PlannerUserArgs = {
   iteration: number;
   toolCatalog: string;
   evidence: string;
+  /** Living-Memo summary — the donor planner reads the memo's open questions. */
+  memoSummary?: string;
 };
 
 export function user(a: PlannerUserArgs): string {
   const required = a.requiredTools.length ? a.requiredTools.join(", ") : "(no sector-specific requirements)";
   return `TICKER: ${a.symbol}
 ${a.promptPrefix}
+
+LIVING MEMO (prior thesis + open questions — target the gaps it raises):
+${a.memoSummary || "(no prior memo)"}
 
 SECTOR-REQUIRED TOOLS: ${required}
 PLANNER ITERATION: ${a.iteration}

@@ -117,3 +117,36 @@ describe("user builders — include the evidence block they are given", () => {
     expect(memo.user({ symbol: "MU", verdictJson: "{}", evidence: EV })).toContain(EV);
   });
 });
+
+describe("Living-Memo context — planner + judge (donor fidelity)", () => {
+  const MEMO = "MEMO_SENTINEL_moat_is_widening";
+  const judgeArgs = {
+    symbol: "MU",
+    promptPrefix: "",
+    currentPrice: 100,
+    evidence: EV,
+    bullMd: "b",
+    bearAttackMd: "a",
+    independentBearMd: "i",
+    rebuttalMd: "r",
+  };
+  const plannerArgs = {
+    symbol: "MU",
+    promptPrefix: "",
+    requiredTools: [],
+    iteration: 0,
+    toolCatalog: "cat",
+    evidence: EV,
+  };
+
+  it("judge user embeds the memo summary when provided", () => {
+    expect(judge.user({ ...judgeArgs, memoSummary: MEMO })).toContain(MEMO);
+  });
+  it("planner user embeds the memo summary when provided", () => {
+    expect(planner.user({ ...plannerArgs, memoSummary: MEMO })).toContain(MEMO);
+  });
+  it("both fall back to an explicit '(no prior memo)' marker", () => {
+    expect(judge.user(judgeArgs)).toContain("(no prior memo)");
+    expect(planner.user(plannerArgs)).toContain("(no prior memo)");
+  });
+});

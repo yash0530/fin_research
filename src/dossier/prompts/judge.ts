@@ -28,6 +28,8 @@ export type JudgeUserArgs = {
   symbol: string;
   promptPrefix: string;
   currentPrice: number;
+  /** Living-Memo summary — donor judge weighs the prior thesis (LIVING MEMO CONTEXT). */
+  memoSummary?: string;
   evidence: string;
   bullMd: string;
   bearAttackMd: string;
@@ -42,6 +44,9 @@ export function user(a: JudgeUserArgs): string {
 CURRENT PRICE: ${a.currentPrice}
 
 ${a.promptPrefix}
+
+LIVING MEMO CONTEXT:
+${a.memoSummary || "(no prior memo)"}
 
 EVIDENCE LEDGER:
 ${a.evidence}

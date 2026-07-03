@@ -31,6 +31,8 @@ export type AgentCtx = {
   symbol: string;
   analyzer: SectorAnalyzer;
   ledger: EvidenceLedger;
+  /** Living-Memo summary for this ticker (donor fidelity: planner + judge see it). */
+  memoSummary?: string;
 };
 
 const evidence = (ctx: AgentCtx): string =>
@@ -49,6 +51,7 @@ export async function runPlanner(
     iteration,
     toolCatalog,
     evidence: evidence(ctx),
+    memoSummary: ctx.memoSummary,
   });
   return (await completeJson(provider, { system: planner.system, user }, PlanSchema, { thinking: true })).data;
 }
@@ -109,6 +112,7 @@ export async function runJudge(
     symbol: ctx.symbol,
     promptPrefix: ctx.analyzer.promptPrefix,
     currentPrice: input.currentPrice,
+    memoSummary: ctx.memoSummary,
     evidence: evidence(ctx),
     bullMd: input.bull.thesis_md,
     bearAttackMd: input.bear.attack_md,

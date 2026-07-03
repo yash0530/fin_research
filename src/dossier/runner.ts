@@ -40,6 +40,8 @@ export type RunnerDeps = {
   providerFor: (role: AgentRole) => Provider;
   budget: Budget;
   currentPrice?: number;
+  /** Living-Memo summary for the symbol (loaded by the caller; threads to planner + judge). */
+  memoSummary?: string;
   governSize?: GovernFn;
   now?: () => number;
 };
@@ -97,7 +99,7 @@ export async function runDossier(id: string, deps: RunnerDeps): Promise<DossierS
   const analyzer = classify(state.symbol, state.sectorCode);
   const ledger = new EvidenceLedger(state.symbol);
   for (const tc of state.toolCalls) ledger.add(tc); // rebuild from persisted tool calls
-  const ctx: AgentCtx = { symbol: state.symbol, analyzer, ledger };
+  const ctx: AgentCtx = { symbol: state.symbol, analyzer, ledger, memoSummary: deps.memoSummary };
   const currentPrice = deps.currentPrice ?? 0;
   const govern = deps.governSize ?? defaultGovern;
 
