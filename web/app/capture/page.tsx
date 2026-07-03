@@ -1,23 +1,18 @@
-import { renderPrompt } from "@engine/capture/render";
-import { AS_OF, demoUniverse } from "@/lib/demo";
+import CaptureFlow from "./CaptureFlow";
+
+export const dynamic = "force-dynamic";
 
 export default function CapturePage() {
-  const watchlist = demoUniverse()
-    .filter((r) => r.watchlisted)
-    .map((r) => r.symbol);
-  const prompt = renderPrompt("daily_scan", { asOf: AS_OF, watchlist });
-
   return (
     <section>
       <h1>Capture</h1>
       <p className="muted">
-        The $0 web-research lane: copy the rendered prompt → paste into
-        Perplexity/Claude/ChatGPT → paste the reply back to parse into typed evidence.
+        The $0 web-research lane: render a data-grounded prompt → copy into
+        Perplexity/Claude/ChatGPT → paste the reply back → review the parsed items →
+        commit. Accepted items become evidence (citable in dossiers as{" "}
+        <code>paste:&#123;id&#125;</code>), discovery candidates, and dated catalysts.
       </p>
-      <h2>Rendered prompt (daily scan)</h2>
-      <pre className="panel" style={{ whiteSpace: "pre-wrap", fontSize: "0.85rem" }}>
-        {prompt}
-      </pre>
+      <CaptureFlow />
     </section>
   );
 }

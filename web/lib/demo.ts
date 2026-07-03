@@ -87,7 +87,7 @@ export function demoStory(): StoryPageData {
       { label: "Rev growth", value: "+58% YoY", evidenceRef: "financial_trends" },
       { label: "Altman Z", value: "4.4", evidenceRef: "qoe" },
     ],
-    cycleStrip: { stage: "inflecting", position: 0.4 },
+    cycleStrip: { stage: "inflecting", position: 0.4, bands: [] },
     scenarios: {
       bear: { revenue: 25000, margin: 0.2, pe: 8, sharesOut: 1100 },
       base: { revenue: 30000, margin: 0.3, pe: 12, sharesOut: 1100 },
