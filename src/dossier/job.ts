@@ -29,6 +29,7 @@ import { composeStoryPageData } from "../story/from-dossier";
 import { narrateStory } from "../story/narrate";
 import { enqueueDossier, drainOnce, type EnqueueResult } from "./queue";
 import { runDossier, type GovernFn } from "./runner";
+import { stageMemoDelta } from "./memo-store";
 import type { DossierState, StageName } from "./state";
 
 export type DossierJobDeps = {
@@ -238,6 +239,17 @@ export async function runDossierJob(
     if (state.status === "done" && state.recCall && !recCallExists(db, id)) {
       saveRecCall(db, state.recCall);
       log(`  ✓ ${symbol} RecCall persisted`);
+    }
+
+    // Stage the memo delta (human applies later — never auto-applied). Non-critical:
+    // a staging hiccup must not sink a completed dossier.
+    if (state.status === "done" && state.memo) {
+      try {
+        const staged = stageMemoDelta(db, symbol, state.memo, id, now);
+        if (staged !== null) log(`  ✓ ${symbol} memo delta staged (review to apply)`);
+      } catch (e) {
+        log(`  · ${symbol} memo staging skipped: ${e instanceof Error ? e.message : String(e)}`);
+      }
     }
 
     const rc = state.recCall;
