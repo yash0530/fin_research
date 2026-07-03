@@ -55,7 +55,7 @@ and tested with fakes/mocks; wiring to live I/O is the remaining integration wor
 - [x] M2.5 Port `dcf` (3-scenario) — golden test
 - [x] M2.6 Port `financial_trends` (8–12q trajectory)
 - [x] M2.7 Port `technicals` math (RSI/MACD/SMA/golden-cross/52w) over despiked closes
-- [x] M2.8 Port `qoe_forensics` (Beneish/Altman/Piotroski/accruals) — golden tests vs Python values
+- [x] M2.8 Port `qoe_forensics` (Beneish/Altman/Piotroski/accruals) — golden tests, hand-derived values
 - [x] M2.9 Port `relative_rank` (percentiles/spotlight) + `sector_heat` (both taxonomies)
 - [~] M2.10 All network/analysis tool logic done & tested — `sentiment`, `news-tape`,
   `macro` (regime), `peer-compare`, `catalysts`, `insider-form4` (XML parse + cluster-buy),
@@ -97,6 +97,20 @@ and tested with fakes/mocks; wiring to live I/O is the remaining integration wor
 - [x] M6.3 `capture/render.ts` (4 prompt templates + local-data injection)
 - [~] M6.4 Capture UI — `web/app/capture` renders a real prompt template + `next build` passes; paste-back parse→commit pending
 
+## NEXT_RUN — Rich agent prompts + sector analyzer depth
+- [x] 1.1 Rich agent prompts ported from `finance/analysis/agents/*.py` into
+  `src/dossier/prompts/` (planner/bull/bear/rebuttal/judge/critique/memo), each exporting
+  `system` + a typed `user(...)` builder; `agents.ts` rewired to import them (no signature
+  or schema changes). Judge carries the verbatim HIGH/MEDIUM/LOW conviction rubric +
+  `what_would_change_mind`; bear demands attack + independent case; memo names all 10 Living
+  Memo sections — _verified: `prompts.test.ts` (13 assertions) green; `tsc --noEmit` clean_
+- [x] 1.2 Sector analyzer KPI depth — all 8 `analyzers.ts` `promptPrefix` strings fleshed
+  with the donor's sector KPI checklists + good-ranges (SaaS ARR/NRR/Rule-of-40/magic;
+  banks NIM/efficiency/Tier-1/ROTCE; REITs FFO/AFFO/occupancy/WALT; biotech
+  pipeline/PDUFA/runway; semis/energy/consumer/generic equivalents); `requiredTools` mapped
+  to real TS registry names (no live transcripts/alt-data) — _verified: `validation-classify.test.ts`
+  green; `check:claude` covers `src/dossier/prompts/`_
+
 ## Documentation & housekeeping
 - [x] D.1 `TASKS.md` master checklist (this file)
 - [x] D.2 Root `README.md`
@@ -135,7 +149,7 @@ live I/O is unexercised. Documented, not faked:
   `fetchChart`/`fetchSubmissions` (injectable fetcher) fixture/mock-tested; EDGAR ≤8 req/s
   limiter proven.
 - **Browser-rendered UI correctness** — needs a browser. Proxy verified: `next build`
-  compiles + type-checks all 9 routes against the engine; `/live` reads the real SQLite
+  compiles + type-checks all 8 routes against the engine; `/live` reads the real SQLite
   digest via the tested data layer.
 - **Long-lived scheduler daemon** — a persistent process. Proxy verified:
   `scripts/scheduler.ts --once` runs one decision tick; `src/schedule/wake` unit-tested;
@@ -154,7 +168,7 @@ live I/O is unexercised. Documented, not faked:
 - `npm run smoke` → **SMOKE PASSED**; `scripts/scheduler.ts --once` → exit 0;
   `npm run seed` → 23 sectors / 5 tickers / 9 links / 1 digest into a real SQLite DB.
 - `npx prisma validate` → schema valid (30 models).
-- `next build` (web/) → **compiled + type-checked** against the engine, **9 routes** incl.
+- `next build` (web/) → **compiled + type-checked** against the engine, **8 routes** incl.
   `/live` which reads the real SQLite digest at request time via the tested data layer.
 - `tsx scripts/apply-migration.ts` → applies `0001_init.sql` to a real SQLite DB (WAL);
   `migrate.test.ts` confirms all 30 tables materialize, idempotency, and insert/read-back.

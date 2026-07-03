@@ -58,7 +58,18 @@ is not done (lesson from run 1).
   any session can resume from them.
 
 ## Status log
-- **Jul 2:** Wave 0 done except llama health confirm (service bootstrapped, model
+- **Jul 2 (am):** Wave 0 done except llama health confirm (service bootstrapped, model
   loading). Task board #1–#10 created. Market scan started (TradingAgents identified
   as closest OSS analogue — 80k★, bull/bear debate, structured outputs, local-model
   support; validates our dossier architecture). Kiro spec A written.
+- **Jul 2 (pm):** llama-server UP and inference-verified. ⚡ P0 finding: Qwen thinking
+  mode silently eats max_tokens (empty content + reasoning_content) — thinking toggle
+  via `chat_template_kwargs.enable_thinking` verified working; provider-hardening
+  spec drafted. ⚡ Yahoo naive fetch is hard-throttled (429s incl. query2 after first
+  hits) — decision: adopt yahoo-finance2 transport (Wave 3). Market-scan +
+  architecture docs written. **Ops lessons:** (1) kiro-cli requires a PTY — invoke via
+  `script -q /dev/null kiro-cli chat --no-interactive --trust-all-tools --model
+  claude-opus-4.8 --effort <e> "<prompt>"`; plain invocation dies with "channel
+  closed". (2) Claude-powered runner subagents can hit the account session limit
+  (resets 5pm PT) — drive vendor CLIs from direct background Bash instead; agy/kiro
+  spend their own vendor quotas, not Claude's. Batch A relaunched via PTY wrapper.

@@ -59,3 +59,36 @@ to our completeJson/zod contract.
 ## Wrap-up
 Append a `## Result` section to THIS file: what changed (file list), test count
 before/after, any donor content you had to adapt or skip and why. Do NOT commit.
+
+## Result
+
+### What changed (file list)
+**New:**
+- `src/dossier/prompts/planner.ts` — planner `system` + `user(...)` (port of `agents/planner.py`).
+- `src/dossier/prompts/bull.ts` — bull `system` + `user(...)` (port of `agents/bull.py`).
+- `src/dossier/prompts/bear.ts` — bear `system` + `user(...)`; demands attack + independent case (port of `agents/bear.py`).
+- `src/dossier/prompts/rebuttal.ts` — rebuttal `system` + `user(...)` (port of `agents/bull_rebuttal.py`).
+- `src/dossier/prompts/judge.ts` — judge `system` (verbatim HIGH/MEDIUM/LOW conviction rubric + `what_would_change_mind`) + `user(...)` (port of `agents/judge.py`).
+- `src/dossier/prompts/critique.ts` — critique `system` + `user(...)` (port of `agents/self_critique.py`).
+- `src/dossier/prompts/memo.ts` — memo `system` + `user(...)`, exports `MEMO_SECTIONS` (the 10 names from `living_memo.py`) (port of `agents/memo_synth.py`).
+- `src/dossier/prompts/prompts.test.ts` — 13 assertions covering the spec's prompt invariants.
+- `src/dossier/prompts/CLAUDE.md` — module map + "edit with the donor open side-by-side".
+
+**Modified:**
+- `src/dossier/agents.ts` — imports the 7 prompt modules; builds each prompt via `system` + `user(...)`. No public signature changes; the runner and zod schemas are untouched. (Rebuttal/critique/memo now also thread the evidence block into their user prompts, matching the donor — same data dependencies, no schema change.)
+- `src/dossier/analyzers.ts` — all 8 `promptPrefix` strings fleshed with the donor sector KPI checklists + good-ranges; `requiredTools` remapped to real TS registry names.
+- `TASKS.md` — added `## NEXT_RUN` with Phase 1.1 + 1.2 marked done (evidence lines); fixed M2.8 label (`golden tests vs Python values` → `golden tests, hand-derived values`); fixed route count in two places (`9 routes` → `8 routes`).
+
+### Test count before/after
+- Before: **185 tests** across 39 files.
+- After: **198 tests** across 40 files (+13 from `prompts.test.ts`).
+- `tsc --noEmit` → clean. Full `vitest run` → 198 passed.
+
+### Donor content adapted or skipped (and why)
+- **Output shapes:** donor bull/bear/judge return richer fields (`key_drivers`, `price_target_methodology`, `estimated_upside_pct`, `catalysts`, `entry_zone`, `targets`, `time_stop`, `key_catalysts`). Our zod schemas are intentionally flatter (a weak local model formats simple shapes more reliably), and the spec forbids schema changes. Adapted: kept the donor's *rubric and field guidance* in prompt text while instructing the model to emit our schema shapes (`{thesis_md, points}`, `{independent_bear_md, attack_md, points}`, the flat `Verdict`, `{rebuttal_md}`, `{should_revise_verdict, revision_suggestion, notes_md}`, `{delta_summary, sections}`).
+- **Tool references in prompts:** donor bull/bear/judge cite `[sp500_lookup]`; we cite `[relative_rank]` (our port of `sp500_lookup.py`). Donor `[transcripts]`, `[edgar_filings]`, `[alt_data]`, `[options_flow]`, `[catalyst_lookup]`, `[macro_context]`, `[qoe_forensics]` do not exist by those names here — no live transcripts/alt-data. Analyzer `requiredTools` were mapped to the real registry names (`fundamentals, financial_trends, qoe, technicals, sector_heat, options_metrics, macro, catalysts, news_tape, sentiment, peer_compare`); filing/catalyst KPIs lean on the 8-K fallback (`catalysts`/`news_tape`). Analyzer `promptPrefix` KPI checklists are prose (no tool-name promises), so all six KPIs per sector were ported faithfully.
+- **Skipped (out of scope / not portable):** donor planner internals — `_validate_plan`, `_seed_macro_and_peers`, `_fallback_plan` — are runtime plan-sanitization logic, not prompt content; they already live (equivalently) in `runner.ts`/`registry.ts` and the spec forbids runner/flow changes, so only `PLANNER_SYSTEM` + `_build_planner_prompt` were ported. Donor `memo_synth` full-memo JSON schema block (per-section `structured`/`confidence`/`evidence_refs`) was reduced to our `{delta_summary, sections}` contract; the 10 section names are preserved verbatim.
+
+### Gate status (honest)
+- `tsc --noEmit` → **clean**. `vitest run` → **198 passed (40 files)**.
+- `npm run check:claude` reports 3 directories missing CLAUDE.md: `scratch`, `scratch/kiro`, `docs/research`. **These are pre-existing and outside this spec's deliverables list** — all three were created before this task (timestamps 13:11–13:17 vs. this session's 17:0x edits) and were already failing at handoff. The spec forbids touching `scripts/` (so the checker itself can't be adjusted) and forbids touching any file outside the deliverables list (so CLAUDE.md can't be added to `scratch/` or `docs/research/`). My own new directory `src/dossier/prompts/` **does** carry its CLAUDE.md. The three flagged directories are unrelated to this port and were left untouched to respect the boundary. Not committed.

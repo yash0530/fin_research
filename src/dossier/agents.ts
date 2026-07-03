@@ -3,6 +3,13 @@ import type { Provider } from "../analyst/types";
 import { settings } from "../config/settings";
 import type { EvidenceLedger } from "../tools/evidence-ledger";
 import type { SectorAnalyzer } from "./analyzers";
+import * as planner from "./prompts/planner";
+import * as bull from "./prompts/bull";
+import * as bear from "./prompts/bear";
+import * as rebuttal from "./prompts/rebuttal";
+import * as judge from "./prompts/judge";
+import * as critique from "./prompts/critique";
+import * as memo from "./prompts/memo";
 import {
   PlanSchema,
   BullSchema,
@@ -35,39 +42,54 @@ export async function runPlanner(
   toolCatalog: string,
   iteration: number,
 ): Promise<Plan> {
-  const system =
-    "You are the research planner. Choose the next tools to call to build a complete evidence base. Return STRICT JSON only.";
-  const user = `TICKER: ${ctx.symbol}\n${ctx.analyzer.promptPrefix}\nIteration ${iteration}. Suggested tools for this sector: ${ctx.analyzer.requiredTools.join(", ")}.\n\nAVAILABLE TOOLS:\n${toolCatalog}\n\nEVIDENCE SO FAR:\n${evidence(ctx)}\n\nReturn {"done": bool, "summary": str, "next_calls": [{"tool","args","reason"}]}. Set done=true when evidence is sufficient for a full bull/bear debate.`;
-  return (await completeJson(provider, { system, user }, PlanSchema, { thinking: true })).data;
+  const user = planner.user({
+    symbol: ctx.symbol,
+    promptPrefix: ctx.analyzer.promptPrefix,
+    requiredTools: ctx.analyzer.requiredTools,
+    iteration,
+    toolCatalog,
+    evidence: evidence(ctx),
+  });
+  return (await completeJson(provider, { system: planner.system, user }, PlanSchema, { thinking: true })).data;
 }
 
 export async function runBull(provider: Provider, ctx: AgentCtx): Promise<BullThesis> {
-  const system =
-    "You are the BULL analyst. Argue the strongest evidence-based case FOR the stock. Every point must cite a tool via evidence_refs. STRICT JSON only.";
-  const user = `TICKER: ${ctx.symbol}\n${ctx.analyzer.promptPrefix}\n\nEVIDENCE:\n${evidence(ctx)}\n\nReturn {"thesis_md", "points":[{"claim","evidence_refs","confidence"}]}.`;
-  return (await completeJson(provider, { system, user }, BullSchema, { thinking: true })).data;
+  const user = bull.user({
+    symbol: ctx.symbol,
+    promptPrefix: ctx.analyzer.promptPrefix,
+    evidence: evidence(ctx),
+  });
+  return (await completeJson(provider, { system: bull.system, user }, BullSchema, { thinking: true })).data;
 }
 
 export async function runBear(
   provider: Provider,
   ctx: AgentCtx,
-  bull: BullThesis,
+  bullThesis: BullThesis,
 ): Promise<BearThesis> {
-  const system =
-    "You are the BEAR analyst. Attack the bull case AND make an independent bear case. Cite tools. STRICT JSON only.";
-  const user = `TICKER: ${ctx.symbol}\n\nBULL CASE:\n${bull.thesis_md}\n\nEVIDENCE:\n${evidence(ctx)}\n\nReturn {"independent_bear_md","attack_md","points":[{"claim","evidence_refs","confidence"}]}.`;
-  return (await completeJson(provider, { system, user }, BearSchema, { thinking: true })).data;
+  const user = bear.user({
+    symbol: ctx.symbol,
+    promptPrefix: ctx.analyzer.promptPrefix,
+    bullThesisMd: bullThesis.thesis_md,
+    evidence: evidence(ctx),
+  });
+  return (await completeJson(provider, { system: bear.system, user }, BearSchema, { thinking: true })).data;
 }
 
 export async function runRebuttal(
   provider: Provider,
   ctx: AgentCtx,
-  bull: BullThesis,
-  bear: BearThesis,
+  bullThesis: BullThesis,
+  bearThesis: BearThesis,
 ): Promise<Rebuttal> {
-  const system = "You are the bull defending against the bear's attack. STRICT JSON only.";
-  const user = `TICKER: ${ctx.symbol}\n\nBULL:\n${bull.thesis_md}\n\nBEAR ATTACK:\n${bear.attack_md}\n\nReturn {"rebuttal_md"}.`;
-  return (await completeJson(provider, { system, user }, RebuttalSchema, { thinking: true })).data;
+  const user = rebuttal.user({
+    symbol: ctx.symbol,
+    bullThesisMd: bullThesis.thesis_md,
+    bearAttackMd: bearThesis.attack_md,
+    independentBearMd: bearThesis.independent_bear_md,
+    evidence: evidence(ctx),
+  });
+  return (await completeJson(provider, { system: rebuttal.system, user }, RebuttalSchema, { thinking: true })).data;
 }
 
 export type JudgeInput = {
@@ -78,17 +100,23 @@ export type JudgeInput = {
   revisionNote?: string;
 };
 
-const JUDGE_SYSTEM =
-  "You are an investment analyst allocating real capital. Weigh bull, bear, and rebuttal; set conviction honestly (HIGH only when the bull is strong AND the bear is addressed); give >=3 monitorable falsifiability conditions and a trade plan with position_size_pct 0-15. If AVOID, size=0. STRICT JSON only.";
-
 export async function runJudge(
   provider: Provider,
   ctx: AgentCtx,
   input: JudgeInput,
 ): Promise<Verdict> {
-  const rev = input.revisionNote ? `\n\nRISK-OFFICER REVISION REQUEST:\n${input.revisionNote}` : "";
-  const user = `TICKER: ${ctx.symbol}\nCURRENT PRICE: ${input.currentPrice}\n${ctx.analyzer.promptPrefix}\n\nEVIDENCE:\n${evidence(ctx)}\n\nBULL:\n${input.bull.thesis_md}\n\nBEAR:\n${input.bear.independent_bear_md}\n\nREBUTTAL:\n${input.rebuttal.rebuttal_md}${rev}\n\nReturn the verdict JSON.`;
-  const verdict = (await completeJson(provider, { system: JUDGE_SYSTEM, user }, VerdictSchema, { thinking: true })).data;
+  const user = judge.user({
+    symbol: ctx.symbol,
+    promptPrefix: ctx.analyzer.promptPrefix,
+    currentPrice: input.currentPrice,
+    evidence: evidence(ctx),
+    bullMd: input.bull.thesis_md,
+    bearAttackMd: input.bear.attack_md,
+    independentBearMd: input.bear.independent_bear_md,
+    rebuttalMd: input.rebuttal.rebuttal_md,
+    revisionNote: input.revisionNote,
+  });
+  const verdict = (await completeJson(provider, { system: judge.system, user }, VerdictSchema, { thinking: true })).data;
   // Clamp the position size to the contract's 0..15 band.
   const size = verdict.trade_plan.position_size_pct;
   verdict.trade_plan.position_size_pct = Math.max(0, Math.min(15, Number.isFinite(size) ? size : 0));
@@ -101,10 +129,12 @@ export async function runCritique(
   ctx: AgentCtx,
   verdict: Verdict,
 ): Promise<Critique> {
-  const system =
-    "You are the risk officer reviewing the verdict for overconfidence, unaddressed bear points, or evidence gaps. STRICT JSON only.";
-  const user = `TICKER: ${ctx.symbol}\n\nVERDICT:\n${JSON.stringify(verdict)}\n\nReturn {"should_revise_verdict","revision_suggestion","notes_md"}.`;
-  return (await completeJson(provider, { system, user }, CritiqueSchema, { thinking: true })).data;
+  const user = critique.user({
+    symbol: ctx.symbol,
+    verdictJson: JSON.stringify(verdict),
+    evidence: evidence(ctx),
+  });
+  return (await completeJson(provider, { system: critique.system, user }, CritiqueSchema, { thinking: true })).data;
 }
 
 export async function runMemo(
@@ -112,9 +142,11 @@ export async function runMemo(
   ctx: AgentCtx,
   verdict: Verdict,
 ): Promise<MemoDelta> {
-  const system =
-    "You synthesize a Living Memo delta from the verdict. Narration only — no new facts. STRICT JSON only.";
-  const user = `TICKER: ${ctx.symbol}\n\nVERDICT:\n${JSON.stringify(verdict)}\n\nReturn {"delta_summary","sections":{section_name: content_md}}.`;
+  const user = memo.user({
+    symbol: ctx.symbol,
+    verdictJson: JSON.stringify(verdict),
+    evidence: evidence(ctx),
+  });
   // Narration role → thinking OFF.
-  return (await completeJson(provider, { system, user }, MemoSchema, { thinking: false })).data;
+  return (await completeJson(provider, { system: memo.system, user }, MemoSchema, { thinking: false })).data;
 }
