@@ -12,7 +12,8 @@ export type StageName =
   | "judge"
   | "critique"
   | "judge_rev"
-  | "memo";
+  | "memo"
+  | "story";
 
 export type StageRecord = {
   name: StageName;

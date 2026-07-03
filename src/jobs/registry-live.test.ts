@@ -29,6 +29,7 @@ describe("live registry assembly", () => {
     "digest",
     "overnight",
     "dossier",
+    "story",
     "backup",
   ];
 

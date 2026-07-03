@@ -45,7 +45,7 @@ import { defaultClient } from "../net/yahoo2";
 import { HttpProvider, type FetchLike } from "../analyst/http-provider";
 import { resolveProfile, type AgentRole } from "../config/settings";
 import type { Provider } from "../analyst/types";
-import { runDossierJob } from "../dossier/job";
+import { runDossierJob, runStoryBackfillJob } from "../dossier/job";
 import { recoverStale } from "../dossier/queue";
 import { SqliteDossierStore } from "../db/sqlite-store";
 import type { LiveFetchers } from "../tools/factory";
@@ -150,11 +150,14 @@ function liveFetchers(): LiveFetchers {
 // ── registry ──────────────────────────────────────────────────────────────────
 
 export type JobOutcome = { ok: boolean; detail: string };
-/** A runnable job: db is bound in at build time; symbols are the only per-call arg. */
-export type JobEntry = { name: string; describe: string; run: (symbols?: string[]) => Promise<JobOutcome> };
+/** Optional per-invocation args beyond the symbol set (e.g. the story backfill's
+ *  target dossier id). Kept optional so existing callers (the scheduler) are unchanged. */
+export type JobRunOpts = { dossierId?: string };
+/** A runnable job: db is bound in at build time; symbols + opts are per-call. */
+export type JobEntry = { name: string; describe: string; run: (symbols?: string[], opts?: JobRunOpts) => Promise<JobOutcome> };
 
 /** Internal shape: `run` takes the db explicitly so jobCatalog() can list without one. */
-type JobDef = { name: string; describe: string; run: (db: SqlDb, symbols?: string[]) => Promise<JobOutcome> };
+type JobDef = { name: string; describe: string; run: (db: SqlDb, symbols?: string[], opts?: JobRunOpts) => Promise<JobOutcome> };
 
 const backfillOutcome = (label: string, s: BackfillSummary): JobOutcome => ({
   ok: s.errors === 0,
@@ -262,6 +265,7 @@ const JOB_DEFS: JobDef[] = [
       const { enqueued, ran } = await runDossierJob(db, symbols, {
         providerFor: liveProviderFor,
         live: liveFetchers(),
+        narrate: true,
         log: (msg) => console.log(msg),
       });
       const done = ran.filter((r) => r.status === "done").length;
@@ -281,6 +285,28 @@ const JOB_DEFS: JobDef[] = [
     },
   },
   {
+    name: "story",
+    describe: "Backfill editorial story pages for completed dossiers (--dossier=<id> or --symbols=MU).",
+    run: async (db, symbols, opts) => {
+      const res = await runStoryBackfillJob(db, {
+        ...(opts?.dossierId ? { dossierId: opts.dossierId } : {}),
+        ...(symbols ? { symbols } : {}),
+        providerFor: liveProviderFor,
+        narrate: true,
+        log: (msg) => console.log(msg),
+      });
+      const parts = [`built=${res.built.length}`, `skipped=${res.skipped.length}`, `errors=${res.errors.length}`];
+      const detailLines: string[] = [];
+      if (res.built.length) detailLines.push(`  built: ${res.built.join(", ")}`);
+      if (res.skipped.length) detailLines.push(`  skipped: ${res.skipped.join(", ")}`);
+      if (res.errors.length) detailLines.push(`  errors: ${res.errors.join("; ")}`);
+      return {
+        ok: res.errors.length === 0 && res.built.length > 0,
+        detail: `story — ${parts.join(" ")}${detailLines.length ? `\n${detailLines.join("\n")}` : ""}`,
+      };
+    },
+  },
+  {
     name: "backup",
     describe: "VACUUM INTO data/backups/engine-YYYY-MM-DD.db; keep the newest 14.",
     run: async (db) => ({ ok: true, detail: runBackupJob(db) }),
@@ -292,7 +318,7 @@ export function buildLiveRegistry(db: SqlDb): JobEntry[] {
   return JOB_DEFS.map((d) => ({
     name: d.name,
     describe: d.describe,
-    run: (symbols?: string[]) => d.run(db, symbols),
+    run: (symbols?: string[], opts?: JobRunOpts) => d.run(db, symbols, opts),
   }));
 }
 

@@ -20,7 +20,7 @@ const STORY: StoryPageData = {
   priceAtBuild: 90,
   hero: { thesis: "HBM demand outruns supply", verdict: "BUY", conviction: "MEDIUM" },
   statTape: [{ label: "Fwd P/E", value: "12x", evidenceRef: "fundamentals" }],
-  cycleStrip: { stage: "inflecting", position: 0.4 },
+  cycleStrip: { stage: "inflecting", position: 0.4, bands: [] },
   scenarios: {
     bear: { revenue: 25000, margin: 0.2, pe: 8, sharesOut: 1100 },
     base: { revenue: 30000, margin: 0.3, pe: 12, sharesOut: 1100 },

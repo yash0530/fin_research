@@ -43,6 +43,14 @@ export type RunnerDeps = {
   /** Living-Memo summary for the symbol (loaded by the caller; threads to planner + judge). */
   memoSummary?: string;
   governSize?: GovernFn;
+  /**
+   * Optional flagship story-page build, fired ONCE after the memo stage completes.
+   * The caller (src/dossier/job.ts) injects a builder that composes StoryPageData
+   * from the verdict + evidence + real DB rows and persists it. Story-page build is
+   * NON-CRITICAL: a throw here is captured in the stage record and never fails the
+   * dossier (a bad page must not sink a good verdict).
+   */
+  buildStory?: (state: DossierState) => Promise<unknown> | unknown;
   now?: () => number;
   /** Progress hook: fired ONCE per stage as it first completes (for CLI logging). */
   onStage?: (name: StageName, at: number) => void;
@@ -232,6 +240,20 @@ export async function runDossier(id: string, deps: RunnerDeps): Promise<DossierS
     if (!state.stages.memo) {
       state.memo = await call("memoSynth", (p) => runMemo(p, ctx, state.verdict as Verdict));
       state.stages.memo = { name: "memo", output: state.memo, at: now() };
+      persist();
+    }
+
+    // ── Story page (staged, non-critical) ───────────────────
+    // Fired after the memo so the builder sees the full verdict + evidence. A
+    // story-page failure is recorded but never fails the dossier.
+    if (deps.buildStory && !state.stages.story) {
+      let output: unknown;
+      try {
+        output = (await deps.buildStory(state)) ?? { built: true };
+      } catch (e) {
+        output = { error: e instanceof Error ? e.message : String(e) };
+      }
+      state.stages.story = { name: "story", output, at: now() };
       persist();
     }
 

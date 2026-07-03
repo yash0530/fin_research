@@ -120,7 +120,104 @@ export function updateRecCallOutcome(
 }
 
 
-// ── Seed helpers (universe) ──────────────────────────────────────────────
+// ── StoryPage (flagship editorial page per dossier) ──────────────────────────
+//
+// The StoryPage table ships in 0001_init.sql (and prisma/schema.prisma), so no
+// runtime guard is needed here. `saveStoryPage` upserts on the unique `dossierId`
+// so a re-run (or the backfill command) refreshes a page in place rather than
+// clashing. `createdAt` keeps its original value on update (frozen provenance).
+
+export type StoryPageRow = {
+  dossierId: string;
+  symbol: string;
+  title: string;
+  storyJson: string;
+  narrativeJson?: string | null;
+};
+
+/** Upsert a story page by dossierId. Idempotent (safe to re-run / backfill). */
+export function saveStoryPage(db: SqlDb, row: StoryPageRow): void {
+  db.prepare(
+    'INSERT INTO "StoryPage" ("dossierId","symbol","title","storyJson","narrativeJson") VALUES (?,?,?,?,?) ' +
+      'ON CONFLICT("dossierId") DO UPDATE SET ' +
+      "symbol=excluded.symbol, title=excluded.title, storyJson=excluded.storyJson, narrativeJson=excluded.narrativeJson",
+  ).run(row.dossierId, row.symbol.toUpperCase(), row.title, row.storyJson, row.narrativeJson ?? null);
+}
+
+/** True when a StoryPage row already exists for this dossier. */
+export function storyPageExists(db: SqlDb, dossierId: string): boolean {
+  const row = db.prepare('SELECT 1 AS x FROM "StoryPage" WHERE "dossierId"=?').get(dossierId) as
+    | { x: number }
+    | undefined;
+  return !!row;
+}
+
+// ── Story-build inputs (deterministic reads for src/story/from-dossier.ts) ────
+
+export type StoryFundamentalsRow = {
+  periodEnd: string;
+  revenue: number | null;
+  grossProfit: number | null;
+  netIncome: number | null;
+  fcf: number | null;
+  sharesOut: number | null;
+};
+
+/** Quarterly fundamentals for a symbol, oldest → newest (story revenue bars). */
+export function loadFundamentalsQuarters(db: SqlDb, symbol: string): StoryFundamentalsRow[] {
+  return db
+    .prepare(
+      'SELECT "periodEnd","revenue","grossProfit","netIncome","fcf","sharesOut" ' +
+        'FROM "FundamentalsQuarter" WHERE "symbol"=? ORDER BY "periodEnd" ASC',
+    )
+    .all(symbol.toUpperCase()) as StoryFundamentalsRow[];
+}
+
+export type StoryTickerRow = {
+  symbol: string;
+  name: string | null;
+  forwardPE: number | null;
+  trailingPE: number | null;
+  profitMargin: number | null;
+  fiftyTwoWeekHigh: number | null;
+  fiftyTwoWeekLow: number | null;
+  yearChange: number | null;
+};
+
+/** Ticker stat columns used by the story stat tape. Undefined when absent. */
+export function loadTickerRow(db: SqlDb, symbol: string): StoryTickerRow | undefined {
+  return db
+    .prepare(
+      'SELECT "symbol","name","forwardPE","trailingPE","profitMargin",' +
+        '"fiftyTwoWeekHigh","fiftyTwoWeekLow","yearChange" FROM "Ticker" WHERE "symbol"=?',
+    )
+    .get(symbol.toUpperCase()) as StoryTickerRow | undefined;
+}
+
+/** Sector peers' 1-year change (for the story cycle-strip relative-rank position).
+ *  Peers = symbols sharing ANY sector with the subject; the subject is included. */
+export function peerYearChanges(db: SqlDb, symbol: string): { symbol: string; metric: number }[] {
+  const rows = db
+    .prepare(
+      'SELECT DISTINCT t."symbol" AS symbol, t."yearChange" AS metric FROM "TickerSector" ts1 ' +
+        'JOIN "TickerSector" ts2 ON ts1."sectorCode"=ts2."sectorCode" ' +
+        'JOIN "Ticker" t ON t."symbol"=ts2."symbol" ' +
+        'WHERE ts1."symbol"=? AND t."yearChange" IS NOT NULL',
+    )
+    .all(symbol.toUpperCase()) as { symbol: string; metric: number }[];
+  return rows;
+}
+
+/** Sector memberships (code + taxonomy) for the DB-aware analyzer router. */
+export function sectorMemberships(db: SqlDb, symbol: string): { sectorCode: string; taxonomy: string }[] {
+  return db
+    .prepare(
+      'SELECT ts."sectorCode" AS sectorCode, s."taxonomy" AS taxonomy FROM "TickerSector" ts ' +
+        'JOIN "Sector" s ON s."code"=ts."sectorCode" WHERE ts."symbol"=? ORDER BY ts."sectorCode" ASC',
+    )
+    .all(symbol.toUpperCase()) as { sectorCode: string; taxonomy: string }[];
+}
+
 
 export type SectorSeedRow = { code: string; name: string; taxonomy: string; driver: number };
 

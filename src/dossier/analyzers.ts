@@ -160,10 +160,46 @@ const SECTOR_CODE_TO_ANALYZER: Record<string, string> = {
   g_comm_services: "saas",
 };
 
-/** Pick the analyzer for a symbol given an optional sector code. Deterministic. */
-export function classify(symbol: string, sectorCode?: string): SectorAnalyzer {
-  if (sectorCode && SECTOR_CODE_TO_ANALYZER[sectorCode]) {
-    return ANALYZERS[SECTOR_CODE_TO_ANALYZER[sectorCode]];
+/**
+ * Free-text GICS sub-industry / industry → analyzer key. A backstop for the DB
+ * router when a symbol carries an `industry` string (S&P universe data) but no
+ * mapped sector code. Ordered most-specific-first; the first match wins.
+ */
+const INDUSTRY_KEYWORD_TO_ANALYZER: readonly [RegExp, string][] = [
+  [/semiconduct|memory|dram|nand|hbm|foundry|wafer|chip|microchip/i, "semis"],
+  [/software|saas|internet|cloud|application|platform|it services/i, "saas"],
+  [/bank|thrift|mortgage finance|insurance|capital markets|financial|broker|asset management/i, "banks"],
+  [/biotech|pharmaceutical|life science|health care equipment|drug|therapeutic/i, "biotech"],
+  [/oil|gas|petroleum|coal|energy equipment|refining|drilling/i, "energy"],
+  [/reit|real estate/i, "reits"],
+  [/retail|consumer|apparel|restaurant|leisure|beverage|food|household|luxury|hotel|automobile/i, "consumer"],
+];
+
+/** The analyzer key a sector code routes to, or undefined if the code is unmapped. */
+export function analyzerKeyForSectorCode(sectorCode: string | undefined): string | undefined {
+  if (!sectorCode) return undefined;
+  return SECTOR_CODE_TO_ANALYZER[sectorCode];
+}
+
+/** The analyzer key an industry/sub-industry string routes to, or undefined. */
+export function analyzerKeyForIndustry(industry: string | undefined): string | undefined {
+  if (!industry) return undefined;
+  for (const [re, key] of INDUSTRY_KEYWORD_TO_ANALYZER) {
+    if (re.test(industry)) return key;
   }
+  return undefined;
+}
+
+/**
+ * Pick the analyzer for a symbol. Deterministic and DB-free — the DB-aware
+ * resolution (which sector code / industry to feed in) lives in
+ * `src/dossier/job.ts` (that layer owns the SqlDb). Precedence: a mapped sector
+ * code first (GICS or AI-lens), then an `industry` keyword backstop, else generic.
+ */
+export function classify(symbol: string, sectorCode?: string, industry?: string): SectorAnalyzer {
+  const byCode = analyzerKeyForSectorCode(sectorCode);
+  if (byCode) return ANALYZERS[byCode];
+  const byIndustry = analyzerKeyForIndustry(industry);
+  if (byIndustry) return ANALYZERS[byIndustry];
   return ANALYZERS.generic;
 }

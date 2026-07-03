@@ -15,10 +15,11 @@ loadDotEnv();
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
 
-function parseArgs(argv: string[]): { name?: string; list: boolean; symbols?: string[] } {
+function parseArgs(argv: string[]): { name?: string; list: boolean; symbols?: string[]; dossierId?: string } {
   let name: string | undefined;
   let list = false;
   let symbols: string[] | undefined;
+  let dossierId: string | undefined;
   for (const arg of argv) {
     if (arg === "--list") list = true;
     else if (arg.startsWith("--symbols=")) {
@@ -27,13 +28,15 @@ function parseArgs(argv: string[]): { name?: string; list: boolean; symbols?: st
         .split(",")
         .map((s) => s.trim().toUpperCase())
         .filter(Boolean);
+    } else if (arg.startsWith("--dossier=")) {
+      dossierId = arg.slice("--dossier=".length).trim();
     } else if (arg.startsWith("--task=")) {
       name = arg.slice("--task=".length).trim();
     } else if (!arg.startsWith("--") && !name) {
       name = arg;
     }
   }
-  return { list, ...(name ? { name } : {}), ...(symbols ? { symbols } : {}) };
+  return { list, ...(name ? { name } : {}), ...(symbols ? { symbols } : {}), ...(dossierId ? { dossierId } : {}) };
 }
 
 function printList(): void {
@@ -42,7 +45,7 @@ function printList(): void {
 }
 
 async function main(): Promise<void> {
-  const { name, list, symbols } = parseArgs(process.argv.slice(2));
+  const { name, list, symbols, dossierId } = parseArgs(process.argv.slice(2));
 
   if (list || !name) {
     printList();
@@ -65,7 +68,7 @@ async function main(): Promise<void> {
 
   const started = Date.now();
   try {
-    const outcome = await entry.run(symbols);
+    const outcome = await entry.run(symbols, dossierId ? { dossierId } : undefined);
     const secs = ((Date.now() - started) / 1000).toFixed(1);
     console.log(`[${outcome.ok ? "OK" : "FAIL"}] ${entry.name} (${secs}s)\n${outcome.detail}`);
     process.exit(outcome.ok ? 0 : 1);
