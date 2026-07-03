@@ -202,6 +202,26 @@ grows); make it create-if-absent in the live-data batch (FIXED in batch C)._
   morning chain. NEXT ACCEPTANCE: tomorrow's 05:00+ window should produce the first
   fully AUTONOMOUS morning digest (no human, no CEO command).
 
+## Phase 6 — ACCEPTANCE (evidence, Jul 3 2026)
+- [x] 6.1 **Autonomous morning**: daemon detected the missing digest at the 05:00
+  window → full chain 6/6 → 16-insight digest + daily backup, zero human involvement.
+- [x] 6.2 **Autonomous research**: AVGO and TSM dossiers queued → daemon idle-drain
+  ran them unattended end-to-end. TSM (current code): `semis` routing, 10 stages
+  incl. story ("TSM: Semiconductors / Hardware — AVOID/LOW"), governed RecCall,
+  2,129.7s.
+- [x] 6.3 **Calibration loop closed**: `outcomes` in the overnight chain fills
+  RecCall horizons from local closes; `/calibration` tracks earned trust. First
+  `buylist_draft` honestly ALL-CASH (0 BUY verdicts among MU/NVDA/AVGO/TSM —
+  2×AVOID + 2×HOLD; the ledger's outcome horizons will adjudicate whether the
+  judge+critique culture is disciplined or over-conservative).
+- [x] 6.4 **Web acceptance**: production server render pass — all 8 major routes
+  serve real data (morning read w/ today's digest, NVDA cockpit w/ live close,
+  dossiers, story archive, screener presets, calibration, capture write-path,
+  discovery). Interactive slider pass = owner's first-30-minutes item.
+- [x] 6.5 **Gates, exit-code-honest**: `npm run verify` exit 0 — 359 tests / 56
+  files, tsc clean, CLAUDE.md 53/53. (Two false-green incidents traced to piped
+  grep eating exit codes — all future gate claims are exit-gated.)
+
 ## Documentation & housekeeping
 - [x] D.1 `TASKS.md` master checklist (this file)
 - [x] D.2 Root `README.md`

@@ -45,6 +45,12 @@ editorial story page. Suite: 356 tests. Your calibration ledger has begun.
 | MU | AVOID / LOW | 0% | Risk officer overturned an initial BUY: "forward-earnings value trap until stabilization" — with re-entry triggers |
 | NVDA | HOLD / MEDIUM | 2% | Semis-framed debate; judge wanted 3%, governor capped |
 | AVGO | HOLD / MEDIUM | 2% | Ran entirely unattended overnight |
+| TSM | AVOID / LOW | 0% | Fully autonomous under the daemon: semis-routed, story page born with it |
+
+**Research-culture observation:** 4 verdicts, 0 BUYs (2 AVOID, 2 HOLD) in a hot
+sector — the judge+critique pair leans conservative. That may be discipline or
+over-caution; the outcome horizons now filling automatically will tell you which.
+That question is exactly what the calibration ledger exists to answer.
 
 Outcome horizons (1m/3m/6m/1y) fill automatically; `/calibration` shows the
 governor's earned-trust progress per tier.
