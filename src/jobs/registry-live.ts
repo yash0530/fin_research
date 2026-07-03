@@ -28,6 +28,7 @@ import { runNewsJob, type NewsQuery } from "./news";
 import { runEarningsJob } from "./earnings";
 import { runOvernight, runPricesHealJob, runDigestJob } from "./overnight";
 import { runBackupJob } from "./backup";
+import { runBuyListJob } from "./buylist";
 import { runRulesJob } from "../rules/engine";
 import { TRIPWIRES } from "../config/tripwires";
 import { AI_INFRA_SEEDS, AI_INFRA_SYMBOLS } from "../config/sectors";
@@ -310,6 +311,11 @@ const JOB_DEFS: JobDef[] = [
     name: "backup",
     describe: "VACUUM INTO data/backups/engine-YYYY-MM-DD.db; keep the newest 14.",
     run: async (db) => ({ ok: true, detail: runBackupJob(db) }),
+  },
+  {
+    name: "buylist_draft",
+    describe: "Draft the month's buy list from fresh BUY RecCalls (governed sizes over the capital).",
+    run: async (db) => ({ ok: true, detail: runBuyListJob(db) }),
   },
 ];
 
