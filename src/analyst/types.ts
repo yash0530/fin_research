@@ -20,6 +20,8 @@ export type LlmResult = {
   model: string;
   inputTokens?: number;
   outputTokens?: number;
+  /** Chars of thinking trace the model emitted alongside content (cost/latency audit). */
+  reasoningChars?: number;
   /** The exact request payload — the audit trail is a feature. */
   requestBody?: unknown;
 };
@@ -40,5 +42,19 @@ export class ProviderError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "ProviderError";
+  }
+}
+
+/**
+ * Raised when a thinking-enabled call burned its whole token budget on the
+ * reasoning trace and returned EMPTY content (live-verified Qwen failure mode,
+ * Jul 2026). Deliberately NOT a ProviderError: the server is healthy, so this
+ * must never trigger the connectivity fallback — completeJson handles it by
+ * degrading the call to enable_thinking:false.
+ */
+export class ThinkingBudgetExhausted extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ThinkingBudgetExhausted";
   }
 }

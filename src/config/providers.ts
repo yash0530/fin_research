@@ -19,6 +19,12 @@ export type ProviderProfile = {
   contextWindow: number;
   /** Does the model expose a reasoning trace we toggle per call? */
   thinkingMode: "on" | "off" | "configurable";
+  /**
+   * Endpoint accepts `chat_template_kwargs: { enable_thinking }` (llama.cpp
+   * serving Qwen-style templates). Cloud OpenAI-compat endpoints (e.g. Gemini)
+   * reject unknown params — leave unset for them.
+   */
+  supportsThinkingToggle?: boolean;
   tokenParam?: "max_tokens" | "max_completion_tokens";
   /** Ask for response_format json_object (helps small local models). */
   jsonMode?: boolean;
@@ -36,6 +42,7 @@ export const PROVIDER_PROFILES: Record<string, ProviderProfile> = {
     maxTokens: 8192,
     contextWindow: 64_000,
     thinkingMode: "configurable", // ON for reasoning agents, OFF for narration
+    supportsThinkingToggle: true,
     jsonMode: true,
     timeoutMs: 900_000,
   },
@@ -52,6 +59,7 @@ export const PROVIDER_PROFILES: Record<string, ProviderProfile> = {
     maxTokens: 4096,
     contextWindow: 128_000,
     thinkingMode: "off",
+    supportsThinkingToggle: true,
     jsonMode: true,
     timeoutMs: 600_000,
   },

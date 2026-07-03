@@ -30,6 +30,13 @@ and tested with fakes/mocks; wiring to live I/O is the remaining integration wor
 - [x] M0.7 Provider profiles w/ `contextWindow` + `thinkingMode`; Gemma seam documented
 - [x] M0.8 Per-role model routing (`default` + sparse `overrides`) + thinking-by-role — _4 tests_
 - [x] M0.9 Live HTTP provider (`openai_compat` + `anthropic`) via `HttpProvider` — injectable fetch, `ProviderError` on non-2xx/network failure; tested with mocks + end-to-end through completeJson
+- [x] M0.10 **Thinking-contract hardening** (live-verified vs llama.cpp/Qwen Jul 2):
+  per-call `chat_template_kwargs.enable_thinking` on toggle-capable profiles;
+  `response_format` only on non-thinking calls (grammar inactive during thinking);
+  empty-content+reasoning → `ThinkingBudgetExhausted` (non-connectivity) →
+  `completeJson` auto-downgrades to no-think once; `reasoningChars` recorded —
+  _7 new tests; live probe `scratch/check-live-provider.ts`: downgrade fired &
+  recovered (attempts:1), budgeted run reasoningChars=3141_
 
 ## M1 — Full market: universe, backfill, generalized digest, scheduling
 - [x] M1.1 Dual-taxonomy sector seeds (GICS 11 + AI-infra 12) in `config/sectors.ts`

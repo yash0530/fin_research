@@ -17,6 +17,14 @@ model (Qwen 3.6 27B) can drive a 9–12 call debate without crashing the pipelin
 - `completeJson` is the ONLY way agents get structured output — never hand-roll `JSON.parse`.
 - Wrap real provider calls in `withLlmLock(provider.endpointKey, …)`.
 - Validation failures **retry** (prompt/model issue); connectivity failures are a separate concern (fallback lives in the runner, connectivity-only).
+- **Thinking contract** (live-verified vs llama.cpp/Qwen, Jul 2026): the per-call
+  toggle rides `chat_template_kwargs.enable_thinking` (only on profiles with
+  `supportsThinkingToggle`); `response_format` is sent only on non-thinking calls
+  (grammar enforcement is inactive during thinking — llama.cpp #20345); empty
+  content + non-empty `reasoning_content` throws `ThinkingBudgetExhausted` (NOT a
+  ProviderError — must never trigger connectivity fallback), which `completeJson`
+  handles by degrading that call to `enable_thinking:false` once. Never parse or
+  salvage JSON from `reasoning_content`.
 
 ## Tests
 

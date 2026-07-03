@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Provider, LlmMessage, LlmResult, CompleteOpts } from "./types";
+import { ThinkingBudgetExhausted } from "./types";
 import { jsonsafe } from "./jsonsafe";
 
 /**
@@ -38,6 +39,9 @@ export type CompleteJsonResult<T> = {
   attempts: number;
   model: string;
   result: LlmResult;
+  /** True when the call had to degrade to enable_thinking:false after the
+   *  reasoning trace consumed the whole token budget (see ThinkingBudgetExhausted). */
+  thinkingDowngraded: boolean;
 };
 
 export type CompleteJsonOpts = CompleteOpts & {
@@ -51,14 +55,30 @@ export async function completeJson<S extends z.ZodTypeAny>(
   schema: S,
   opts: CompleteJsonOpts = {},
 ): Promise<CompleteJsonResult<z.infer<S>>> {
-  const { maxAttempts = 2, ...completeOpts } = opts;
+  const { maxAttempts = 2, ...restOpts } = opts;
   const attempts = Math.max(1, maxAttempts);
+  let completeOpts: CompleteOpts = restOpts;
+  let thinkingDowngraded = false;
   let userMessage = msg.user;
   let lastError = "no JSON object found in output";
   let lastRaw = "";
 
   for (let attempt = 0; attempt < attempts; attempt++) {
-    const result = await provider.complete({ system: msg.system, user: userMessage }, completeOpts);
+    let result: LlmResult;
+    try {
+      result = await provider.complete({ system: msg.system, user: userMessage }, completeOpts);
+    } catch (e) {
+      // A thinking call that spent its whole budget reasoning returns empty
+      // content. The server is fine — degrade to enable_thinking:false once
+      // (a deterministic answer beats no answer) without consuming an attempt.
+      if (e instanceof ThinkingBudgetExhausted && completeOpts.thinking === true && !thinkingDowngraded) {
+        thinkingDowngraded = true;
+        completeOpts = { ...completeOpts, thinking: false };
+        attempt--;
+        continue;
+      }
+      throw e;
+    }
     lastRaw = result.text;
     const parsed = jsonsafe(result.text);
     if (parsed !== null) {
@@ -70,6 +90,7 @@ export async function completeJson<S extends z.ZodTypeAny>(
           attempts: attempt + 1,
           model: result.model,
           result,
+          thinkingDowngraded,
         };
       }
       lastError = formatZodError(validated.error);

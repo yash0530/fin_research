@@ -73,3 +73,14 @@ is not done (lesson from run 1).
   closed". (2) Claude-powered runner subagents can hit the account session limit
   (resets 5pm PT) — drive vendor CLIs from direct background Bash instead; agy/kiro
   spend their own vendor quotas, not Claude's. Batch A relaunched via PTY wrapper.
+- **Jul 2 (eve):** Batch A audited (rubric-fidelity greps + judge line-review vs donor)
+  and committed — 198 tests. Batch B launched (kiro; universe/tripwires/families/
+  capture). **Provider thinking-contract hardening shipped by CEO session** and
+  live-verified: starved-budget probe triggered ThinkingBudgetExhausted → auto
+  downgrade to no-think → correct JSON same attempt; budgeted thinking recorded
+  3,141 reasoningChars. Incident: llama-server found dead AND unloaded from launchd
+  despite KeepAlive:true (memory was 92% free — cause unknown); restarted.
+  **Backlog(Wave 6): scheduler watchdog — health-probe llama, `launchctl kickstart`
+  on failure.** Note: server plist defaults thinking ON — callers must always pass
+  the toggle explicitly (completeJson opts). Follow-up filed: thread Living-Memo
+  summary into judge/bull/bear user prompts (donor fidelity gap, runner-scoped).
