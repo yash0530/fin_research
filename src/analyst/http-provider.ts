@@ -1,3 +1,4 @@
+import { Agent } from "undici";
 import type { Provider, LlmMessage, LlmResult, CompleteOpts } from "./types";
 import { ProviderError, ThinkingBudgetExhausted } from "./types";
 import type { ProviderProfile } from "../config/providers";
@@ -6,11 +7,20 @@ import type { ProviderProfile } from "../config/providers";
 // fetch — no SDKs. `fetchImpl` is injectable so the transport is unit-tested
 // without a running llama-server. A non-2xx or network failure becomes a
 // ProviderError (connectivity), distinct from a JSON-validation failure.
+//
+// TIMEOUT CONTRACT (live-diagnosed Jul 3: first MU dossier died at judge+301s):
+// Node's fetch (undici) defaults headersTimeout/bodyTimeout to 300s — but a
+// non-streaming local completion emits NO body bytes until generation finishes,
+// so any LLM call longer than 5 minutes was killed mid-generation (the server
+// logged a client cancel; the client saw "fetch failed"). When the profile sets
+// `timeoutMs`, we pass an undici Agent with both timeouts raised to it via the
+// `dispatcher` init field; Node's global fetch honors it, and injected test
+// fetchImpls simply ignore it.
 
 export type FetchResponse = { ok: boolean; status: number; text: () => Promise<string> };
 export type FetchLike = (
   url: string,
-  init: { method: string; headers: Record<string, string>; body: string },
+  init: { method: string; headers: Record<string, string>; body: string; dispatcher?: unknown },
 ) => Promise<FetchResponse>;
 
 export type HttpProviderOpts = { apiKey?: string; fetchImpl: FetchLike };
@@ -117,6 +127,17 @@ export class HttpProvider implements Provider {
     };
   }
 
+  /** Lazily-built undici Agent honoring profile.timeoutMs (see header comment). */
+  private dispatcher: Agent | undefined;
+  private getDispatcher(): Agent | undefined {
+    const t = this.profile.timeoutMs;
+    if (!t) return undefined;
+    if (!this.dispatcher) {
+      this.dispatcher = new Agent({ headersTimeout: t, bodyTimeout: t });
+    }
+    return this.dispatcher;
+  }
+
   private async post(
     url: string,
     headers: Record<string, string>,
@@ -124,7 +145,10 @@ export class HttpProvider implements Provider {
   ): Promise<string> {
     let res: FetchResponse;
     try {
-      res = await this.fetchImpl(url, { method: "POST", headers, body: JSON.stringify(body) });
+      const init: Parameters<FetchLike>[1] = { method: "POST", headers, body: JSON.stringify(body) };
+      const dispatcher = this.getDispatcher();
+      if (dispatcher) init.dispatcher = dispatcher;
+      res = await this.fetchImpl(url, init);
     } catch (e) {
       throw new ProviderError(`fetch to ${url} failed: ${e instanceof Error ? e.message : String(e)}`);
     }

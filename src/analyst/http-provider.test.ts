@@ -143,6 +143,22 @@ describe("HttpProvider thinking contract (openai_compat)", () => {
     expect(r.text).toBe('{"ok":true}');
     expect(r.reasoningChars).toBe(4);
   });
+
+  it("passes an undici dispatcher honoring profile.timeoutMs (300s default killed live calls)", async () => {
+    const seen: unknown[] = [];
+    const fetchImpl: FetchLike = async (_url, init) => {
+      seen.push(init.dispatcher);
+      return { ok: true, status: 200, text: async () => JSON.stringify({ choices: [{ message: { content: "{}" } }] }) };
+    };
+    const qwen = new HttpProvider(PROVIDER_PROFILES.qwen_local, { fetchImpl }); // timeoutMs: 900_000
+    await qwen.complete({ system: "s", user: "u" });
+    await qwen.complete({ system: "s", user: "u" });
+    const anthropic = new HttpProvider(PROVIDER_PROFILES.anthropic, { apiKey: "k", fetchImpl }); // no timeoutMs
+    await anthropic.complete({ system: "s", user: "u" });
+    expect(seen[0]).toBeDefined();
+    expect(seen[1]).toBe(seen[0]); // agent is reused, not rebuilt per call
+    expect(seen[2]).toBeUndefined(); // profiles without timeoutMs stay on fetch defaults
+  });
 });
 
 describe("completeJson thinking downgrade", () => {
