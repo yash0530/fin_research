@@ -13,13 +13,19 @@
     <string>com.engine.scheduler</string>
     <key>ProgramArguments</key>
     <array>
-      <string>/usr/bin/env</string>
-      <string>npx</string>
-      <string>tsx</string>
+      <!-- Absolute paths: launchd's PATH has no /opt/homebrew/bin (exit 127 otherwise).
+           tsx is invoked through node via its JS entry to avoid the shebang env trap. -->
+      <string>/opt/homebrew/bin/node</string>
+      <string>node_modules/tsx/dist/cli.mjs</string>
       <string>scripts/scheduler.ts</string>
     </array>
     <key>WorkingDirectory</key>
     <string>/Users/yash/Desktop/Programming/fin_research</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>PATH</key>
+      <string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
