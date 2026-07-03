@@ -19,7 +19,8 @@ injected dependencies → fully tested with fakes (no network).
   - `runBackfillPool(deps)` — the same invariants with N workers draining a shared queue
     + an optional per-item stagger (bounded concurrency for throughput while staying polite).
   - Live-wired tasks (fetchers injected, built in `scripts/job.ts`): `backfillPrices10y`
-    (bars since today−3660d → Price, chunked 500-row txns, conc 2/1200ms),
+    (bars since today−3660d → Price, chunked 500-row txns, conc 2/1200ms; accepts `force: true` to bypass
+    `BackfillProgress` and overwrite existing rows using `upsertPrices`),
     `backfillFundamentals` (quarterly → FundamentalsQuarter), `backfillEdgarIndex`
     (`parseCompanyTickers` → Ticker.cik, then submissions → EdgarFiling). Each records
     BackfillProgress per symbol.

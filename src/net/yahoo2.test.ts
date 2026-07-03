@@ -41,6 +41,19 @@ describe("mapChartToBars", () => {
       { symbol: "MU", d: "2024-01-04", close: 102.25, volume: null, source: "yahoo2" },
     ]);
   });
+
+  it("prefers adjclose when present", () => {
+    const rows = mapChartToBars("mu", {
+      quotes: [
+        { date: D("2024-01-02"), close: 100.5, adjclose: 95.5, volume: 1000 },
+        { date: D("2024-01-03"), close: 101.5, adjclose: null, volume: 2000 },
+      ],
+    });
+    expect(rows).toEqual([
+      { symbol: "MU", d: "2024-01-02", close: 95.5, volume: 1000, source: "yahoo2" },
+      { symbol: "MU", d: "2024-01-03", close: 101.5, volume: 2000, source: "yahoo2" },
+    ]);
+  });
 });
 
 describe("mapQuoteBatch", () => {

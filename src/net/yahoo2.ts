@@ -61,7 +61,7 @@ export interface Yahoo2Client {
   chart(
     symbol: string,
     opts: { period1: Date | string; period2?: Date | string; interval?: string },
-  ): Promise<{ quotes: Array<{ date: Date; close: number | null; volume: number | null }> }>;
+  ): Promise<{ quotes: Array<{ date: Date; close: number | null; adjclose?: number | null; volume: number | null }> }>;
   quote(symbols: string[]): Promise<Array<Record<string, unknown>>>;
   quoteSummary(symbol: string, opts: { modules: string[] }): Promise<Record<string, unknown>>;
   fundamentalsTimeSeries(
@@ -135,12 +135,12 @@ export async function mapPool<T, R>(
 /** chart() → despike-ready Price bars (skips null closes). */
 export function mapChartToBars(
   symbol: string,
-  result: { quotes?: Array<{ date: Date; close: number | null; volume?: number | null }> },
+  result: { quotes?: Array<{ date: Date; close: number | null; adjclose?: number | null; volume?: number | null }> },
 ): DailyBar[] {
   const sym = symbol.toUpperCase();
   const out: DailyBar[] = [];
   for (const q of result.quotes ?? []) {
-    const close = finite(q.close);
+    const close = finite(q.adjclose) ?? finite(q.close);
     const d = isoDate(q.date);
     if (close === null || d === null) continue;
     out.push({ symbol: sym, d, close, volume: finite(q.volume), source: YAHOO2_SOURCE });

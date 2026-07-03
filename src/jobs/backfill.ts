@@ -11,6 +11,7 @@
 import type { SqlDb } from "../db/migrate";
 import {
   insertPrices,
+  upsertPrices,
   insertFundamentals,
   insertEdgarFilings,
   setTickerCik,
@@ -145,24 +146,28 @@ export type PricesBackfillOpts = {
   staggerMs?: number; // default 1200
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
+  force?: boolean;
 };
 
 /**
  * prices10y: bars since today−3660d per symbol → Price via chunked 500-row
- * INSERT OR IGNORE txns, BackfillProgress per symbol. Resumable + catch-per-item.
+ * INSERT OR IGNORE (or ON CONFLICT DO UPDATE if force is true) txns, BackfillProgress per symbol.
+ * Resumable + catch-per-item.
  */
 export async function backfillPrices10y(db: SqlDb, opts: PricesBackfillOpts): Promise<BackfillSummary> {
   const now = opts.now ? opts.now() : Date.now();
   const period1 = new Date(now - (opts.lookbackDays ?? 3660) * DAY_MS);
+  const force = !!opts.force;
   return runBackfillPool<DailyBar>({
     symbols: opts.symbols,
     concurrency: opts.concurrency ?? 2,
     staggerMs: opts.staggerMs ?? 1200,
     ...(opts.sleep ? { sleep: opts.sleep } : {}),
-    isDone: (s) => backfillIsDone(db, PRICES_TASK, s),
+    isDone: (s) => (force ? false : backfillIsDone(db, PRICES_TASK, s)),
     fetchOne: (s) => opts.fetchBars(s, period1),
     write: (_s, rows) => {
-      for (const part of chunkRows(rows, 500)) insertPrices(db, part);
+      const writeFn = force ? upsertPrices : insertPrices;
+      for (const part of chunkRows(rows, 500)) writeFn(db, part);
     },
     markDone: (s, rows) => markBackfill(db, PRICES_TASK, s, "done", rows),
     markError: (s) => markBackfill(db, PRICES_TASK, s, "error"),

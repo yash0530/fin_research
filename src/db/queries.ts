@@ -24,6 +24,24 @@ export function insertPrices(db: SqlDb, rows: PriceRow[]): number {
   return rows.length;
 }
 
+/** Chunked INSERT ... ON CONFLICT DO UPDATE. Overwrites existing closes/volumes. Returns attempted count. */
+export function upsertPrices(db: SqlDb, rows: PriceRow[]): number {
+  const stmt = db.prepare(
+    'INSERT INTO "Price" ("symbol","d","close","volume") VALUES (?,?,?,?) ' +
+      'ON CONFLICT("symbol","d") DO UPDATE SET ' +
+      "close=excluded.close, volume=excluded.volume",
+  );
+  db.exec("BEGIN");
+  try {
+    for (const r of rows) stmt.run(r.symbol.toUpperCase(), r.d, r.close, r.volume ?? null);
+    db.exec("COMMIT");
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  }
+  return rows.length;
+}
+
 /** Closes for a symbol, oldest→newest. Despiked by default (bad ticks never become signal). */
 export function loadCloses(db: SqlDb, symbol: string, opts: { despiked?: boolean } = {}): number[] {
   const rows = db

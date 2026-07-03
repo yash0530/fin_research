@@ -172,7 +172,7 @@ function liveFetchers(): LiveFetchers {
 export type JobOutcome = { ok: boolean; detail: string };
 /** Optional per-invocation args beyond the symbol set (e.g. the story backfill's
  *  target dossier id). Kept optional so existing callers (the scheduler) are unchanged. */
-export type JobRunOpts = { dossierId?: string };
+export type JobRunOpts = { dossierId?: string; force?: boolean };
 /** A runnable job: db is bound in at build time; symbols + opts are per-call. */
 export type JobEntry = { name: string; describe: string; run: (symbols?: string[], opts?: JobRunOpts) => Promise<JobOutcome> };
 
@@ -188,8 +188,8 @@ const JOB_DEFS: JobDef[] = [
   {
     name: "prices10y",
     describe: "Resumable ~10y daily-price backfill (yahoo2 → Stooq) into Price.",
-    run: async (db, symbols) =>
-      backfillOutcome("prices10y", await backfillPrices10y(db, { symbols: symbols ?? activeSymbols(db), fetchBars: routedBars })),
+    run: async (db, symbols, opts) =>
+      backfillOutcome("prices10y", await backfillPrices10y(db, { symbols: symbols ?? activeSymbols(db), fetchBars: routedBars, force: opts?.force })),
   },
   {
     name: "fundamentals",

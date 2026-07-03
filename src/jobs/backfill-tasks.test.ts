@@ -83,6 +83,34 @@ describe("backfillPrices10y (mocked fetcher, real DB)", () => {
     expect(refetched).toBe(0);
   });
 
+  it("overwrites existing rows and ignores isDone when force is true", async () => {
+    const db = migratedDb();
+    // 1. Initial write of MU
+    await backfillPrices10y(db, {
+      symbols: ["MU"],
+      fetchBars: async (symbol) => [{ symbol, d: "2024-01-01", close: 100, volume: 100, source: "yahoo2" }],
+      staggerMs: 0,
+      sleep: noSleep,
+    });
+    expect(countRows(db, "Price")).toBe(1);
+    const p1 = db.prepare("SELECT close, volume FROM \"Price\" WHERE symbol='MU'").get() as { close: number; volume: number };
+    expect(p1.close).toBe(100);
+
+    // 2. Force rewrite MU with a different value
+    const s2 = await backfillPrices10y(db, {
+      symbols: ["MU"],
+      fetchBars: async (symbol) => [{ symbol, d: "2024-01-01", close: 150, volume: 200, source: "yahoo2" }],
+      staggerMs: 0,
+      sleep: noSleep,
+      force: true,
+    });
+    expect(s2).toMatchObject({ done: 1, errors: 0, skipped: 0, rows: 1 });
+    expect(countRows(db, "Price")).toBe(1);
+    const p2 = db.prepare("SELECT close, volume FROM \"Price\" WHERE symbol='MU'").get() as { close: number; volume: number };
+    expect(p2.close).toBe(150);
+    expect(p2.volume).toBe(200);
+  });
+
   it("records a per-symbol error without aborting the rest", async () => {
     const db = migratedDb();
     const summary = await backfillPrices10y(db, {
