@@ -68,8 +68,8 @@ export function loadLatestDigest(db: SqlDb): { id: number; d: string; dataJson: 
 
 export function saveRecCall(db: SqlDb, r: RecCall): void {
   db.prepare(
-    'INSERT INTO "RecCall" ("dossierId","symbol","action","conviction","priceAtCall","targetLow","targetHigh","stopPrice","judgeSizePct","governedSizePct","governorReason","model","thinkingMode","outcome1mPct","outcome3mPct","outcome6mPct","outcome1yPct","createdAt") ' +
-      "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+    'INSERT INTO "RecCall" ("dossierId","symbol","action","conviction","priceAtCall","targetLow","targetHigh","stopPrice","judgeSizePct","governedSizePct","governorReason","model","thinkingMode","promptVersion","outcome1mPct","outcome3mPct","outcome6mPct","outcome1yPct","createdAt") ' +
+      "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
   ).run(
     r.dossierId,
     r.symbol,
@@ -84,6 +84,7 @@ export function saveRecCall(db: SqlDb, r: RecCall): void {
     r.governorReason ?? null,
     r.model ?? null,
     r.thinkingMode ? 1 : 0,
+    r.promptVersion ?? "v1",
     r.outcome1mPct,
     r.outcome3mPct,
     r.outcome6mPct,

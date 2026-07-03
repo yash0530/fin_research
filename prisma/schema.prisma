@@ -328,6 +328,7 @@ model RecCall {
   governorReason  String?
   model           String?
   thinkingMode    Boolean  @default(false)
+  promptVersion   String   @default("v1")
   wwcmJson        String?
   outcome1mPct    Float?
   outcome3mPct    Float?

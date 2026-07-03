@@ -275,6 +275,7 @@ export async function runDossier(id: string, deps: RunnerDeps): Promise<DossierS
       governorReason: reason,
       model: deps.providerFor("judge").name,
       thinkingMode: thinkingForRole("judge"),
+      promptVersion: settings.dossier.promptVersion,
       createdAt: now(),
       outcome1mPct: null,
       outcome3mPct: null,

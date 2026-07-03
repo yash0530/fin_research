@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { createRequire } from "node:module";
 import { _resetLocks } from "../analyst/singleflight";
 import { FakeProvider } from "../analyst/fake-provider";
@@ -11,7 +12,11 @@ import { runDossierJob } from "./job";
 
 const nodeRequire = createRequire(import.meta.url);
 const { DatabaseSync } = nodeRequire("node:sqlite") as typeof import("node:sqlite");
-const initSql = readFileSync("prisma/migrations/0001_init.sql", "utf8");
+// All migrations so additive columns (e.g. promptVersion) are present.
+const ALL_MIGRATIONS = readdirSync("prisma/migrations")
+  .filter((f) => f.endsWith(".sql"))
+  .sort()
+  .map((name) => ({ name: name.replace(/\.sql$/, ""), sql: readFileSync(join("prisma/migrations", name), "utf8") }));
 
 // dossier CALL ORDER: [planner, bull, bear, rebuttal, judge, critique, memo].
 const SCRIPTS: string[] = [
@@ -26,7 +31,7 @@ const SCRIPTS: string[] = [
 
 function seedDb(): SqlDb {
   const db = new DatabaseSync(":memory:") as unknown as SqlDb;
-  applyMigrations(db, [{ name: "0001_init", sql: initSql }]);
+  applyMigrations(db, ALL_MIGRATIONS);
   upsertTicker(db, { symbol: "MU", name: "Micron" });
   const base = Date.parse("2025-01-01T00:00:00Z");
   const prices: PriceRow[] = Array.from({ length: 30 }, (_, i) => ({

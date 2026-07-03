@@ -37,6 +37,8 @@ export type RecCall = {
   // Provenance for calibration slicing (your requirement #6).
   model: string;
   thinkingMode: boolean;
+  /** Prompt version that produced this verdict (settings.dossier.promptVersion). */
+  promptVersion: string;
   createdAt: number;
   // Filled later by the outcomes job.
   outcome1mPct: number | null;

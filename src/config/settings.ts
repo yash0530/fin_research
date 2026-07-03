@@ -45,6 +45,9 @@ export const settings = {
     dedupeDays: 14,
     plannerMaxIterations: 4,
     staleRunningMinutes: 90,
+    // Bump when any agent prompt (src/dossier/prompts/*) changes materially, so
+    // calibration slices never mix judges. The value is stamped on every RecCall.
+    promptVersion: "v1",
   },
 
   // Context budgeting (chars; ~chars/4 ≈ tokens). Trims lowest-confidence first.

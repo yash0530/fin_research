@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { createRequire } from "node:module";
 import { applyMigrations, type SqlDb } from "./migrate";
 import {
@@ -16,11 +17,16 @@ import type { RecCall } from "../dossier/state";
 
 const nodeRequire = createRequire(import.meta.url);
 const { DatabaseSync } = nodeRequire("node:sqlite") as typeof import("node:sqlite");
-const INIT = readFileSync("prisma/migrations/0001_init.sql", "utf8");
+
+// Apply ALL migrations (not just 0001) so additive columns like promptVersion land.
+const ALL_MIGRATIONS = readdirSync("prisma/migrations")
+  .filter((f) => f.endsWith(".sql"))
+  .sort()
+  .map((name) => ({ name: name.replace(/\.sql$/, ""), sql: readFileSync(join("prisma/migrations", name), "utf8") }));
 
 function migratedDb(): SqlDb {
   const db = new DatabaseSync(":memory:") as unknown as SqlDb;
-  applyMigrations(db, [{ name: "0001_init", sql: INIT }]);
+  applyMigrations(db, ALL_MIGRATIONS);
   return db;
 }
 
@@ -38,6 +44,7 @@ const rc = (dossierId: string, over: Partial<RecCall> = {}): RecCall => ({
   governorReason: "",
   model: "fake",
   thinkingMode: true,
+  promptVersion: "v1",
   createdAt: Date.now(),
   outcome1mPct: null,
   outcome3mPct: 10,
