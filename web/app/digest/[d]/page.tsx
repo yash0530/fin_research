@@ -1,4 +1,4 @@
-import { latestDigest, listDigests } from "@/lib/digest-data";
+import { digestByDate, listDigests } from "@/lib/digest-data";
 import Link from "next/link";
 import "@/components/story/story.css";
 
@@ -17,41 +17,36 @@ const FAMILY_TITLES: Record<string, string> = {
   data_health: "System Data Quality & Health",
 };
 
-export default async function Home() {
-  const digest = await latestDigest();
+export default async function DigestDatePage({
+  params,
+}: {
+  params: Promise<{ d: string }>;
+}) {
+  const { d } = await params;
+  const decodedD = decodeURIComponent(d);
+  const digest = await digestByDate(decodedD);
   const history = await listDigests(7);
 
   if (!digest) {
     return (
       <div className="story-page" style={{ padding: "40px 24px" }}>
         <header className="hero" style={{ textAlign: "center", marginBottom: "40px" }}>
-          <div className="eyebrow" style={{ justifyContent: "center" }}>Workstation Empty State</div>
-          <h1 className="story-h1">No Digest Available</h1>
+          <div className="eyebrow" style={{ justifyContent: "center" }}>Workstation Archive</div>
+          <h1 className="story-h1">Digest Not Found</h1>
           <p className="lead" style={{ margin: "0 auto 24px", maxWidth: "600px" }}>
-            The local database has not been populated with morning digest insights yet.
+            No digest data was found for the date <strong style={{ color: 'var(--ink)' }}>{decodedD}</strong>.
           </p>
         </header>
 
         <div className="panel" style={{ border: '1px solid var(--line)', background: 'var(--surface)', borderRadius: '12px', padding: '2rem', maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
-          <h2 className="story-h2">How to populate this page</h2>
           <p className="body" style={{ margin: '1rem 0' }}>
-            Run the overnight job to fetch market data, run tripwires, calculate sector momentum, and synthesize the latest digest insights:
+            Check the date or return to the main dashboard:
           </p>
-          <pre style={{
-            background: 'var(--inset)',
-            color: 'var(--ink)',
-            padding: '12px',
-            borderRadius: '6px',
-            fontFamily: 'var(--fmono)',
-            fontSize: '14px',
-            overflowX: 'auto',
-            border: '1px solid var(--line)'
-          }}>
-            npm run job -- overnight
-          </pre>
-          <p className="body" style={{ color: 'var(--muted)', fontSize: '14px', marginTop: '1.5rem' }}>
-            This process reads current asset prices, scans watchlist rule triggers, evaluates hyperscaler credit indicators, and writes the synthesized results directly to the local SQLite store.
-          </p>
+          <div style={{ marginTop: '1.5rem' }}>
+            <Link href="/" className="verdict-badge buy" style={{ textDecoration: 'none', padding: '10px 20px', borderRadius: '8px', fontSize: '14px', marginTop: 0 }}>
+              Return to Dashboard
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -70,10 +65,12 @@ export default async function Home() {
   return (
     <div className="story-page" style={{ padding: "24px 0" }}>
       <header className="hero" style={{ marginBottom: "2rem" }}>
-        <div className="eyebrow">Morning read · {digest.d}</div>
+        <div className="eyebrow">
+          <Link href="/" style={{ color: 'var(--accent-deep)', textDecoration: 'none' }}>Dashboard</Link> · Archive · {digest.d}
+        </div>
         <h1 className="story-h1">{digest.headline || "Daily Morning Digest"}</h1>
         <p className="lead">
-          Latest deterministic market insights synthesized as of {digest.data.asOf || digest.d}.
+          Synthesized market insights as of {digest.data.asOf || digest.d}.
         </p>
       </header>
 

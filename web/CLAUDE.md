@@ -28,6 +28,8 @@ the dependency-light, fully-tested engine core in `../src` stays isolated — th
 - `app/` — App Router routes (server components by default; client islands where needed).
 - `components/` — shared UI (`InsightList`, `ScenarioEstimator`, `story/*`).
 - `lib/` — `demo.ts` engine fixtures, `live.ts` live digest reader,
+  `digest-types.ts`/`digest-data.ts` live digest SQLite reader,
+  `dossier-types.ts`/`dossier-data.ts` live dossier SQLite reader,
   `story-types.ts` mirrored StoryPageData types + `demoStory()`,
   `story-data.ts` SQLite reader for StoryPage rows.
 
