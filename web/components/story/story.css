@@ -1,0 +1,588 @@
+/* story.css — Micron-reference editorial palette + layout.
+   Light + dark via CSS custom properties + prefers-color-scheme.
+   Imported by story components; scoped by .story-page wrapper. */
+
+/* ─── palette ─────────────────────────────────────────────────────── */
+.story-page {
+  --bg: #F4F6F6;
+  --surface: #FFFFFF;
+  --surface-2: #EBEEEE;
+  --inset: #F0F2F2;
+  --ink: #13191B;
+  --muted: #586064;
+  --faint: #8B9296;
+  --line: rgba(19,25,27,0.10);
+  --line-2: rgba(19,25,27,0.20);
+  --accent: #0E8C6B;
+  --accent-deep: #0A6A51;
+  --accent-soft: #E3F2EC;
+  --pos: #0E8C6B;
+  --neg: #C2403B;
+  --warn: #A8761B;
+  --b1: #9FE1CB;
+  --b2: #B5D4F4;
+  --b3: #FAC775;
+  --b4: #F5C4B3;
+  --fdisp: "Space Grotesk", system-ui, sans-serif;
+  --fbody: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, sans-serif;
+  --fmono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+  --grey-bar: #AEB4B6;
+  --grey-bar-2: #CDD2D2;
+}
+
+@media (prefers-color-scheme: dark) {
+  .story-page {
+    --bg: #0D1113;
+    --surface: #161B1E;
+    --surface-2: #1E2427;
+    --inset: #111618;
+    --ink: #EBEFF0;
+    --muted: #99A1A6;
+    --faint: #69716F;
+    --line: rgba(255,255,255,0.10);
+    --line-2: rgba(255,255,255,0.20);
+    --accent: #2BCB99;
+    --accent-deep: #23B084;
+    --accent-soft: #15302A;
+    --pos: #2BCB99;
+    --neg: #E5706B;
+    --warn: #D8A441;
+    --grey-bar: #5C656A;
+    --grey-bar-2: #3A4145;
+  }
+}
+
+/* ─── reset / base ────────────────────────────────────────────────── */
+.story-page {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--fbody);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.story-page *,
+.story-page *::before,
+.story-page *::after {
+  box-sizing: border-box;
+}
+
+.story-page .num {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.story-page a {
+  color: var(--accent-deep);
+}
+
+/* ─── typography ──────────────────────────────────────────────────── */
+.story-page .kicker {
+  font-family: var(--fmono);
+  font-size: 13px;
+  color: var(--accent-deep);
+  letter-spacing: 0.04em;
+  margin: 0 0 20px;
+}
+
+.story-page .eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--fmono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 14px;
+}
+
+.story-page .eyebrow::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  background: var(--accent);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.story-page h1.story-h1 {
+  font-family: var(--fdisp);
+  font-weight: 500;
+  font-size: clamp(34px, 5.4vw, 56px);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin: 0 0 18px;
+  color: var(--ink);
+}
+
+.story-page h2.story-h2 {
+  font-family: var(--fdisp);
+  font-weight: 500;
+  font-size: clamp(24px, 3.6vw, 32px);
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  margin: 0 0 10px;
+  color: var(--ink);
+}
+
+.story-page .lead {
+  font-size: 18px;
+  color: var(--muted);
+  max-width: 62ch;
+  margin: 0 0 8px;
+}
+
+.story-page .body {
+  font-size: 16px;
+  color: var(--ink);
+  max-width: 64ch;
+  margin: 0;
+}
+
+.story-page .body.dim {
+  color: var(--muted);
+}
+
+.story-page .up { color: var(--pos); }
+.story-page .down { color: var(--neg); }
+
+/* ─── section dividers ────────────────────────────────────────────── */
+.story-page .story-section {
+  padding: 56px 0;
+  border-top: 1px solid var(--line);
+}
+
+/* ─── hero ────────────────────────────────────────────────────────── */
+.story-page .hero {
+  padding: 64px 0 50px;
+}
+
+/* ─── verdict badge ───────────────────────────────────────────────── */
+.story-page .verdict-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--fmono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-weight: 500;
+  margin-top: 16px;
+}
+
+.story-page .verdict-badge.buy {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+.story-page .verdict-badge.hold {
+  background: color-mix(in srgb, var(--warn) 15%, transparent);
+  color: var(--warn);
+}
+.story-page .verdict-badge.trim {
+  background: color-mix(in srgb, var(--warn) 15%, transparent);
+  color: var(--warn);
+}
+.story-page .verdict-badge.avoid {
+  background: color-mix(in srgb, var(--neg) 15%, transparent);
+  color: var(--neg);
+}
+
+/* ─── stat tape ───────────────────────────────────────────────────── */
+.story-page .tape {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  margin: 34px 0 30px;
+}
+
+.story-page .tape .cell {
+  background: var(--surface);
+  padding: 16px 18px;
+}
+
+.story-page .tape .k {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 7px;
+}
+
+.story-page .tape .v {
+  font-family: var(--fdisp);
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.story-page .tape .d {
+  font-size: 12.5px;
+  margin-top: 5px;
+  color: var(--muted);
+}
+
+/* ─── cycle strip ─────────────────────────────────────────────────── */
+.story-page .strip-wrap {
+  margin: 6px 0 4px;
+}
+
+.story-page .strip {
+  position: relative;
+  height: 38px;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+}
+
+.story-page .strip > div {
+  height: 100%;
+}
+
+.story-page .strip .mk {
+  position: absolute;
+  top: -5px;
+  bottom: -5px;
+  width: 2px;
+  background: var(--ink);
+  border-radius: 2px;
+  transition: left 0.12s ease;
+}
+
+.story-page .ticks {
+  display: flex;
+  font-size: 11px;
+  color: var(--faint);
+  margin-top: 6px;
+}
+
+.story-page .ticks span {
+  display: block;
+}
+
+/* ─── chart grid ──────────────────────────────────────────────────── */
+.story-page .grid2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 26px;
+}
+
+.story-page .card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px 18px 14px;
+}
+
+.story-page .card.full {
+  grid-column: 1 / -1;
+}
+
+.story-page .card h3 {
+  font-family: var(--fdisp);
+  font-weight: 500;
+  font-size: 16px;
+  margin: 0 0 2px;
+  color: var(--ink);
+}
+
+.story-page .card .sub {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin: 0 0 12px;
+}
+
+.story-page .legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+
+.story-page .legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.story-page .swatch {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.story-page .chart-h {
+  position: relative;
+  width: 100%;
+  height: 230px;
+}
+
+.story-page .chart-h.tall {
+  height: 260px;
+}
+
+/* ─── estimator ───────────────────────────────────────────────────── */
+.story-page .est {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 26px 26px 24px;
+  margin-top: 26px;
+}
+
+.story-page .est-top {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.story-page .est-price {
+  font-family: var(--fdisp);
+  font-size: clamp(44px, 7vw, 60px);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.story-page .est-upside {
+  font-size: 15px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.story-page .reln {
+  font-size: 13px;
+  color: var(--faint);
+  margin-top: 8px;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.story-page .chips {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 20px 0 24px;
+}
+
+.story-page .chip {
+  background: var(--surface-2);
+  border-radius: 10px;
+  padding: 11px 13px;
+}
+
+.story-page .chip .k {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.story-page .chip .v {
+  font-family: var(--fdisp);
+  font-size: 18px;
+  font-weight: 500;
+  margin-top: 3px;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.story-page .presets {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 22px;
+  flex-wrap: wrap;
+}
+
+.story-page .presets button {
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 15px;
+  border-radius: 999px;
+  cursor: pointer;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line-2);
+  transition: 0.15s;
+}
+
+.story-page .presets button:hover {
+  background: var(--surface-2);
+}
+
+.story-page .presets button.on {
+  border-color: var(--accent);
+  color: var(--accent-deep);
+}
+
+.story-page .slider-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 0 16px;
+}
+
+.story-page .slider-row label {
+  font-size: 14px;
+  color: var(--muted);
+  flex: 0 0 132px;
+}
+
+.story-page .slider-row .val {
+  font-family: var(--fmono);
+  font-size: 13px;
+  font-weight: 500;
+  flex: 0 0 56px;
+  text-align: right;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.story-page input[type=range] {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 4px;
+  background: var(--line-2);
+  outline: none;
+  min-width: 80px;
+}
+
+.story-page input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--surface);
+}
+
+.story-page input[type=range]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--surface);
+}
+
+.story-page input[type=range]:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+.story-page .regime {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 11px;
+  min-height: 36px;
+}
+
+/* ─── callout ─────────────────────────────────────────────────────── */
+.story-page .callout {
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 10px 10px 0;
+  padding: 14px 16px;
+  margin-top: 22px;
+  font-size: 14px;
+}
+
+.story-page .callout b,
+.story-page .callout strong {
+  font-weight: 500;
+  color: var(--accent-deep);
+}
+
+/* ─── footer / footnotes ──────────────────────────────────────────── */
+.story-page .story-footer {
+  padding: 40px 0 64px;
+  border-top: 1px solid var(--line);
+  font-size: 12.5px;
+  color: var(--faint);
+  line-height: 1.7;
+}
+
+.story-page .story-footer .big {
+  font-family: var(--fdisp);
+  font-size: 15px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+/* ─── demo banner ─────────────────────────────────────────────────── */
+.story-page .demo-banner {
+  background: color-mix(in srgb, var(--warn) 15%, transparent);
+  color: var(--warn);
+  font-family: var(--fmono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 8px 14px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+/* ─── archive index ───────────────────────────────────────────────── */
+.story-page .archive-list {
+  list-style: none;
+  padding: 0;
+  margin: 24px 0;
+}
+
+.story-page .archive-list li {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.story-page .archive-list li a {
+  font-family: var(--fdisp);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.story-page .archive-list li a:hover {
+  color: var(--accent);
+}
+
+.story-page .archive-list .meta {
+  font-size: 12.5px;
+  color: var(--faint);
+  margin-top: 4px;
+}
+
+/* ─── responsive ──────────────────────────────────────────────────── */
+@media (max-width: 680px) {
+  .story-page .grid2 {
+    grid-template-columns: 1fr;
+  }
+  .story-page .slider-row {
+    flex-wrap: wrap;
+  }
+  .story-page .slider-row label {
+    flex-basis: 100%;
+  }
+  .story-page .slider-row input[type=range] {
+    order: 3;
+    flex-basis: 100%;
+  }
+  .story-page .ticks {
+    font-size: 10px;
+  }
+  .story-page .story-section {
+    padding: 44px 0;
+  }
+}

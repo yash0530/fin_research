@@ -1,75 +1,152 @@
-import { demoStory } from "@/lib/demo";
-import { scenarioPrices } from "@engine/story/build";
-import { ScenarioEstimator } from "@/components/ScenarioEstimator";
+import { loadStoryPage } from "@/lib/story-data";
+import { demoStory } from "@/lib/story-types";
+import type { StoryPageData } from "@/lib/story-types";
+import { StoryHero } from "@/components/story/StoryHero";
+import { StatTape } from "@/components/story/StatTape";
+import { CycleStrip } from "@/components/story/CycleStrip";
+import { EvidenceChart } from "@/components/story/EvidenceChart";
+import { StoryEstimator } from "@/components/story/StoryEstimator";
+import { Callout } from "@/components/story/Callout";
+import { Footnotes } from "@/components/story/Footnotes";
+import "@/components/story/story.css";
 
-export default async function StoryPage({ params }: { params: Promise<{ id: string }> }) {
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+export default async function StoryPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
-  const data = demoStory();
-  const prices = scenarioPrices(data);
+
+  let data: StoryPageData;
+  let isDemo: boolean;
+
+  if (id === "demo") {
+    data = demoStory();
+    isDemo = true;
+  } else {
+    const loaded = await loadStoryPage(id);
+    if (loaded) {
+      data = loaded;
+      isDemo = false;
+    } else {
+      data = demoStory();
+      isDemo = true;
+    }
+  }
+
+  // Split charts into 2-col grid items and full-width items
+  const charts = data.charts ?? [];
 
   return (
-    <article>
-      <h1>{data.title}</h1>
-      <div className="panel">
-        <span className={`badge sev-${data.hero.verdict === "AVOID" ? "critical" : "info"}`}>
-          {data.hero.verdict} / {data.hero.conviction}
-        </span>{" "}
-        <span>{data.hero.thesis}</span>
-        <div className="muted" style={{ fontSize: "0.8rem", marginTop: "0.4rem" }}>
-          {data.symbol} · as of {data.asOf} · ${data.priceAtBuild} at build · route id: {id}
+    <article className="story-page">
+      {isDemo && (
+        <div className="demo-banner">
+          ⚠ DEMO DATA — this page uses fixture data, not a live database row
         </div>
-      </div>
+      )}
 
-      <h2>Key stats</h2>
-      <div className="panel">
-        {data.statTape.map((s, i) => (
-          <span key={i} style={{ marginRight: "1.5rem" }}>
-            <span className="muted">{s.label}:</span> <strong>{s.value}</strong>
-          </span>
-        ))}
-      </div>
+      {/* Hero: kicker, eyebrow, h1, lead, verdict badge */}
+      <StoryHero data={data} />
 
-      <h2>Cycle</h2>
-      <div className="panel">
-        <div style={{ position: "relative", height: 10, background: "var(--border)", borderRadius: 999 }}>
-          <div
-            style={{
-              position: "absolute",
-              left: `${data.cycleStrip.position * 100}%`,
-              top: -4,
-              width: 18,
-              height: 18,
-              background: "var(--info)",
-              borderRadius: "50%",
-              transform: "translateX(-50%)",
-            }}
-          />
-        </div>
-        <div className="muted" style={{ marginTop: "0.5rem" }}>
-          Stage: <strong>{data.cycleStrip.stage}</strong>
-        </div>
-      </div>
+      {/* KPI stat tape */}
+      <StatTape stats={data.statTape} />
 
-      <h2>Deterministic scenario prices</h2>
-      <div className="panel">
-        <span style={{ marginRight: "1.5rem" }}>Bear <strong>${prices.bear.toFixed(2)}</strong></span>
-        <span style={{ marginRight: "1.5rem" }}>Base <strong>${prices.base.toFixed(2)}</strong></span>
-        <span>Bull <strong>${prices.bull.toFixed(2)}</strong></span>
-      </div>
+      {/* Cycle strip with marker */}
+      <CycleStrip data={data.cycleStrip} />
+      {data.cycleStrip.stage && (
+        <p className="body dim" style={{ marginTop: 14 }}>
+          Where the forward multiple sits today. For a memory maker, a low
+          multiple signals a <em>peak</em>, not a bargain — the market is
+          pricing in the cycle turning.
+        </p>
+      )}
 
-      <ScenarioEstimator data={data} />
+      {/* Setup section */}
+      {data.setupTitle && (
+        <section className="story-section">
+          <div className="eyebrow">The setup</div>
+          <h2 className="story-h2">{data.setupTitle}</h2>
+          {data.setupBody?.map((p, i) => (
+            <p
+              key={i}
+              className={`body${i > 0 ? " dim" : ""}`}
+              style={{ marginBottom: i < (data.setupBody?.length ?? 1) - 1 ? 14 : 0 }}
+            >
+              {p}
+            </p>
+          ))}
+        </section>
+      )}
 
-      <h2>Callouts</h2>
-      {data.callouts.map((c, i) => (
-        <div className="panel" key={i}>{c}</div>
-      ))}
+      {/* Evidence section with chart grid */}
+      {charts.length > 0 && (
+        <section className="story-section">
+          <div className="eyebrow">The evidence</div>
+          {data.evidenceTitle && (
+            <h2 className="story-h2">{data.evidenceTitle}</h2>
+          )}
+          {data.evidenceBody && (
+            <p className="body dim" style={{ maxWidth: "64ch" }}>
+              {data.evidenceBody}
+            </p>
+          )}
 
-      <h2>Footnotes</h2>
-      <ul className="muted">
-        {data.footnotes.map((f, i) => (
-          <li key={i}>{f}</li>
-        ))}
-      </ul>
+          <div className="grid2">
+            {charts.map((chart, i) => (
+              <div
+                key={i}
+                className={`card${chart.fullWidth ? " full" : ""}`}
+              >
+                <h3>{chart.title}</h3>
+                <div className="sub">{chart.subtitle}</div>
+                {chart.series.length > 1 && (
+                  <div className="legend">
+                    {chart.series.map((s) => (
+                      <span key={s.label}>
+                        <i
+                          className="swatch"
+                          style={{
+                            background: s.color ?? "var(--accent)",
+                          }}
+                        />
+                        {s.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <EvidenceChart chart={chart} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Estimator section */}
+      <section className="story-section">
+        <div className="eyebrow">The model</div>
+        <h2 className="story-h2">Estimate the price yourself</h2>
+        <p className="body dim" style={{ maxWidth: "64ch" }}>
+          Implied price = annualized forward EPS × forward P/E. Defaults use
+          guidance plus estimates. Drag the inputs; the cycle strip shows where
+          your multiple sits.
+        </p>
+        <StoryEstimator data={data} />
+      </section>
+
+      {/* Callouts */}
+      {data.callouts.length > 0 && (
+        <section className="story-section">
+          {data.callouts.map((c, i) => (
+            <Callout key={i}>{c}</Callout>
+          ))}
+        </section>
+      )}
+
+      {/* Footnotes */}
+      <Footnotes notes={data.footnotes} />
     </article>
   );
 }

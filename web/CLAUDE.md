@@ -12,17 +12,23 @@ the dependency-light, fully-tested engine core in `../src` stays isolated — th
 - Demo pages currently render **fixture data** (`lib/demo.ts`) passed *through* those real
   functions — this proves the engine↔render integration compiles and is deterministic.
   Wiring to live Prisma reads is the remaining app-layer work (see `../TASKS.md`).
+- **Story pages** (`app/story/[id]/`) read from the SQLite DB via `lib/story-data.ts`
+  (following the `lib/live.ts` pattern) or fall back to `demoStory()` from
+  `lib/story-types.ts`. The story UI is self-contained — it uses mirrored types and
+  does not import from `@engine/*`.
 
 ## Commands
 
 - `npm run build` — `next build`: compiles + **type-checks** the app against the engine
-  (this is the UI's verification gate; it passes — 8 routes).
+  (this is the UI's verification gate).
 - `npm run dev` / `npm start` — dev / production server.
 
 ## Layout
 
-- `app/` — App Router routes (server components by default; one client component).
-- `components/` — shared UI (`InsightList`, `ScenarioEstimator`).
-- `lib/` — `demo.ts` fixtures.
+- `app/` — App Router routes (server components by default; client islands where needed).
+- `components/` — shared UI (`InsightList`, `ScenarioEstimator`, `story/*`).
+- `lib/` — `demo.ts` engine fixtures, `live.ts` live digest reader,
+  `story-types.ts` mirrored StoryPageData types + `demoStory()`,
+  `story-data.ts` SQLite reader for StoryPage rows.
 
 Build artifacts (`.next/`), `node_modules/`, and `next-env.d.ts` are gitignored.
