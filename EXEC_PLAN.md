@@ -73,6 +73,17 @@ prefixes break PTY allocation). agy via
   any session can resume from them.
 
 ## Status log
+- **Jul 3 (~01:00) — llama death #3 + launchd error-5 state.** Server exited
+  GRACEFULLY again ("cleaning up before exit" — something is stopping it; cause
+  still unknown) and the agent unloaded. Worse: `launchctl bootstrap` now fails
+  persistently with error 5 (I/O) even after bootout+enable — a corrupted service
+  record. WORKAROUND: llama-server now runs as a detached granted-shell process
+  (same pattern as the scheduler). BACKLOG: (a) watchdog direct-spawn fallback when
+  bootstrap errors; (b) root-cause the graceful exits (suspect: some system agent
+  reaping GUI-domain jobs; revisit with fresh eyes / ask Yash if any cleanup tool
+  runs nightly). AUTONOMY TESTS ARMED: digest row for 2026-07-03 cleared → daemon
+  must self-generate in the 05:00 window; AVGO requeued → daemon idle-drain runs it
+  unattended (already proved pickup-within-one-tick before the llama outage).
 - **Jul 3 (night) — daemon TCC incident.** The launchd scheduler agent hung forever
   in `open()` at module load (0.05s CPU, zero output): **macOS TCC blocks launchd
   agents from reading ~/Desktop**, where this repo lives; shell runs work because
