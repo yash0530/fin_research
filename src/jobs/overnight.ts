@@ -23,6 +23,7 @@ import {
   insertJobRun,
 } from "../db/queries";
 import { synthesize, type Severity } from "../research/synthesize";
+import { buildMarketInputs } from "../research/market-inputs";
 
 const DAY_MS = 86_400_000;
 
@@ -79,13 +80,24 @@ export async function runDigestJob(db: SqlDb, opts: DigestJobOpts = {}): Promise
     message: e.message,
     firedAt: e.firedAt,
   }));
-  const catalysts = upcomingCatalysts(db, asOf, 7);
+  // Catalyst window is 14d (donor parity): the 7d window was just short of the Q2
+  // earnings cluster, so the whole catalysts family went silent — see market-inputs
+  // + synthesize (T.catalystWindowDays). synthesize re-filters to the same horizon.
+  const catalysts = upcomingCatalysts(db, asOf, 14);
   const failedJobRuns = failedJobRunsSince(db, 1);
+  // Market-derived inputs (breadth/movers/pulses/divergence/credit/data-health).
+  const market = buildMarketInputs(db, asOf);
+  // Merge failed-job health onto the market-derived data-health (age + stale count).
+  const dataHealth = {
+    ...(market.dataHealth ?? {}),
+    ...(failedJobRuns.length ? { failedJobRuns } : {}),
+  };
   const digest = synthesize({
     asOf,
+    ...market,
     ...(ruleEvents.length ? { ruleEvents } : {}),
     ...(catalysts.length ? { catalysts } : {}),
-    ...(failedJobRuns.length ? { dataHealth: { failedJobRuns } } : {}),
+    ...(Object.keys(dataHealth).length ? { dataHealth } : {}),
   });
   saveDigest(db, { d: digest.asOf, dataJson: JSON.stringify(digest) });
   return `digest ${digest.asOf}: ${digest.insights.length} insights — "${digest.headline}"`;

@@ -31,8 +31,12 @@ injected dependencies → fully tested with fakes (no network).
   deduped by (kind, symbol, d). Catch-per-item.
 - `overnight.ts` — the morning chain `prices-heal → stats → news → earnings → rules →
   digest` as a `runChain` (one JobRun row per step). `runPricesHealJob` (5-day chart
-  top-up, conc 6/300ms) and `runDigestJob` (assemble a deterministic SynthInput from the
-  DB → `synthesize` → `saveDigest`) are the two overnight-only step builders.
+  top-up, conc 6/300ms) and `runDigestJob` are the two overnight-only step builders.
+  `runDigestJob` assembles a deterministic `SynthInput` from the DB —
+  `buildMarketInputs` (breadth/movers/pulses/divergence/credit/data-health) merged with
+  recent `RuleEvent`s, upcoming catalysts (**14-day** window — the old 7d fell short of
+  the earnings cluster and silenced the family), and failed-job health — then
+  `synthesize` → `saveDigest`.
 
 ## Tests
 
@@ -45,4 +49,5 @@ fundamentals/edgar writes + BackfillProgress, `parseCompanyTickers`, and the per
 window math.
 `jobs.test.ts` — stats (COALESCE, never-crash), news (RSS parse, dedupe, catch-per-query),
 earnings (upsert dedupe), the overnight order + failure-resilience + one-JobRun-per-step,
-and `runPricesHealJob` / `runDigestJob`.
+`runPricesHealJob` / `runDigestJob`, and the catalyst-window regression (a near-term
+earnings cluster the old 7-day window missed now surfaces).

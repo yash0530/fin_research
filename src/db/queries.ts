@@ -530,3 +530,55 @@ export function symbolsWithCik(db: SqlDb): { symbol: string; cik: string }[] {
     .all() as { symbol: string; cik: string }[];
   return rows;
 }
+
+// ── Market-input reads (feed src/research/market-inputs.buildMarketInputs) ────
+//
+// Bulk/dated price reads the per-symbol `loadCloses` can't express (breadth needs
+// a whole-universe scan; credit needs date-aligned pairs; data-health needs the
+// latest bar per symbol). Callers despike the raw closes via ../lib/metrics — the
+// window here is intentionally raw+dated so the caller controls the hygiene pass.
+
+/** The newest price date in the book, or null when the Price table is empty. */
+export function maxPriceDate(db: SqlDb): string | null {
+  const row = db.prepare('SELECT MAX("d") AS d FROM "Price"').get() as { d: string | null } | undefined;
+  return row?.d ?? null;
+}
+
+/** Raw (symbol, d, close) rows on/after `sinceD`, ordered by symbol then date — the
+ *  caller groups per symbol and despikes. Window covers the widest metric (50-dma). */
+export function closesSince(db: SqlDb, sinceD: string): { symbol: string; d: string; close: number }[] {
+  return db
+    .prepare('SELECT "symbol","d","close" FROM "Price" WHERE "d">=? ORDER BY "symbol" ASC, "d" ASC')
+    .all(sinceD) as { symbol: string; d: string; close: number }[];
+}
+
+/** Latest bar date per symbol across ALL history — feeds the stale-price count
+ *  (a delisted straggler's last bar can predate any metric window). */
+export function latestBarDates(db: SqlDb): { symbol: string; d: string }[] {
+  return db
+    .prepare('SELECT "symbol", MAX("d") AS d FROM "Price" GROUP BY "symbol"')
+    .all() as { symbol: string; d: string }[];
+}
+
+/** The `n` most-recent distinct trading dates, newest first — the trading-day ruler
+ *  used to measure how many sessions a symbol's last bar lags the book. */
+export function recentTradingDates(db: SqlDb, n: number): string[] {
+  const rows = db
+    .prepare('SELECT DISTINCT "d" FROM "Price" ORDER BY "d" DESC LIMIT ?')
+    .all(Math.max(1, Math.floor(n))) as { d: string }[];
+  return rows.map((r) => r.d);
+}
+
+/** Active-ticker sector memberships tagged with each sector's taxonomy — drives the
+ *  gics_pulse / ai_pulse split and the ai_* divergence baskets. */
+export function activeSectorMemberships(db: SqlDb): { symbol: string; sectorCode: string; taxonomy: string }[] {
+  return db
+    .prepare(
+      'SELECT ts."symbol" AS symbol, ts."sectorCode" AS sectorCode, s."taxonomy" AS taxonomy ' +
+        'FROM "TickerSector" ts ' +
+        'JOIN "Ticker" t ON t."symbol"=ts."symbol" ' +
+        'JOIN "Sector" s ON s."code"=ts."sectorCode" ' +
+        'WHERE t."active"=1',
+    )
+    .all() as { symbol: string; sectorCode: string; taxonomy: string }[];
+}

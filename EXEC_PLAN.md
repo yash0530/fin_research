@@ -74,6 +74,19 @@ prefixes break PTY allocation). agy via
   any session can resume from them.
 
 ## Status log
+- **Jul 3 — LIVE DAY.** Backfills complete: **1,343,110 Price rows** (558/563,
+  2016→today, 412s), **389,499 EDGAR filings** (554/554, 0 errors, 107s),
+  **3,379 FundamentalsQuarter rows** (563/563, 0 errors — Yahoo free depth is only
+  ~6-8 quarters/symbol, deepening = backlog). First real overnight chain: 6/6 jobs,
+  54s — 962 news items, 126 catalysts, tripwire fired live (SNDK −25% warn), digest
+  2026-07-03 persisted. Found+specced: digest starvation (job feeds 3 of 9 SynthInput
+  families → kiro batch E). Kiro D landed (18-tool production registry, dossier job,
+  0003 migration, 316 tests). agy landed the flagship story UI (reference-faithful,
+  web build green) after one CLI timeout (split-scope relaunch worked; lesson in
+  scratch/agy/CLAUDE.md). Routing policy updated per owner (agy volume w/ opus-4.6→
+  flash fallback; kiro hard lane; CEO hardest+verification). **First live MU dossier
+  RUNNING.** 5 delisted Jan-CSV tickers persistently fail backfill — data_health will
+  surface; universe refresh = backlog.
 - **Jul 2 (am):** Wave 0 done except llama health confirm (service bootstrapped, model
   loading). Task board #1–#10 created. Market scan started (TradingAgents identified
   as closest OSS analogue — 80k★, bull/bear debate, structured outputs, local-model

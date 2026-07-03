@@ -74,18 +74,21 @@ describe("synthesize — credit / catalysts / data_health / ruleEvents families"
     expect(synthesize({ asOf: "2026-07-02", credit: { ratioChangePct: -2 } }).insights.some((i) => i.family === "credit")).toBe(false);
   });
 
-  it("surfaces only catalysts inside the next-7-day window", () => {
+  it("surfaces only catalysts inside the next-14-day window", () => {
     const d = synthesize({
       asOf: "2026-07-02",
       catalysts: [
         { d: "2026-07-04", kind: "deadline", title: "DOE reactor target" },
         { d: "2026-07-05", kind: "earnings", symbol: "VRT", title: "Vertiv Q2" },
+        // 12 days out — inside the widened window; the old 7d window silenced these,
+        // which is exactly how the live Q2 earnings cluster (nearest ~12d) went unseen.
+        { d: "2026-07-14", kind: "earnings", symbol: "TSM", title: "TSMC Q2" },
         { d: "2026-07-20", kind: "earnings", symbol: "MU", title: "too far out" },
         { d: "2026-06-30", kind: "past", title: "already happened" },
       ],
     });
     const cats = d.insights.filter((i) => i.family === "catalysts");
-    expect(cats).toHaveLength(2);
+    expect(cats).toHaveLength(3);
     for (const c of cats) expect(c.evidence).toContain("catalyst dated");
   });
 

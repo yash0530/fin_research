@@ -64,7 +64,9 @@ const SEVERITY_RANK: Record<Severity, number> = { critical: 0, warn: 1, info: 2 
 const T = {
   creditStress: -5, // HYG/IEF 30d ≤ this → financing-stress warn (matches credit_proxy rule)
   creditSevere: -10, // ≤ this → escalate to critical
-  catalystWindowDays: 7, // dated catalysts within this many days of asOf → surfaced
+  catalystWindowDays: 14, // dated catalysts within this many days of asOf → surfaced
+  // (14d = donor parity; the old 7d window fell just short of the Q2 earnings cluster,
+  //  silencing the whole catalysts family — see runDigestJob's matching window)
   staleDays: 3, // price age > this → data-health warn
 };
 

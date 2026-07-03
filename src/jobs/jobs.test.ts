@@ -225,4 +225,35 @@ describe("runDigestJob", () => {
     expect(detail).toMatch(/digest 2026-07-02/);
     expect(countRows(db, "Digest")).toBe(1);
   });
+
+  // Regression: reproduce the live shape that silenced the catalysts family — a
+  // cluster of `earnings` catalysts ~12 days out (nearest was ASML at +12d) with
+  // asOf just before. The old 7-day digest window fell short of the cluster, so the
+  // family emitted nothing despite 126 rows in the book. The 14-day window fixes it.
+  it("surfaces the near-term earnings cluster the old 7-day window missed", async () => {
+    const db = migratedDb();
+    const asOf = "2026-07-02";
+    const earnings = [
+      { d: "2026-07-14", symbol: "ASML" }, // +12d — inside 14d, was outside 7d
+      { d: "2026-07-16", symbol: "TSM" }, // +14d — the window edge
+      { d: "2026-08-01", symbol: "MU" }, // +30d — still too far out
+    ];
+    for (const e of earnings) {
+      db.prepare('INSERT INTO "Catalyst" ("d","kind","symbol","title") VALUES (?,?,?,?)').run(
+        e.d,
+        "earnings",
+        e.symbol,
+        `${e.symbol} earnings`,
+      );
+    }
+    await runDigestJob(db, { asOf });
+    const row = db.prepare('SELECT "dataJson" FROM "Digest" WHERE "d"=?').get(asOf) as { dataJson: string };
+    const digest = JSON.parse(row.dataJson) as { insights: { family: string; text: string }[] };
+    const cats = digest.insights.filter((i) => i.family === "catalysts");
+    const syms = cats.map((c) => c.text);
+    expect(cats.length).toBeGreaterThan(0); // was 0 under the 7-day window
+    expect(syms.some((t) => t.includes("ASML"))).toBe(true);
+    expect(syms.some((t) => t.includes("TSM"))).toBe(true);
+    expect(syms.some((t) => t.includes("MU"))).toBe(false); // +30d stays out
+  });
 });
