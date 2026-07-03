@@ -49,6 +49,7 @@ import { resolveProfile, type AgentRole } from "../config/settings";
 import type { Provider } from "../analyst/types";
 import { runDossierJob, runStoryBackfillJob } from "../dossier/job";
 import { recoverStale } from "../dossier/queue";
+import { seedCampaign } from "../dossier/campaign";
 import { SqliteDossierStore } from "../db/sqlite-store";
 import type { LiveFetchers } from "../tools/factory";
 
@@ -324,6 +325,11 @@ const JOB_DEFS: JobDef[] = [
     describe: "Fill RecCall outcome horizons (1m/3m/6m/1y) from local despiked closes.",
     run: async (db) => ({ ok: true, detail: runOutcomesJob(db) }),
   },
+  {
+    name: "campaign",
+    describe: "Seed the dossier queue toward the calibration target (watchlist → AI lens → GICS leaders).",
+    run: async (db) => ({ ok: true, detail: seedCampaign(db, new SqliteDossierStore(db)) }),
+  },
 ];
 
 /** Runnable job entries with `db` bound in. Shared by the CLI and the scheduler. */
@@ -353,6 +359,10 @@ export async function drainDossierQueueLive(db: SqlDb, log: (msg: string) => voi
   const store = new SqliteDossierStore(db);
   const recovered = recoverStale(store);
   if (recovered > 0) log(`[scheduler] recovered ${recovered} stale dossier(s) → requeued`);
+  // Keep the queue stocked so the ledger grows toward calibration significance;
+  // seedCampaign self-limits to the backlog target so it never outruns the daemon.
+  const seed = seedCampaign(db, store);
+  if (!seed.includes("nothing added") && !seed.includes("backlog full")) log(`[scheduler] ${seed}`);
   const { ran } = await runDossierJob(db, undefined, {
     providerFor: liveProviderFor,
     live: liveFetchers(),

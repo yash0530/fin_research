@@ -65,7 +65,7 @@ export type DossierState = {
   memo?: MemoDelta;
   error?: string;
   droppedClaims?: number;
-  requestedBy?: "user" | "digest" | "discovery" | "screener";
+  requestedBy?: "user" | "digest" | "discovery" | "screener" | "campaign";
   startedAt?: number;
   updatedAt: number;
 };
