@@ -74,6 +74,16 @@ prefixes break PTY allocation). agy via
   any session can resume from them.
 
 ## Status log
+- **Jul 3 (night) — daemon TCC incident.** The launchd scheduler agent hung forever
+  in `open()` at module load (0.05s CPU, zero output): **macOS TCC blocks launchd
+  agents from reading ~/Desktop**, where this repo lives; shell runs work because
+  Terminal carries the Files-and-Folders grant (llama's agent is unaffected —
+  ~/Models isn't protected). Verified by stack sample (`open$NOCANCEL` under
+  StartExecution). WORKAROUND (active): the daemon runs as a detached background
+  process from a granted shell → `data/logs/scheduler.log` ticking. PERMANENT FIX
+  (needs Yash, GUI): either grant `/opt/homebrew/bin/node` Full Disk Access
+  (System Settings → Privacy & Security) and re-`bash deploy/install-launchd.sh`,
+  or move the repo out of ~/Desktop. → WELCOME_BACK item.
 - **Jul 3 — LIVE DAY.** Backfills complete: **1,343,110 Price rows** (558/563,
   2016→today, 412s), **389,499 EDGAR filings** (554/554, 0 errors, 107s),
   **3,379 FundamentalsQuarter rows** (563/563, 0 errors — Yahoo free depth is only
