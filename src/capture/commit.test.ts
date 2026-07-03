@@ -1,8 +1,12 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { createRequire } from "node:module";
 import type { SqlDb } from "../db/migrate";
+
+// node:sqlite via createRequire (vite-safe), matching the repo's other DB tests.
+const nodeRequire = createRequire(import.meta.url);
+const { DatabaseSync } = nodeRequire("node:sqlite") as typeof import("node:sqlite");
 import { applyMigrations } from "../db/migrate";
 import { insertCapture, setCaptureOutput, loadCapture, commitCapture } from "./commit";
 import type { CaptureItem } from "./parse";
