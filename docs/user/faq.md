@@ -1,63 +1,54 @@
 # FAQ
 
-## Safety & scope
+## Safety & Scope
 
-**Can ENGINE place trades?** No. There is no broker integration and there never will be.
-ENGINE produces research; you place any trades yourself. This is a hard, permanent
-boundary.
+**Can ENGINE place trades?**
+No. There is no broker integration and there never will be. ENGINE is strictly a research and decision-support tool. You must manually execute any trades in your own brokerage account. This is a permanent architectural boundary.
 
-**Is this financial advice?** No. It is a personal research tool. Every output is a
-computed synthesis or a model's reasoning over evidence — not a recommendation from a
-licensed advisor. You own every decision.
+**Is this financial advice?**
+No. ENGINE is a personal research tool. All output is the result of computed deterministic synthesis or a local model reasoning over evidence. It is not financial advice, and ENGINE's operators are not licensed advisors. You own 100% of your investment decisions.
 
-**Why does it keep sizing everything at 2%?** The calibration governor caps unproven
-conviction tiers at 2% until they earn a track record (≥5 resolved calls, ≥50%
-favorable). Early on, that's most things. It's the safety mechanism, working as intended —
-it makes a local model earn trust rather than assuming it.
+**Why does it keep sizing everything at 2%?**
+This is the calibration governor doing its job. Until a conviction tier has achieved a verified track record of **≥5 resolved calls** with a **≥50% favorable** resolution rate, it is capped at **2%** of capital. This prevents the model from deploying large sums based on unproven strategies.
 
-## Cost & model
+## Cost & Local Model
 
-**What does it cost to run?** Roughly **$0/month**. It uses your local Qwen 3.6 27B model
-and free data sources. A cloud provider exists only as a *connectivity* fallback (if the
-local server is down), never as a paid quality crutch.
+**What does it cost to run?**
+Roughly **$0/month**. ENGINE runs a local Qwen 3.6 27B model on your machine and utilizes free data sources. Paid cloud APIs are only configured as a backup connectivity fallback if your local model server is down.
 
-**Why local instead of a frontier cloud model?** Cost ($0), privacy (your research stays
-on your machine), and control. On the axes that matter here, the local model is strong;
-the governor is what guards against any single call being over-trusted.
+**How is the local model managed?**
+The local Qwen model is served via `llama-server` at `http://localhost:8000`. In macOS, it runs as a system daemon managed by launchd via the label `com.local.llamacpp`. A scheduler watchdog monitors the server and automatically restarts it if it goes down.
 
-**Can I add a second model (e.g. a small one for cheap tasks)?** Yes — it's a config
-change (point a role at a new provider profile). Note that two large models can't both be
-resident in 64 GB at once, so a second model runs at a smaller quant or is swapped in.
+**How do I troubleshoot or restart the local model?**
+- **Check Health:** Visit `http://localhost:8000/health` in your browser.
+- **Restart manually:**
+  ```bash
+  launchctl kickstart -k gui/$(id -u)/com.local.llamacpp
+  ```
+  *(Or unload/load the plist from `~/Library/LaunchAgents/com.local.llamacpp.plist`)*
+- **Watchdog:** If the server crashes, the scheduler watchdog will detect it and auto-restart it on its next poll cycle.
 
-## The output
+**Can I run a second model?**
+Yes. You can configure a second model by defining a new profile in `PROVIDER_PROFILES` and updating your role settings. However, note that a standard machine (e.g. 64 GB RAM) cannot hold two large Q8 models resident in memory simultaneously. The second model must be run at a smaller quantization size, on a separate port, or swapped on demand.
 
-**Why did a claim disappear from a dossier?** Because it cited no evidence. Claims that
-don't reference a real tool result (or a `paste:{id}`) are dropped before you see the
-verdict — "no naked numbers."
+## Data & Output
 
-**A dossier said HOLD/LOW with an error note — what happened?** The model returned
-malformed output on the final judgment and the engine used its safe fallback rather than
-crash. Re-run it; a single bad response costs one retry, not the whole report.
+**Why did a specific claim disappear from my dossier?**
+Because of the "no naked numbers" rule. Every claim in a dossier must be traced to a specific tool or a paste evidence item (e.g., `paste:{id}`). If a model makes a claim or references a number that does not carry explicit, validated provenance, it is dropped from the report before it is displayed.
 
-**How long does a dossier take?** ~20–45 minutes on the local model. Accuracy over speed
-is the explicit trade-off.
+**My dossier completed but says HOLD/LOW with an error note — why?**
+If the local model fails to output valid JSON for its final judgment, the engine does not crash. It falls back to a safe `HOLD/LOW` verdict and notes the parsing error. You can resume or re-run the dossier to retry the final step.
 
-## Operations
+**How long do dossiers take to run?**
+Expect **~20–45 minutes** per dossier on the local Qwen model. ENGINE prioritizes depth and correctness over speed.
 
-**When is the morning digest ready?** ~6 AM if the laptop was on overnight; otherwise hit
-**Run morning** when you open it. The digest's data is computed immediately; the written
-narrative fills in once the local model is reachable.
+**Will running a dossier delay my morning digest?**
+No. While there is only one local model (meaning LLM requests are serialized), the scheduled morning digest job always takes priority. Dossiers are queued and run in the background when no higher-priority jobs are active.
 
-**Will running dossiers delay tomorrow's digest?** No. There's one local model, so work is
-serialized — but the morning digest always has priority; dossiers drain in the background
-when no scheduled job is running.
+**A ticker shows a 90% single-day crash in the charts — is it real?**
+It is almost certainly a bad data tick. To prevent bad data from triggering false signals, every price read path is **despiked** using a rolling median. Wild outliers are replaced, keeping your charts and metrics clean.
 
-**Something looks like a 90% one-day crash — is that real?** Almost certainly a bad data
-tick. Every price read path is *despiked* (a value wildly off its local median is
-replaced), so these are filtered out of signals rather than presented as real moves.
+## Developers
 
-## For developers
-
-See [`../dev_guide.md`](../dev_guide.md) for architecture, invariants, and how to add
-tools/agents/providers. Run `npm run verify` before committing. The master task list is
-[`../../TASKS.md`](../../TASKS.md).
+**Where is the developer documentation?**
+For architecture details, invariants, and instructions on adding tools or agents, see the [Developer Guide](../dev_guide.md). The master checklist of completed and pending items is in [`TASKS.md`](../../TASKS.md).

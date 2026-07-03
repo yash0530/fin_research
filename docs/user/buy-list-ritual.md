@@ -1,59 +1,52 @@
 # The Monthly Buy-List Ritual
 
-Once a month you deploy $2,500. This is the routine that decides how, and — just as
-important — learns from how those decisions turn out.
+The **Buy-List Ritual** occurs on the 1st of each month to allocate a fixed **$2,500** of capital. It translates active BUY recommendations into a concrete investment plan, enforces sizing guardrails, and tracks outcomes to calibrate model sizing over time.
 
-## The ritual (1st of the month)
+> [!IMPORTANT]
+> **UI In-Progress Warning**: The web interface for `/buylist` and the automated memo apply flow are currently in-progress and under active development. You can review draft allocations in the UI, but actual trades must be placed manually in your own brokerage account.
 
-1. **Draft.** ENGINE gathers every BUY verdict from the last ~45 days, ranks them by
-   conviction (then confidence), sizes each one, and allocates your **$2,500**.
-2. **Review & edit.** You can exclude anything, adjust, and see the governor's reasoning
-   on each line.
-3. **Finalize.** Lock the list.
-4. **Log actual buys.** As you place trades in your own brokerage (ENGINE never touches
-   it), record what you actually bought (amount, price, date). This also writes a journal
-   entry.
+## The Monthly Ritual Sequence (1st of the month)
 
-## How sizing works
+1. **Draft** — ENGINE gathers all active `BUY` verdicts generated over the last **~45 days**, ranks them by conviction (then confidence), and sizes each name.
+2. **Review & Edit** — You inspect the drafted allocation, view the governor's sizing constraints, and can manually exclude names or adjust amounts.
+3. **Finalize** — Lock the monthly plan.
+4. **Log Actual Buys** — After executing trades manually on your brokerage, record the actual purchased quantities, execution prices, and dates in ENGINE. This writes a corresponding journal entry to document your decision-making.
 
-For each candidate, the planned dollars come from `min(judge size, governed size)`:
+## Sizing Math & Rounding Rules
 
-- **Judge size** — what the dossier's judge proposed (0–15%).
-- **Governed size** — what the calibration governor allows for that conviction tier *right
-  now* (see below).
+For each ticker, the allocated amount is:
+$$\text{Allocated Dollars} = \$2,500 \times \min(\text{Judge Size}, \text{Governed Size})$$
 
-The engine allocates those percentages across your $2,500, rounds each to a **$100
-minimum lot**, and puts the **residual in cash**. If a position rounds below $100, it's
-skipped (shown, not silently dropped).
+- **Judge Size** — The raw position size suggested by the dossier's Judge (bounded between 0% and 15%).
+- **Governed Size** — The size cap permitted by the calibration governor for the candidate's conviction tier (capped at 2% initially).
 
-### Worked example
-Two proven-tier BUYs sized 12% and 8% of a $2,500 month → **$300** and **$200**, leaving
-**$2,000** in cash. A LOW-conviction BUY capped to 2% → $50 → below the $100 lot → skipped.
+### Rounding to Lots
+To prevent micro-positions, the engine applies these rules:
+- All allocations are rounded to a **$100 minimum lot**.
+- Any remaining unallocated amounts are swept into cash.
+- If a governed allocation falls below $100, the position is **skipped** (it is displayed on the UI as skipped, not silently omitted).
 
-## The calibration governor (why sizes start small)
+### Worked Example
+Suppose you have three BUY candidates in a $2,500 month:
+- **Stock A** (Proven Tier, 12% size): $2,500 × 12% = $300 (allocates **$300**)
+- **Stock B** (Proven Tier, 8% size): $2,500 × 8% = $200 (allocates **$200**)
+- **Stock C** (Unproven Tier, capped at 2% governed size): $2,500 × 2% = $50 (falls below the $100 minimum lot → **skipped**)
+- **Cash Residual**: $2,000 is kept in cash.
 
-This is the discipline that makes a local model trustworthy over time:
+## The Calibration Governor
 
-- **Conservative cap = 2%.** Until a conviction tier proves itself, every call in it is
-  capped at 2% of capital.
-- **Earning the lift:** a tier's cap lifts only after **≥5 resolved calls** with a
-  **≥50% favorable** rate.
-- **Favorable** is judged per action, using the 3-month outcome (or 1-month if that's all
-  that's resolved): a BUY is favorable if it's up; a TRIM/AVOID if it's down; a HOLD if it
-  stayed within ±2.5%.
+The calibration governor prevents the model from betting heavily on unproven strategies.
 
-So for the first few months, expect a conservative, near-evenly-capped list. That is the
-system working as designed — it is refusing to bet big on an unproven track record. As
-your resolved calls accumulate, tiers that demonstrate an edge get to size up.
+- **Initial Conservative Cap**: Every conviction tier (HIGH, MEDIUM, LOW) starts capped at **2%** of capital.
+- **Earning a Cap Lift**: A conviction tier's cap will only be increased after achieving **≥5 resolved calls** with a **≥50% favorable** resolution rate.
+- **Favorable Outcomes**:
+  - **BUY**: Favorable if the stock is up at the resolution horizon.
+  - **TRIM/AVOID**: Favorable if the stock is down at the resolution horizon.
+  - **HOLD**: Favorable if the stock remains within a **±2.5%** range of its starting price.
+  - Resolution is evaluated using the 3-month performance horizon (falling back to 1-month if only 1 month of data is resolved).
 
-## Outcomes & the track record
+## Track Record & Outcomes
 
-A weekly job fills in how past calls did, reading returns at the 1m/3m/6m/1y horizons
-from your **local price history** (no network). The calibration view then shows the
-favorable rate by conviction tier, by action, and **by model** — so if you later add a
-second local model, you can see which brain is actually earning its size.
-
-## What this ritual is *not*
-
-It is not execution. ENGINE produces a plan; you decide and place the trades. There is no
-broker integration and there never will be.
+A weekly job runs to update the performance of past calls at 1-month, 3-month, 6-month, and 1-year horizons.
+- **Data Source**: This job reads prices solely from your **local price history** (no network requests).
+- **Attribution**: Outcomes are tracked by conviction tier, by action, and **by model profile**. If you configure multiple local models, you can compare their long-term track records to see which brain earns larger governed size caps.

@@ -1,59 +1,45 @@
 # Dossiers — the deep dive
 
-A **dossier** is a full research report on one stock, produced by a structured debate.
-It's what you run before putting money behind a name.
+A **dossier** is a deep-dive research report on a single stock, generated via a structured multi-agent debate. Run a dossier to obtain a conviction-ranked trade plan and position sizing before committing real capital.
 
-## What happens inside
+## How to Queue and Run a Dossier
 
-When you queue a dossier, the engine runs this pipeline on your local model:
+To run a dossier manually from the CLI:
+```bash
+npm run job -- dossier --symbols=MU
+```
 
-1. **Classify** — pick the right sector lens (semis, SaaS, banks, biotech, energy, REITs,
-   consumer, or generic). Deterministic; no model call.
-2. **Plan → gather** — a planner chooses which tools to run (fundamentals, QoE forensics,
-   technicals, DCF, peers, news…), up to 4 rounds, building an **evidence ledger**.
-3. **Bull** argues the strongest case for.
-4. **Bear** attacks the bull and makes an independent case against.
-5. **Rebuttal** — the bull answers the bear.
-6. **Judge** weighs all of it and issues a structured **verdict**: BUY / HOLD / TRIM /
-   AVOID, a conviction (HIGH/MEDIUM/LOW), ≥3 falsifiability conditions ("what would change
-   my mind"), a target range, and a trade plan with a position size.
-7. **Critique** — a risk officer reviews the verdict; if it's overconfident it can trigger
-   one revised judgment.
-8. **Memo** — a Living Memo update is *staged* for you to apply (never auto-applied).
+Dossier runs can also be triggered:
+- **From the Web UI**: Manually queued from the morning digest or individual ticker cockpit pages.
+- **Auto-queued**: Up to 2/day when the overnight digest detects a critical tripwire or extreme sector divergence.
+*Note:* Duplicated dossier requests for the same symbol within a 14-day window are automatically de-duplicated and skipped.
 
-Expect **~20–45 minutes** per dossier on the local model. That's fine — depth is the point.
+## The Dossier Pipeline
 
-## Reading the verdict
+When a dossier runs, the engine executes these stages sequentially on your local Qwen model. It prints stage progress to the console. Expect **~20–45 minutes** per run.
 
-- **Recommendation + conviction** — the headline. HIGH conviction means the bull is
-  strong *and* the bear was answered.
-- **What would change my mind** — the most useful part. These are the monitorable,
-  falsifiable conditions. If one trips later, revisit.
-- **Trade plan** — entry logic, stop, targets, and a **position size**. Note: the size you
-  see is *governed* (see below), not the raw model suggestion.
-- **Evidence** — every claim in the verdict cites a tool. Uncited claims were **dropped**
-  before you ever saw them.
+1. **Classify** — Selects the appropriate sector lens (semis, SaaS, banks, biotech, energy, REITs, consumer, or generic). This step is entirely deterministic; no model call is made.
+2. **Plan & Gather** — A planner agent chooses which quantitative and qualitative tools to execute (such as fundamentals, QoE forensics, technicals, DCF, peers, and news). It iterates for up to 4 rounds to compile a structured **evidence ledger**.
+3. **Bull** — Argues the strongest possible case for the stock using the evidence ledger.
+4. **Bear** — Attacks the bull's arguments and presents an independent case against.
+5. **Rebuttal** — The bull agent responds to the bear's points.
+6. **Judge** — Weighs the debate transcript and issues a structured **verdict**: BUY, HOLD, TRIM, or AVOID, alongside a conviction tier (HIGH, MEDIUM, LOW), a target range, a trade plan, and ≥3 falsifiability conditions ("what would change my mind").
+7. **Critique** — A risk officer agent critiques the judgment; if it identifies overconfidence, it triggers a single revised judgment.
+8. **Memo Stage** — A Living Memo update is staged for you (it is never auto-applied; you must explicitly apply it).
 
-## The size you see is governed
+## Robustness & Error Recovery
 
-The judge might suggest 8%. You'll often see **2%**. That's the **calibration governor**
-doing its job: until a conviction tier has a real, favorable track record (≥5 resolved
-calls, ≥50% favorable), its size is capped at 2%. The dossier shows the reason. This is
-the guardrail that lets a local model earn trust over time instead of being trusted
-by assumption. See [the buy-list ritual](buy-list-ritual.md).
+- **Resumable**: If a dossier run is interrupted (e.g., laptop sleep, server restart), re-running the command resumes from the last completed stage. It will not re-run stages (like the Bull/Bear debates) that are already saved.
+- **Safe Fallbacks**: If the local model returns malformed JSON on the final judgment, the engine does not crash. It automatically falls back to a safe `HOLD` recommendation with `LOW` conviction, accompanied by an error note detailing what happened.
+- **Bounded Budgets**: A strict wall-clock and LLM call-count budget stops runaway loops. If a budget is exceeded, the run terminates safely and outputs a partial transcript rather than hanging indefinitely.
 
-## Robustness you can rely on
+## Understanding the Verdict & Sizing
 
-- **It never crashes.** If the model returns something malformed on the final judgment,
-  you get a safe HOLD/LOW verdict noting the error — not a lost run.
-- **It resumes.** If a run is interrupted, re-running it reuses the stages already done
-  (it won't re-argue the bull and bear) and continues from where it stopped.
-- **It's bounded.** A wall-clock and call-count budget stops a runaway; you get a partial
-  transcript rather than an endless run.
+Every claim inside a final verdict must cite a tool from the evidence ledger. Any uncited claims or "naked numbers" proposed by the model are automatically dropped before the user sees the output.
 
-## Where dossiers come from
+### The Calibration Governor
 
-- **You**, from the digest or a ticker page.
-- **Auto-queued** (up to 2/day) when the digest surfaces a critical tripwire or an extreme
-  divergence.
-- Duplicates within ~14 days are de-duped automatically.
+Although the dossier's Judge may propose a large position size (e.g., 8%), the actual size you see on the dashboard is governed:
+- **2% Conservative Cap**: Until a conviction tier establishes a verified track record, all recommendations in that tier are capped at **2%** of capital.
+- **Lifting the Cap**: A tier's cap is lifted only after it achieves **≥5 resolved calls** with a **≥50% favorable** resolution rate.
+This governor is a core safety mechanism designed to ensure the local model earns your trust over time through real outcomes. It is deliberate and cannot be overridden. See [The Monthly Buy-List Ritual](buy-list-ritual.md) for details.
