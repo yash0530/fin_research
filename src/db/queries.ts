@@ -218,3 +218,315 @@ export function recentRuleEvents(
     .prepare(`SELECT "id","ruleId","firedAt","severity","message","acked" FROM "RuleEvent"${where} ORDER BY "firedAt" DESC, "id" DESC${limit}`)
     .all(...params) as RuleEventRow[];
 }
+
+// ── Live-data layer helpers (Phase 2: jobs + backfill persistence) ───────────
+//
+// These back the resumable backfill tasks (BackfillProgress) and the overnight
+// jobs (stats/news/earnings/rules/digest). All writes are additive + idempotent
+// (INSERT OR IGNORE / COALESCE upserts) so a re-run never corrupts prior data.
+
+const num2 = (v: number | null | undefined): number | null =>
+  typeof v === "number" && Number.isFinite(v) ? v : null;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
+// ── BackfillProgress (resumability) ──────────────────────────────────────────
+
+/** True when this (task,symbol) was completed on a prior run. */
+export function backfillIsDone(db: SqlDb, task: string, symbol: string): boolean {
+  const row = db
+    .prepare('SELECT "status" FROM "BackfillProgress" WHERE "task"=? AND "symbol"=?')
+    .get(task, symbol.toUpperCase()) as { status: string } | undefined;
+  return row?.status === "done";
+}
+
+/** Upsert a per-symbol backfill status (pending | done | error). */
+export function markBackfill(
+  db: SqlDb,
+  task: string,
+  symbol: string,
+  status: "pending" | "done" | "error",
+  rows = 0,
+): void {
+  db.prepare(
+    'INSERT INTO "BackfillProgress" ("task","symbol","status","rows","updatedAt") VALUES (?,?,?,?,?) ' +
+      "ON CONFLICT(\"task\",\"symbol\") DO UPDATE SET status=excluded.status, rows=excluded.rows, updatedAt=excluded.updatedAt",
+  ).run(task, symbol.toUpperCase(), status, rows, new Date().toISOString());
+}
+
+// ── FundamentalsQuarter ──────────────────────────────────────────────────────
+
+export type FundamentalsQuarterRow = {
+  symbol: string;
+  periodEnd: string; // YYYY-MM-DD
+  revenue?: number | null;
+  grossProfit?: number | null;
+  operatingIncome?: number | null;
+  netIncome?: number | null;
+  fcf?: number | null;
+  capex?: number | null;
+  totalAssets?: number | null;
+  totalDebt?: number | null;
+  cash?: number | null;
+  equity?: number | null;
+  sharesOut?: number | null;
+};
+
+/** Chunked INSERT OR IGNORE into FundamentalsQuarter (PK symbol+periodEnd). */
+export function insertFundamentals(db: SqlDb, rows: FundamentalsQuarterRow[], chunkSize = 500): number {
+  const stmt = db.prepare(
+    'INSERT OR IGNORE INTO "FundamentalsQuarter" ' +
+      '("symbol","periodEnd","revenue","grossProfit","operatingIncome","netIncome","fcf","capex","totalAssets","totalDebt","cash","equity","sharesOut") ' +
+      "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+  );
+  for (const part of chunk(rows, chunkSize)) {
+    db.exec("BEGIN");
+    try {
+      for (const r of part) {
+        stmt.run(
+          r.symbol.toUpperCase(),
+          r.periodEnd,
+          num2(r.revenue),
+          num2(r.grossProfit),
+          num2(r.operatingIncome),
+          num2(r.netIncome),
+          num2(r.fcf),
+          num2(r.capex),
+          num2(r.totalAssets),
+          num2(r.totalDebt),
+          num2(r.cash),
+          num2(r.equity),
+          num2(r.sharesOut),
+        );
+      }
+      db.exec("COMMIT");
+    } catch (e) {
+      db.exec("ROLLBACK");
+      throw e;
+    }
+  }
+  return rows.length;
+}
+
+// ── EdgarFiling ──────────────────────────────────────────────────────────────
+
+export type EdgarFilingInsert = {
+  accessionNo: string;
+  symbol: string;
+  cik: string;
+  form: string;
+  filedAt: string; // YYYY-MM-DD
+  primaryDoc?: string | null;
+};
+
+/** Chunked INSERT OR IGNORE into EdgarFiling (PK accessionNo). */
+export function insertEdgarFilings(db: SqlDb, rows: EdgarFilingInsert[], chunkSize = 500): number {
+  const stmt = db.prepare(
+    'INSERT OR IGNORE INTO "EdgarFiling" ("accessionNo","symbol","cik","form","filedAt","primaryDoc") VALUES (?,?,?,?,?,?)',
+  );
+  for (const part of chunk(rows, chunkSize)) {
+    db.exec("BEGIN");
+    try {
+      for (const r of part) {
+        stmt.run(r.accessionNo, r.symbol.toUpperCase(), r.cik, r.form, r.filedAt, r.primaryDoc ?? null);
+      }
+      db.exec("COMMIT");
+    } catch (e) {
+      db.exec("ROLLBACK");
+      throw e;
+    }
+  }
+  return rows.length;
+}
+
+/** Set a ticker's CIK (from company_tickers.json). No-op if the ticker is absent. */
+export function setTickerCik(db: SqlDb, symbol: string, cik: string): void {
+  db.prepare('UPDATE "Ticker" SET "cik"=? WHERE "symbol"=?').run(cik, symbol.toUpperCase());
+}
+
+// ── Ticker stats (stats job) ─────────────────────────────────────────────────
+
+export type TickerStatUpdate = {
+  symbol: string;
+  price?: number | null;
+  marketCap?: number | null;
+  forwardPE?: number | null;
+  trailingPE?: number | null;
+  profitMargin?: number | null;
+  revenueGrowth?: number | null;
+  fiftyTwoWeekHigh?: number | null;
+  fiftyTwoWeekLow?: number | null;
+  beta?: number | null;
+  eps?: number | null;
+  yearChange?: number | null;
+};
+
+/**
+ * Update a ticker's stat columns + statsUpdatedAt. COALESCE keeps the prior value
+ * when a fresh fetch returns null (a transient miss never wipes good data).
+ * Returns the number of rows changed (0 if the ticker is not present).
+ */
+export function upsertTickerStats(db: SqlDb, s: TickerStatUpdate): number {
+  const info = db
+    .prepare(
+      'UPDATE "Ticker" SET ' +
+        '"marketCap"=COALESCE(?,"marketCap"), "forwardPE"=COALESCE(?,"forwardPE"), ' +
+        '"trailingPE"=COALESCE(?,"trailingPE"), "profitMargin"=COALESCE(?,"profitMargin"), ' +
+        '"revenueGrowth"=COALESCE(?,"revenueGrowth"), "fiftyTwoWeekHigh"=COALESCE(?,"fiftyTwoWeekHigh"), ' +
+        '"fiftyTwoWeekLow"=COALESCE(?,"fiftyTwoWeekLow"), "beta"=COALESCE(?,"beta"), ' +
+        '"eps"=COALESCE(?,"eps"), "yearChange"=COALESCE(?,"yearChange"), "statsUpdatedAt"=? WHERE "symbol"=?',
+    )
+    .run(
+      num2(s.marketCap),
+      num2(s.forwardPE),
+      num2(s.trailingPE),
+      num2(s.profitMargin),
+      num2(s.revenueGrowth),
+      num2(s.fiftyTwoWeekHigh),
+      num2(s.fiftyTwoWeekLow),
+      num2(s.beta),
+      num2(s.eps),
+      num2(s.yearChange),
+      new Date().toISOString(),
+      s.symbol.toUpperCase(),
+    ) as { changes: number | bigint };
+  return Number(info.changes ?? 0);
+}
+
+// ── NewsItem (news job) ──────────────────────────────────────────────────────
+
+export type NewsItemRow = {
+  urlHash: string;
+  url: string;
+  title: string;
+  snippet?: string | null;
+  source?: string | null;
+  sectorCode?: string | null;
+  symbol?: string | null;
+  publishedAt?: string | null; // ISO
+};
+
+/** Chunked INSERT OR IGNORE into NewsItem (PK urlHash → dedupe). Returns attempted. */
+export function insertNewsItems(db: SqlDb, items: NewsItemRow[], chunkSize = 500): number {
+  const stmt = db.prepare(
+    'INSERT OR IGNORE INTO "NewsItem" ("urlHash","url","title","snippet","source","sectorCode","symbol","publishedAt","fetchedAt") VALUES (?,?,?,?,?,?,?,?,?)',
+  );
+  const now = new Date().toISOString();
+  for (const part of chunk(items, chunkSize)) {
+    db.exec("BEGIN");
+    try {
+      for (const it of part) {
+        stmt.run(
+          it.urlHash,
+          it.url,
+          it.title,
+          it.snippet ?? null,
+          it.source ?? null,
+          it.sectorCode ?? null,
+          it.symbol ? it.symbol.toUpperCase() : null,
+          it.publishedAt ?? null,
+          now,
+        );
+      }
+      db.exec("COMMIT");
+    } catch (e) {
+      db.exec("ROLLBACK");
+      throw e;
+    }
+  }
+  return items.length;
+}
+
+// ── Catalyst (earnings job) ──────────────────────────────────────────────────
+
+export type CatalystRow = {
+  d?: string | null;
+  kind: string;
+  sectorCode?: string | null;
+  symbol?: string | null;
+  title: string;
+  note?: string | null;
+};
+
+/**
+ * Insert a catalyst unless an equivalent (kind, symbol, d) already exists — dedupe
+ * so re-running the earnings job never grows the table. Returns true if inserted.
+ */
+export function upsertCatalyst(db: SqlDb, c: CatalystRow): boolean {
+  const symbol = c.symbol ? c.symbol.toUpperCase() : null;
+  const existing = db
+    .prepare('SELECT "id" FROM "Catalyst" WHERE "kind"=? AND "symbol" IS ? AND "d" IS ?')
+    .get(c.kind, symbol, c.d ?? null) as { id: number } | undefined;
+  if (existing) return false;
+  db.prepare(
+    'INSERT INTO "Catalyst" ("d","kind","sectorCode","symbol","title","note") VALUES (?,?,?,?,?,?)',
+  ).run(c.d ?? null, c.kind, c.sectorCode ?? null, symbol, c.title, c.note ?? null);
+  return true;
+}
+
+/** Dated catalysts within [asOf, asOf+days] — feeds the digest's catalyst family. */
+export function upcomingCatalysts(
+  db: SqlDb,
+  asOf: string,
+  days: number,
+): { d: string; kind: string; symbol?: string; sectorCode?: string; title: string }[] {
+  const hi = new Date(new Date(`${asOf}T00:00:00Z`).getTime() + days * 86_400_000).toISOString().slice(0, 10);
+  const rows = db
+    .prepare(
+      'SELECT "d","kind","symbol","sectorCode","title" FROM "Catalyst" WHERE "d" IS NOT NULL AND "d">=? AND "d"<=? ORDER BY "d" ASC',
+    )
+    .all(asOf, hi) as { d: string; kind: string; symbol: string | null; sectorCode: string | null; title: string }[];
+  return rows.map((r) => ({
+    d: r.d,
+    kind: r.kind,
+    title: r.title,
+    ...(r.symbol ? { symbol: r.symbol } : {}),
+    ...(r.sectorCode ? { sectorCode: r.sectorCode } : {}),
+  }));
+}
+
+// ── JobRun (one row per overnight step) ──────────────────────────────────────
+
+export function insertJobRun(db: SqlDb, r: { job: string; ok: boolean; detail?: string | null }): number {
+  const info = db
+    .prepare('INSERT INTO "JobRun" ("job","ok","detail") VALUES (?,?,?)')
+    .run(r.job, r.ok ? 1 : 0, r.detail ?? null) as { lastInsertRowid: number | bigint };
+  return Number(info.lastInsertRowid);
+}
+
+/** Job names that failed since `sinceDays` ago — feeds the digest data-health family. */
+export function failedJobRunsSince(db: SqlDb, sinceDays = 1): string[] {
+  const lo = new Date(Date.now() - sinceDays * 86_400_000).toISOString();
+  const rows = db
+    .prepare('SELECT DISTINCT "job" FROM "JobRun" WHERE "ok"=0 AND "startedAt">=? ORDER BY "job"')
+    .all(lo) as { job: string }[];
+  return rows.map((r) => r.job);
+}
+
+// ── Universe selectors (which symbols a job runs over) ───────────────────────
+
+export function activeSymbols(db: SqlDb): string[] {
+  const rows = db
+    .prepare('SELECT "symbol" FROM "Ticker" WHERE "active"=1 ORDER BY "symbol"')
+    .all() as { symbol: string }[];
+  return rows.map((r) => r.symbol);
+}
+
+export function watchlistSymbols(db: SqlDb): string[] {
+  const rows = db
+    .prepare('SELECT "symbol" FROM "Ticker" WHERE "watchlisted"=1 ORDER BY "symbol"')
+    .all() as { symbol: string }[];
+  return rows.map((r) => r.symbol);
+}
+
+/** Symbols that carry a CIK (ready for the EDGAR submissions backfill). */
+export function symbolsWithCik(db: SqlDb): { symbol: string; cik: string }[] {
+  const rows = db
+    .prepare('SELECT "symbol","cik" FROM "Ticker" WHERE "cik" IS NOT NULL ORDER BY "symbol"')
+    .all() as { symbol: string; cik: string }[];
+  return rows;
+}

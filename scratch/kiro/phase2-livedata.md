@@ -54,3 +54,90 @@
 ## Wrap-up
 Append `## Result`: files, test delta, and a short "live-run playbook" (exact commands
 the CEO runs for backfill + overnight, expected durations/row counts). Do NOT commit.
+
+## Result
+
+Live data layer implemented. `npm run verify` is green (typecheck clean, **296 tests
+pass across 47 files**, `✓ CLAUDE.md present in all 42 directories`) and
+`npm run job -- --list` prints the 9-job registry with no DB/network. Nothing committed.
+
+### Files
+
+New:
+- `src/net/yahoo2.ts` (+ `yahoo2.test.ts`) — yahoo-finance2 thin adapter: `fetchDailyBars`,
+  `fetchQuoteBatch` (≤100/call, chunked), `fetchQuarterlyFundamentals`, `fetchTickerStats`,
+  `fetchEarningsDates`; pure mappers + `mapPool`; silent injected client; never-throw.
+- `src/net/route.ts` (+ `route.test.ts`) — `routeDailyBars` (yahoo2 → staggered Stooq CSV
+  fallback), `parseStooqCsv` / `fetchStooqDaily` / `stooqUrl`; every row carries `source`.
+- `src/jobs/stats.ts`, `src/jobs/news.ts`, `src/jobs/earnings.ts`, `src/jobs/overnight.ts`.
+- `src/jobs/backfill-tasks.test.ts`, `src/jobs/jobs.test.ts`.
+- `scripts/job.ts` — the job CLI (`--list`, `--symbols=`).
+
+Modified (allowed): `src/jobs/backfill.ts` (+`runBackfillPool` + live-wired `backfillPrices10y`
+/`backfillFundamentals`/`backfillEdgarIndex` + `parseCompanyTickers`), `src/db/queries.ts`
+(BackfillProgress / fundamentals / edgar / ticker-stats / news / catalyst / job-run /
+selector helpers), `scripts/seed.ts` (sample digest now create-if-absent),
+`src/net/CLAUDE.md`, `src/jobs/CLAUDE.md`, `scripts/CLAUDE.md`.
+
+Do-NOT-touch list respected: no changes to `package.json`/lock, `TASKS.md`, `src/analyst/**`,
+`src/dossier/**`, `src/config/providers.ts`, `src/config/settings.ts`, `web/**`, `prisma/**`,
+`src/rules/**`, `src/capture/**`; `src/research/synthesize.ts` is only *called* (by the digest
+job), never edited. All vitest tests are network-free (fake clients / injected fetchers).
+
+### Test delta
+
++43 tests in 4 new files: `yahoo2.test.ts` (12 — mappers, `mapPool`, every wrapper's
+`[]/null`+error path), `route.test.ts` (9 — Stooq parse, never-throw, route win/fallback/
+window/both-empty), `backfill-tasks.test.ts` (7 — pooled resumability+catch-per-item,
+prices/fundamentals/edgar writes + progress, `parseCompanyTickers`, period1 math),
+`jobs.test.ts` (15 — stats COALESCE/never-crash, news RSS parse+dedupe+catch-per-query,
+earnings upsert dedupe, overnight order + failure-resilience + one-JobRun-per-step,
+prices-heal, digest).
+
+### Live-run playbook (CEO)
+
+Prereqs (once): set `DATABASE_URL` (default `file:./data/engine.db`) and
+`EDGAR_USER_AGENT="Your Name you@example.com"` (SEC requires it for `edgar_index`), then
+`npm install && npm run seed` (populates sectors + the S&P/AI-infra universe).
+
+One-time backfills — all **resumable** (safe to Ctrl-C and re-run; done symbols are
+skipped) and **catch-per-item** (a single 429/miss never aborts the run):
+
+```bash
+npm run job -- edgar_index    # SEC CIK map → Ticker.cik, then submissions → EdgarFiling
+npm run job -- prices10y      # ~10y daily bars → Price   (yahoo2 → Stooq fallback)
+npm run job -- fundamentals   # quarterly statements → FundamentalsQuarter
+```
+
+Expected, for the seeded universe (~700–800 active symbols):
+- `edgar_index`: ~2–4 min (shared 8 req/s EDGAR limiter; 1 submissions call/symbol; plus
+  one `company_tickers.json` fetch). ~10–40 filings/symbol kept (10-K/10-Q/8-K/4/DEF 14A).
+- `prices10y`: ~10–18 min (conc 2, 1200 ms stagger). ~2,000–2,500 bars/symbol →
+  ~1.5–2.0 M Price rows total.
+- `fundamentals`: ~10–18 min (conc 2, 1200 ms stagger). ~20–40 quarters/symbol.
+
+Nightly (the morning-digest chain — one `JobRun` row per step, never-crash):
+
+```bash
+npm run job -- overnight      # prices-heal → stats → news → earnings → rules → digest
+```
+
+Expected: ~2–6 min end-to-end (prices-heal is a 5-day top-up at conc 6/300 ms; `stats`
+batches quotes 100/req; `news` is a handful of RSS pulls; `rules` + `digest` are local).
+Wire it to the existing scheduler / launchd agent for the daily cadence.
+
+Ad-hoc / targeted:
+
+```bash
+npm run job -- stats
+npm run job -- news
+npm run job -- earnings
+npm run job -- rules
+npm run job -- digest
+npm run job -- prices10y --symbols=MU,NVDA,AVGO    # restrict any job to a symbol subset
+npm run job -- --list                               # the registry (offline)
+```
+
+Each run prints `[OK|FAIL] <job> (<secs>s)` + a summary and exits `0`/`1`
+(`--list`/usage → `2`). Backfill progress persists in `BackfillProgress`, so re-running a
+backfill after a partial run only fetches what's left.

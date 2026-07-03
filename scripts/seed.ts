@@ -63,7 +63,9 @@ function main(): void {
     breadth: { pctAbove50dma: 28, advancers: 143, decliners: 357 },
     tripwires: [{ id: "mem_exit", severity: "critical", message: "Memory-exit signal", evidence: "manual:capex_flag=-1" }],
   });
-  saveDigest(db, { d: digest.asOf, dataJson: JSON.stringify(digest) });
+  // create-if-absent: re-seeding must NOT grow the Digest table (idempotent).
+  const existing = db.prepare('SELECT 1 FROM "Digest" WHERE "d"=? LIMIT 1').get(digest.asOf);
+  if (!existing) saveDigest(db, { d: digest.asOf, dataJson: JSON.stringify(digest) });
 
   const sectors = countRows(db, "Sector");
   const tickers = countRows(db, "Ticker");

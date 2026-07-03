@@ -25,4 +25,10 @@ Standalone `tsx` scripts (not part of the library build).
 - `seed.ts` — populates the DB (migrations + GICS 11 + AI-infra 12 sectors + the full
   S&P universe from `config/sp500.csv` with GICS links + additive AI-infra `ai_*` links +
   credit benchmarks + a sample digest) via `src/db/seed-helpers.seedUniverse`. Idempotent;
+  the sample digest is **create-if-absent** (re-seeding never grows the Digest table);
   prints ticker/sector/link counts. Run: `npm run seed`.
+- `job.ts` — the **job CLI**. `npm run job -- <name> [--symbols=A,B]` runs any registered
+  job against `DATABASE_URL`; prints a per-job summary + a 0/1 exit code. `--list` prints
+  the registry with NO DB or network (the live yahoo2/Stooq/EDGAR fetchers are built lazily
+  inside each job's `run`). Registered: `prices10y`, `fundamentals`, `edgar_index`, `stats`,
+  `news`, `earnings`, `rules`, `digest`, `overnight`.
