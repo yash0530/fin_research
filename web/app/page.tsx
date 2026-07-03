@@ -85,6 +85,9 @@ export default async function Home() {
         <Link href="/dossiers" className="verdict-badge buy" style={{ textDecoration: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', marginTop: 0 }}>
           Dossiers
         </Link>
+        <Link href="/calibration" className="verdict-badge buy" style={{ textDecoration: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', marginTop: 0 }}>
+          Calibration
+        </Link>
         <Link href="/screener" className="verdict-badge buy" style={{ textDecoration: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', marginTop: 0 }}>
           Screener
         </Link>

@@ -6,7 +6,8 @@ Server components by default; they call engine functions at render time.
 - `page.tsx` — home = morning read dashboard from SQLite DB (`latestDigest()`) grouped by family with severity chips, or empty state instructions.
 - `digest/[d]/` — past digest page by date (identically rendered, force-dynamic).
 - `screener/` — `runScreen` over the demo universe.
-- `buylist/` — `buildBuyList` allocation with governor reasons + cash.
+- `buylist/` — monthly allocation page reading from BuyList/BuyListItem tables with fallback candidate preview.
+- `calibration/` — conviction tiers summary w/ governor status and recommendation/calibration log.
 - `dossiers/` — list/queue of real dossiers from SQLite DB with verdict, governed size, timing details, and wall clock.
 - `dossiers/[id]/` — dossier detail page with stage timeline, investment verdict card, debate accordion (bull, bear, rebuttal, critique), and tool evidence table.
 - `story/[id]/` — editorial story page (async `params`) + the client scenario estimator.

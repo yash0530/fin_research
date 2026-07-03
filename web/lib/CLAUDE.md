@@ -6,6 +6,8 @@
   Prisma reads in the app-layer wiring tracked in `../../TASKS.md`.
 - `live.ts` — live-data reader for digest pages. Opens the SQLite DB via dynamic import
   of `node:sqlite` and reads through the engine data layer. Server-only.
+- `calibration-data.ts` — SQLite reader for `RecCall` rows and conviction tier summaries/governor status line builders.
+- `buylist-data.ts` — SQLite reader for `BuyList`/`BuyListItem` tables, with active candidates preview.
 - `story-types.ts` — mirrored `StoryPageData` types (from `src/story/schema.ts`) plus
   helpers (`impliedPrice`, `scenarioPrices`) and a `demoStory()` fixture. Web must not
   import from root `src/`; these types are kept in sync manually.
