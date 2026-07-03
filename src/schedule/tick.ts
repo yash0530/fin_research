@@ -11,6 +11,7 @@
 import type { SqlDb } from "../db/migrate";
 import { loadLatestDigest } from "../db/queries";
 import { shouldCatchUp } from "./wake";
+import { marketDate as marketDateNY } from "../lib/market-date";
 
 export type CatchUpWindow = { windowStartHour?: number; windowEndHour?: number };
 
@@ -25,7 +26,7 @@ export type CatchUpDecision = {
 
 /** Read-only decision: do we owe today's morning digest right now? */
 export function evaluateCatchUp(db: SqlDb, now: Date, window: CatchUpWindow = {}): CatchUpDecision {
-  const marketDate = now.toISOString().slice(0, 10);
+  const marketDate = marketDateNY(now);
   const lastDigestDate = loadLatestDigest(db)?.d ?? null;
   const due = shouldCatchUp({
     hour: now.getHours(),

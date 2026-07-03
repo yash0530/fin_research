@@ -18,6 +18,17 @@ editorial story page. Suite: 356 tests. Your calibration ledger has begun.
 3. Read `TASKS.md` (the honest ledger) and `EXEC_PLAN.md`'s status log (the ops
    diary — every incident, root cause, and workaround).
 
+
+## Month 2 additions
+
+We have successfully integrated the following Month 2 features:
+- **EDGAR XBRL Fundamentals Backfill:** `npm run job -- edgar_facts` (runs after `edgar_index` using `Ticker.cik`) backfills years of quarterly fundamentals from `data.sec.gov companyfacts`. This deepens the local database (`FundamentalsQuarter` grew 3.4k → 35k rows, providing ~64–82 quarters per symbol back to 2006–2008). It is free, follows an 8 req/s etiquette, and uses `INSERT OR IGNORE` to never overwrite Yahoo Finance quarters.
+- **Living Memos (`/memos`, `/memos/[symbol]`):** Every dossier stages a memo delta across 10 structured sections. You review and Apply or Reject staged deltas in the UI (human-gated). Applied memos carry forward into future dossiers, forming a compounding "distillation-over-RAG" knowledge store.
+- **Calibration Campaign:** `npm run job -- campaign` (and daemon idle-drain) keeps the dossier queue stocked (watchlist → AI lens → GICS leaders, backlog-capped) to grow the `RecCall` ledger. Every `RecCall` carries a `promptVersion` tag so changes never contaminate calibration slices.
+- **Outcomes Loop:** `npm run job -- outcomes` runs in the overnight chain, evaluating 1m/3m/6m/1y horizons from local closes. View progress on the `/calibration` page.
+- **New Web Pages:** Added `/signals` (RuleEvent history), `/journal` (Journal entries), `/discovery` (candidate queue), and `/memos` (living memos). The `/screener` now runs on the real `@engine` screener.
+- **Capture Write Path (`/capture`):** The interactive web research paste flow (render → copy → paste → parse → commit) now natively supports committing structured `EvidenceItem`, `DiscoveryCandidate`, or `Catalyst` records.
+
 ## Decisions only YOU can make
 
 1. **macOS TCC grant (unblocks true launchd autonomy).** launchd agents cannot read

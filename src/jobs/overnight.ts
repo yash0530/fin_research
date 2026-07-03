@@ -14,6 +14,7 @@
 import type { SqlDb } from "../db/migrate";
 import { runChain, type ChainStep, type ChainSummary } from "./runner";
 import { mapPool, type DailyBar } from "../net/yahoo2";
+import { marketDate } from "../lib/market-date";
 import {
   insertPrices,
   saveDigest,
@@ -73,7 +74,7 @@ export type DigestJobOpts = { asOf?: string };
 
 /** Deterministic digest from stored facts → persisted Digest row. */
 export async function runDigestJob(db: SqlDb, opts: DigestJobOpts = {}): Promise<string> {
-  const asOf = opts.asOf ?? new Date().toISOString().slice(0, 10);
+  const asOf = opts.asOf ?? marketDate();
   const ruleEvents = recentRuleEvents(db, { sinceDays: 7 }).map((e) => ({
     ruleId: e.ruleId,
     severity: e.severity as Severity,

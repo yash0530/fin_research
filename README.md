@@ -13,11 +13,12 @@ A personal, local-first investing research engine that unifies three prior proje
 
 ## LIVE Status
 - **Data Universe:** 563-ticker dual-taxonomy universe (GICS base + AI-infra lens).
-- **Core Datasets:** 1.34M-row 10-year daily price history, 389k SEC EDGAR filings (Form 4, 8-K, 10-Q, 10-K, DEF 14A), and quarterly fundamentals (Yahoo Finance, ~6-8 quarters depth).
-- **Overnight Chain:** Automated nightly job: prices → stats → news → earnings → tripwires → digest (synthesizing a 16-insight morning digest).
-- **Multi-Agent Dossier Engine:** On-demand deep-dive debate on local Qwen running stages: planner → tools → bull → bear → rebuttal → judge → critique → memo → story. Features citation enforcement ("no naked numbers" on computed facts) and a calibration governor that caps recommendation sizing at 2% until a favorable track record is earned.
+- **Core Datasets:** 1.34M-row 10-year daily price history, 389k SEC EDGAR filings, Yahoo Finance quarterly fundamentals (~6–8 quarters depth), and SEC EDGAR XBRL companyfacts quarterly fundamentals (~64–82 quarters/symbol back to 2006–2008, expanding database to 35k rows).
+- **Overnight Chain:** Automated nightly job: prices → stats → news → earnings → tripwires → digest (synthesizing a 16-insight morning digest) + outcomes.
+- **Multi-Agent Dossier Engine & Memos:** On-demand deep-dive debate on local Qwen running stages: planner → tools → bull → bear → rebuttal → judge → critique → memo → story. Generates human-gated Living Memos (10 sections) that compound knowledge across runs. Features citation enforcement ("no naked numbers").
+- **Calibration Campaign:** Automated queue stocking (watchlist → AI lens → GICS leaders, backlog-capped) running via `campaign` job or daemon. Evaluates 1m/3m/6m/1y outcomes from local closes under a calibration governor that caps sizing at 2% until a favorable track record is earned.
 - **Story Pages:** Flagship editorial layouts generated from frozen data snapshots, including a client scenario estimator.
-- **Web UI:** Interactive Next.js routes for the morning read, digests, dossiers, tickers, calibration, buylist, and stories.
+- **Web UI:** Interactive Next.js routes for morning read (`/`), digest history (`/digest/[date]`), ticker cockpits (`/tickers/[symbol]`), dossiers (`/dossiers/[id]`), signals (`/signals`), journal (`/journal`), discovery (`/discovery`), memos (`/memos`), calibration (`/calibration`), buylist (`/buylist`), and stories (`/story`).
 
 ## Quickstart
 1. **Install dependencies:**
@@ -31,6 +32,7 @@ A personal, local-first investing research engine that unifies three prior proje
 3. **Run data backfills** (resumable jobs; 5 stale Jan-2026 tickers are known to record error rows):
    ```bash
    npm run job -- edgar_index
+   npm run job -- edgar_facts
    npm run job -- prices10y
    npm run job -- fundamentals
    ```

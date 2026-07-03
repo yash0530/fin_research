@@ -32,6 +32,7 @@ import { runOvernight, runPricesHealJob, runDigestJob } from "./overnight";
 import { runBackupJob } from "./backup";
 import { runBuyListJob } from "./buylist";
 import { runOutcomesJob } from "./outcomes";
+import { runUniverseCheck } from "./universe";
 import { runRulesJob } from "../rules/engine";
 import { TRIPWIRES } from "../config/tripwires";
 import { AI_INFRA_SEEDS, AI_INFRA_SYMBOLS } from "../config/sectors";
@@ -353,6 +354,11 @@ const JOB_DEFS: JobDef[] = [
     name: "campaign",
     describe: "Seed the dossier queue toward the calibration target (watchlist → AI lens → GICS leaders).",
     run: async (db) => ({ ok: true, detail: seedCampaign(db, new SqliteDossierStore(db)) }),
+  },
+  {
+    name: "universe_check",
+    describe: "Deactivate delisted/stale-data stragglers (reversible; never touches watchlisted).",
+    run: async (db) => ({ ok: true, detail: runUniverseCheck(db) }),
   },
 ];
 

@@ -15,7 +15,8 @@
 // The scheduling DECISIONS are the tested src/schedule modules (wake, watchdog, tick);
 // the LIVE jobs come from the shared src/jobs/registry-live (same code path as the CLI).
 
-import { execSync } from "node:child_process";
+import { execSync, spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { loadDotEnv, openDb, buildLiveRegistry, drainDossierQueueLive } from "../src/jobs/registry-live";
 import { evaluateCatchUp, schedulerTick } from "../src/schedule/tick";
 import { detectedWake } from "../src/schedule/wake";
@@ -44,21 +45,60 @@ async function llamaHealthy(): Promise<boolean> {
   }
 }
 
-/** Restart the launchd service; bootstrap first in case it got unloaded entirely. */
+/** Restart llama-server. Try launchd first (bootstrap+kickstart); if launchd's
+ *  service record is wedged (the Jul-3 "Bootstrap failed: 5" state), fall back to
+ *  spawning llama-server directly from the plist's ProgramArguments so the model
+ *  comes back even when launchd can't manage it. */
 function kickstartLlama(nowMs: number): void {
   lastKickMs = nowMs;
   const uid = process.getuid?.() ?? 501;
-  for (const cmd of [
-    `launchctl bootstrap gui/${uid} ${LLAMA_PLIST}`,
-    `launchctl kickstart -k gui/${uid}/${LLAMA_SERVICE}`,
-  ]) {
+  let launchdOk = false;
+  try {
     try {
-      execSync(cmd, { stdio: "pipe" });
+      execSync(`launchctl bootstrap gui/${uid} ${LLAMA_PLIST}`, { stdio: "pipe" });
     } catch {
-      /* bootstrap fails when already loaded — expected; kickstart result is what matters */
+      /* already-loaded bootstrap fails — that's fine; kickstart is the real signal */
+    }
+    execSync(`launchctl kickstart -k gui/${uid}/${LLAMA_SERVICE}`, { stdio: "pipe" });
+    launchdOk = true;
+    console.log(`[scheduler] llama-server DOWN → launchctl restart (${LLAMA_SERVICE})`);
+  } catch {
+    launchdOk = false;
+  }
+  if (!launchdOk) {
+    if (spawnLlamaDirect()) {
+      console.log("[scheduler] llama-server DOWN + launchd wedged → spawned directly");
+    } else {
+      console.log("[scheduler] llama-server DOWN → launchd failed AND direct spawn failed");
     }
   }
-  console.log(`[scheduler] llama-server DOWN → issued launchctl restart (${LLAMA_SERVICE})`);
+}
+
+/** Extract the plist's ProgramArguments array (program + flags, in order). */
+export function parseProgramArguments(plistXml: string): string[] {
+  const key = plistXml.indexOf("<key>ProgramArguments</key>");
+  if (key < 0) return [];
+  const arrStart = plistXml.indexOf("<array>", key);
+  const arrEnd = plistXml.indexOf("</array>", arrStart);
+  if (arrStart < 0 || arrEnd < 0) return [];
+  return [...plistXml.slice(arrStart, arrEnd).matchAll(/<string>([\s\S]*?)<\/string>/g)].map((m) => m[1]);
+}
+
+/** Detach-spawn llama-server from the plist's ProgramArguments (launchd bypass). */
+function spawnLlamaDirect(): boolean {
+  try {
+    const [program, ...rest] = parseProgramArguments(readFileSync(LLAMA_PLIST, "utf8"));
+    if (!program) return false;
+    const child = spawn(program, rest, {
+      detached: true,
+      stdio: "ignore",
+      env: { ...process.env, PATH: "/opt/homebrew/bin:/usr/bin:/bin" },
+    });
+    child.unref();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function watchdogTick(nowMs: number): Promise<void> {

@@ -629,6 +629,22 @@ export function activeSymbols(db: SqlDb): string[] {
   return rows.map((r) => r.symbol);
 }
 
+/** Deactivate a ticker (reversible — never delete). Returns true if a row changed. */
+export function setTickerActive(db: SqlDb, symbol: string, active: boolean): boolean {
+  const r = db
+    .prepare('UPDATE "Ticker" SET "active"=? WHERE "symbol"=?')
+    .run(active ? 1 : 0, symbol.toUpperCase()) as { changes: number | bigint };
+  return Number(r.changes) > 0;
+}
+
+/** Watchlisted symbols are never auto-deactivated (the user asked to track them). */
+export function isWatchlisted(db: SqlDb, symbol: string): boolean {
+  const r = db.prepare('SELECT "watchlisted" FROM "Ticker" WHERE "symbol"=?').get(symbol.toUpperCase()) as
+    | { watchlisted: number }
+    | undefined;
+  return !!r?.watchlisted;
+}
+
 export function watchlistSymbols(db: SqlDb): string[] {
   const rows = db
     .prepare('SELECT "symbol" FROM "Ticker" WHERE "watchlisted"=1 ORDER BY "symbol"')

@@ -43,7 +43,12 @@ ENGINE is your **research process**, as software. You invest $2,500 of real capi
      ```bash
      npm run job -- edgar_index
      ```
-     Takes ~2 minutes to download/process ~390k filings.
+     Takes ~2 minutes to download/process ~390k filings. Runs first to establish `Ticker.cik` associations.
+   - **EDGAR XBRL Fundamentals:**
+     ```bash
+     npm run job -- edgar_facts
+     ```
+     Backfills YEARS of quarterly fundamentals directly from the SEC data.sec.gov companyfacts API. Free, utilizing an 8 req/s etiquette. Uses `INSERT OR IGNORE` logic so it never clobbers Yahoo Finance quarters. Deepens `FundamentalsQuarter` from 3.4k to 35k rows, providing ~64–82 quarters per symbol back to 2006–2008 (compared to Yahoo's ~7). Runs after `edgar_index` (needs `Ticker.cik`).
    - **10-Year Price History:**
      ```bash
      npm run job -- prices10y

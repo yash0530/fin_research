@@ -25,7 +25,7 @@ When a dossier runs, the engine executes these stages sequentially on your local
 5. **Rebuttal** — The bull agent responds to the bear's points.
 6. **Judge** — Weighs the debate transcript and issues a structured **verdict**: BUY, HOLD, TRIM, or AVOID, alongside a conviction tier (HIGH, MEDIUM, LOW), a target range, a trade plan, and ≥3 falsifiability conditions ("what would change my mind").
 7. **Critique** — A risk officer agent critiques the judgment; if it identifies overconfidence, it triggers a single revised judgment.
-8. **Memo Stage** — A Living Memo update is staged for you (it is never auto-applied; you must explicitly apply it).
+8. **Memo Stage** — Generates and stages a **Living Memo** delta consisting of 10 structured sections. Rather than using raw RAG, this implements a "distillation-over-RAG" philosophy where the living memo serves as the central, compounding per-ticker knowledge store. Staged deltas are human-gated: you can review, and either **Apply** or **Reject** them in the Web UI (on the `/memos` page or individual ticker cockpits). Applied memos carry forward as context into all future dossiers for that symbol, allowing the engine's understanding of the business to compound over time.
 
 ## Robustness & Error Recovery
 
