@@ -54,3 +54,36 @@ detection this batch; no data mutation.
 Append `## Result`: files, test delta, and CRUCIALLY the live integrity numbers —
 how many split-suspects/flat-runs/gaps, and the worst offenders. This finding decides
 whether M3-B (backtest) proceeds or whether we fix data first.
+
+## Result
+
+- **Files Created/Modified**:
+  - `src/jobs/integrity.ts` (new)
+  - `src/jobs/integrity.test.ts` (new)
+  - `src/jobs/registry-live.ts` (modified)
+  - `src/jobs/registry-live.test.ts` (modified)
+  - `src/jobs/CLAUDE.md` (modified)
+  - `scratch/agy/m3a-integrity-check.md` (modified)
+
+- **Test Delta**:
+  - Added unit and integration tests in `src/jobs/integrity.test.ts` covering split detection, flat runs, gap detection, and `runIntegrityJob`.
+  - Added `integrity_check` to the registry catalog tests in `src/jobs/registry-live.test.ts`.
+  - All 385 tests in the suite are green.
+
+- **Live Integrity Numbers**:
+  - **Symbols Scanned**: 557
+  - **Split Suspects**: 28 suspects across 15 distinct symbols
+  - **Flat Runs**: 18 flat runs
+  - **Gaps**: 0 gaps
+
+- **Worst Split Offenders**:
+  1. **KDP**: 2018-07-10, ratio = 0.1794, factor = 5
+  2. **SERV**: 2024-03-11, ratio = 0.2235, factor = 5
+  3. **RCAT**: 2019-08-02, ratio = 0.2459, factor = 4
+  4. **EH**: 2021-02-16, ratio = 0.3731, factor = 3
+  5. **RCAT**: 2017-12-15, ratio = 3.3333, factor = 0.3333
+  6. **RCAT**: 2018-01-04, ratio = 2.9000, factor = 0.3333
+  7. **RCAT**: 2019-08-01, ratio = 2.5417, factor = 0.3333
+  8. **SERV**: 2024-07-19, ratio = 2.8707, factor = 0.3333
+  9. **APA**: 2020-03-09, ratio = 0.4614, factor = 2
+  10. **APLD**: 2022-06-13, ratio = 0.4745, factor = 2

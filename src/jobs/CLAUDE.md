@@ -52,7 +52,10 @@ injected dependencies → fully tested with fakes (no network).
   (the scheduler's idle drain: `recoverStale` → live `runDossierJob`, one at a time,
   respecting the llama single-flight lock). Registered jobs: `prices10y`, `fundamentals`,
   `edgar_index`, `stats`, `news`, `earnings`, `rules`, `digest`, `overnight`, `dossier`,
-  `backup`. Importing it stays offline; only each `run` touches the wire.
+  `backup`, `integrity_check`. Importing it stays offline; only each `run` touches the wire.
+- `integrity.ts`
+  - `splitSuspects`, `flatRuns`, `gaps` — pure detectors of stock splits, flat runs, and chronological gaps.
+  - `runIntegrityJob` — scans Price table history for all active symbols using raw close prices for stock splits, and despiked close prices for flat runs and gaps.
 
 ## Tests
 
@@ -73,3 +76,4 @@ preserves names/order, and is single-sourced with the catalog.
 `backup.test.ts` — retention (`listBackups` filters+sorts dated files, `pruneBackups`
 keeps the newest N and deletes the oldest, no-op under the limit) with temp files, and
 `runBackupJob` (VACUUM INTO writes a real SQLite backup; same-day re-run overwrites).
+`integrity.test.ts` — unit tests for stock splits, flat runs, gaps, and testing `runIntegrityJob` using a migrated in-memory DB.
