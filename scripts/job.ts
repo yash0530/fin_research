@@ -41,14 +41,24 @@ import { routeDailyBars, fetchStooqDaily, type HttpResponse } from "../src/net/r
 import { fetchSubmissions, type Fetcher } from "../src/net/fetchers";
 import { requireUserAgent, EDGAR_LIMITER, type EdgarFilingRow } from "../src/net/edgar";
 
-// ── DB open (mirrors scripts/seed.ts) ────────────────────────────────────────
+// ── env + DB open (mirrors scripts/seed.ts) ──────────────────────────────────
+
+/** Load simple KEY="value" pairs from .env into process.env (non-overriding).
+ *  Jobs need more than DATABASE_URL (e.g. EDGAR_USER_AGENT for edgar_index). */
+function loadDotEnv(): void {
+  if (!existsSync(".env")) return;
+  for (const line of readFileSync(".env", "utf8").split("\n")) {
+    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+    if (!m) continue;
+    const key = m[1];
+    if (process.env[key] !== undefined) continue;
+    process.env[key] = m[2].replace(/^["']|["']$/g, "");
+  }
+}
+loadDotEnv();
 
 function databaseFile(): string {
-  let url = process.env.DATABASE_URL;
-  if (!url && existsSync(".env")) {
-    const line = readFileSync(".env", "utf8").split("\n").find((l) => l.trim().startsWith("DATABASE_URL="));
-    if (line) url = line.split("=").slice(1).join("=").trim().replace(/^["']|["']$/g, "");
-  }
+  const url = process.env.DATABASE_URL;
   return (url ?? "file:./data/engine.db").replace(/^file:/, "");
 }
 
