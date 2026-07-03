@@ -79,6 +79,9 @@ export default async function Home() {
 
       {/* Navigation Strip */}
       <div className="nav-strip" style={{ display: 'flex', gap: '0.75rem', margin: '1.5rem 0', flexWrap: 'wrap' }}>
+        <Link href="/tickers" className="verdict-badge buy" style={{ textDecoration: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', marginTop: 0 }}>
+          Tickers
+        </Link>
         <Link href="/dossiers" className="verdict-badge buy" style={{ textDecoration: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', marginTop: 0 }}>
           Dossiers
         </Link>

@@ -25,12 +25,14 @@ the dependency-light, fully-tested engine core in `../src` stays isolated — th
 
 ## Layout
 
-- `app/` — App Router routes (server components by default; client islands where needed).
-- `components/` — shared UI (`InsightList`, `ScenarioEstimator`, `story/*`).
+- `app/` — App Router routes (server components by default; client islands where needed). Added `/tickers` (universe index) and `/tickers/[symbol]` (asset cockpit).
+- `components/` — shared UI (`InsightList`, `ScenarioEstimator`, `TickerPriceChart`, `story/*`).
 - `lib/` — `demo.ts` engine fixtures, `live.ts` live digest reader,
   `digest-types.ts`/`digest-data.ts` live digest SQLite reader,
   `dossier-types.ts`/`dossier-data.ts` live dossier SQLite reader,
   `story-types.ts` mirrored StoryPageData types + `demoStory()`,
-  `story-data.ts` SQLite reader for StoryPage rows.
+  `story-data.ts` SQLite reader for StoryPage rows,
+  `ticker-data.ts` SQLite reader for the 563-ticker universe and cockpits,
+  `despike.ts` manual mirror of the rolling-median despike function.
 
 Build artifacts (`.next/`), `node_modules/`, and `next-env.d.ts` are gitignored.
