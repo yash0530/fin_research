@@ -155,8 +155,29 @@ grows); make it create-if-absent in the live-data batch (FIXED in batch C)._
 - [x] 2.3 `fundamentals` LIVE: **563/563, 0 errors, 3,379 quarter-rows / 556 symbols
   in 464s**. HONEST CAVEAT: Yahoo's free quarterly window is ~6-8 quarters/symbol,
   not the hoped ~5y (MU: 7). Deepening via annual series = backlog.
-- [~] 2.4 `overnight` chain LIVE → first real digest: running (from a clean worktree
-  of committed code while batch D edits the tree).
+- [x] 2.4 `overnight` chain LIVE: **6/6 jobs, 54.3s** — 2,224 bars healed, 556 stats,
+  962 news, 126 catalysts, live tripwire fire (SNDK −25% warn), digest persisted.
+  After batch E: regenerated digest 2026-07-03 = **16 insights** across 8 families.
+
+## Phase 3 — FIRST LIVE DOSSIER (evidence, Jul 3 2026)
+- [x] 3.1 `npm run job -- dossier --symbols=MU` end-to-end on local Qwen: **9 stages,
+  AVOID/LOW verdict, governed RecCall persisted.** Timings: research 234s (planner+
+  tools over real data), bull 210s, bear 296s, rebuttal 279s, judge 277s, critique
+  353s, judge_rev 418s, memo 111s. Run 1 died at judge+301s → root cause: undici's
+  default 300s fetch timeout killed any LLM call >5min (server was healthy; client
+  cancel in llamacpp.log) → fixed (profile.timeoutMs → undici dispatcher).
+  **Resume proven live**: requeued failed run reused all 6 persisted stages at 0.0s
+  and completed critique→memo in 882s.
+- [x] 3.2 Research quality audit: initial judge = BUY/MEDIUM (targets 1150–1250,
+  every claim citing real tool evidence, 0 dropped claims, 3 numeric falsifiability
+  conditions). Risk-officer critique caught real flaws (high-confidence bull claims
+  lacking FCF-trend evidence; entry at 852 contradicting a BUY) → revision to
+  **AVOID/LOW size 0 ("forward-earnings value trap"), with concrete re-entry
+  triggers.** The debate discipline works as designed; both verdicts preserved in
+  stage history.
+- [x] 3.3 Bug fixed from the run: stale `state.error` survived a successful resume
+  (runner now clears it on start). KNOWN ISSUE → next batch: sector router classified
+  MU as `generic` (should be `semis` — analyzer KPI framing lost).
 
 ## Documentation & housekeeping
 - [x] D.1 `TASKS.md` master checklist (this file)

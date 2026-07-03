@@ -104,6 +104,7 @@ export async function runDossier(id: string, deps: RunnerDeps): Promise<DossierS
   };
 
   state.status = "running";
+  state.error = undefined; // a requeued/resumed run must not carry the prior failure
   state.startedAt = state.startedAt ?? now();
   persist();
 
