@@ -112,6 +112,8 @@ export type OvernightDeps = {
   earnings: () => Promise<string>;
   rules: () => Promise<string>;
   digest: () => Promise<string>;
+  /** Optional: fill RecCall outcome horizons from local closes (calibration loop). */
+  outcomes?: () => Promise<string>;
 };
 
 /** The canonical overnight step order (prices-heal → … → digest). */
@@ -121,6 +123,7 @@ export function overnightSteps(deps: OvernightDeps): ChainStep[] {
     { name: "stats", fn: deps.stats },
     { name: "news", fn: deps.news },
     { name: "earnings", fn: deps.earnings },
+    ...(deps.outcomes ? [{ name: "outcomes", fn: deps.outcomes }] : []),
     { name: "rules", fn: deps.rules },
     { name: "digest", fn: deps.digest },
   ];

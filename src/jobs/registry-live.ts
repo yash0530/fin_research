@@ -29,6 +29,7 @@ import { runEarningsJob } from "./earnings";
 import { runOvernight, runPricesHealJob, runDigestJob } from "./overnight";
 import { runBackupJob } from "./backup";
 import { runBuyListJob } from "./buylist";
+import { runOutcomesJob } from "./outcomes";
 import { runRulesJob } from "../rules/engine";
 import { TRIPWIRES } from "../config/tripwires";
 import { AI_INFRA_SEEDS, AI_INFRA_SYMBOLS } from "../config/sectors";
@@ -252,6 +253,7 @@ const JOB_DEFS: JobDef[] = [
             symbols: earningsSymbols(db),
             fetchEarnings: (s) => fetchEarningsDates(s).then((r) => r.rows.map((x) => ({ symbol: x.symbol, d: x.d }))),
           }),
+        outcomes: () => Promise.resolve(runOutcomesJob(db)),
         rules: () => runRulesJob(db, TRIPWIRES),
         digest: () => runDigestJob(db),
       });
@@ -316,6 +318,11 @@ const JOB_DEFS: JobDef[] = [
     name: "buylist_draft",
     describe: "Draft the month's buy list from fresh BUY RecCalls (governed sizes over the capital).",
     run: async (db) => ({ ok: true, detail: runBuyListJob(db) }),
+  },
+  {
+    name: "outcomes",
+    describe: "Fill RecCall outcome horizons (1m/3m/6m/1y) from local despiked closes.",
+    run: async (db) => ({ ok: true, detail: runOutcomesJob(db) }),
   },
 ];
 

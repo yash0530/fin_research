@@ -32,6 +32,7 @@ describe("live registry assembly", () => {
     "story",
     "backup",
     "buylist_draft",
+    "outcomes",
   ];
 
   it("jobCatalog lists every job with a describe, no DB required", () => {
