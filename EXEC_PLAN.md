@@ -73,6 +73,22 @@ prefixes break PTY allocation). agy via
   any session can resume from them.
 
 ## Status log
+- **Jul 3 (month 2) — llama graceful-exit ROOT CAUSE (T4).** Not a mystery killer and
+  NOT sleep (pmset shows caffeinate + powerd actively preventing idle sleep). The
+  "cleaning up before exit" is llama's own SIGTERM handler: the TCC workaround forces
+  llama to run as a DETACHED SHELL process (launchd can't read ~/Desktop), and detached
+  processes are vulnerable to shell-session/harness reaping — then, without launchd's
+  KeepAlive, a graceful exit is never auto-restarted. Two-part fix now in place:
+  (1) scheduler watchdog gained a direct-spawn fallback (parseProgramArguments →
+  detach-spawn from the plist) so the model returns even when launchd is unavailable/
+  wedged; (2) the permanent fix is still the owner's TCC/Full-Disk-Access grant, after
+  which launchd's KeepAlive auto-restarts graceful exits in seconds. **T4 CLOSED.**
+- **Month 2 build (Jul 3):** T1 promptVersion+campaign, T2 EDGAR XBRL facts (fundamentals
+  3.4k→35k rows, ~64-82 quarters/symbol back to 2006-08), T3 living-memo apply loop
+  (verified live: TSM memo active, compounds into next dive), T4 ops (universe_check
+  cleared 6 stragglers, watchdog fallback, NY market dates), T5 signals/journal/
+  screener-refactor + full month-2 docs. 380 tests. agy carried T5 UI + all docs
+  (opus 4.6 → flash 3.5); CEO took every engine/data-integrity/write-path piece.
 - **Jul 3 (~01:00) — llama death #3 + launchd error-5 state.** Server exited
   GRACEFULLY again ("cleaning up before exit" — something is stopping it; cause
   still unknown) and the agent unloaded. Worse: `launchctl bootstrap` now fails
