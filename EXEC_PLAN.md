@@ -21,16 +21,15 @@ paths, gates, and "append ## Result; do NOT commit". After every batch: `git dif
 Every claim gets independently verified before its task closes — tests-green alone
 is not done (lesson from run 1).
 
-**Routing policy (owner directive, Jul 3):** route by difficulty — **agy** (Antigravity;
-start `--model opus` = Claude Opus 4.6 Thinking, fall back to `flash` = Gemini 3.5
-Flash when opus is exhausted) is the volume workhorse for routine/well-specified work
-(UI scaffolding, docs, boilerplate, ports with strong references); **kiro**
-(`claude-opus-4.8`, effort per task) takes the HARD engineering (integration,
-state machines, data integrity) and carries the heavier share; the CEO session does
-the extremely hard work (architecture, subtle logic, all verification, live ops).
-**On a usage limit in either CLI, shift its queue to the other.** Concurrent batches
-allowed ONLY with disjoint file sets (each spec carries an absolute do-NOT-touch wall
-for the other's lane).
+**Routing policy (owner directives, Jul 3 → Jul 4):** **kiro is RETIRED from the
+rotation** (owner order, Jul 4 — its final batch G was rescued and completed by the
+CEO session). All delegation goes to **agy** (Antigravity: `--model opus` = Claude
+Opus 4.6 Thinking when quota allows, `flash` = Gemini 3.5 Flash otherwise; split
+large batches — the CLI times out on long single generations; always instruct
+"sequential writes, no subagents"). The CEO session absorbs the hard-engineering
+lane (integration, state machines, data integrity) plus, as before, architecture,
+subtle logic, all verification, and live ops. Concurrent batches only with disjoint
+file sets.
 
 **Invocation (both CLIs die without care):** kiro needs a PTY —
 `script -q /dev/null kiro-cli chat --no-interactive --trust-all-tools --model
