@@ -94,6 +94,12 @@ export default async function Home() {
         <Link href="/discovery" className="verdict-badge buy" style={{ textDecoration: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', marginTop: 0 }}>
           Discovery
         </Link>
+        <Link href="/signals" className="verdict-badge buy" style={{ textDecoration: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', marginTop: 0 }}>
+          Signals
+        </Link>
+        <Link href="/journal" className="verdict-badge buy" style={{ textDecoration: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', marginTop: 0 }}>
+          Journal
+        </Link>
         <Link href="/buylist" className="verdict-badge buy" style={{ textDecoration: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', marginTop: 0 }}>
           Buy List
         </Link>

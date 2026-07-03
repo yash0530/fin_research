@@ -25,7 +25,7 @@ the dependency-light, fully-tested engine core in `../src` stays isolated — th
 
 ## Layout
 
-- `app/` — App Router routes (server components by default; client islands where needed). Added `/tickers` (universe index), `/tickers/[symbol]` (asset cockpit), `/screener` (real engine screener), and `/discovery` (candidate queue).
+- `app/` — App Router routes (server components by default; client islands where needed). Added `/tickers` (universe index), `/tickers/[symbol]` (asset cockpit), `/screener` (real engine screener), `/discovery` (candidate queue), `/signals` (RuleEvent history), and `/journal` (JournalEntry log).
 - `components/` — shared UI (`InsightList`, `ScenarioEstimator`, `TickerPriceChart`, `story/*`).
 - `lib/` — `demo.ts` engine fixtures, `live.ts` live digest reader,
   `digest-types.ts`/`digest-data.ts` live digest SQLite reader,
@@ -33,8 +33,10 @@ the dependency-light, fully-tested engine core in `../src` stays isolated — th
   `story-types.ts` mirrored StoryPageData types + `demoStory()`,
   `story-data.ts` SQLite reader for StoryPage rows,
   `ticker-data.ts` SQLite reader for the 563-ticker universe and cockpits,
-  `screener-data.ts` SQLite reader + RSI(14) calculation for screener metrics,
+  `screener-data.ts` SQLite data assembler for screener rows (RSI via `@engine/tools/technicals`, despike via `@engine/lib/metrics`); scoring delegated to `@engine/screener/engine.runScreen()`,
   `discovery-data.ts` SQLite reader for discovery queue candidates,
-  `despike.ts` manual mirror of the rolling-median despike function.
+  `signals-data.ts` SQLite reader for RuleEvent rows,
+  `journal-data.ts` SQLite reader for JournalEntry rows,
+  `despike.ts` manual mirror of the rolling-median despike function (used by ticker-data.ts; screener-data.ts now imports from @engine/lib/metrics).
 
 Build artifacts (`.next/`), `node_modules/`, and `next-env.d.ts` are gitignored.

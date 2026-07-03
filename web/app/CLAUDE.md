@@ -10,6 +10,8 @@ Server components by default; they call engine functions at render time.
 - `calibration/` — conviction tiers summary w/ governor status and recommendation/calibration log.
 - `dossiers/` — list/queue of real dossiers from SQLite DB with verdict, governed size, timing details, and wall clock.
 - `dossiers/[id]/` — dossier detail page with stage timeline, investment verdict card, debate accordion (bull, bear, rebuttal, critique), and tool evidence table.
+- `signals/` — read-only RuleEvent history page grouped by day with severity chips (critical/warn/info). Empty state names the tripwire job (`npm run job -- rules`).
+- `journal/` — read-only JournalEntry list page with symbol links, action badges, thesis, and invalidation columns. Empty state explains provenance (buy-list + CLI notes).
 - `story/[id]/` — editorial story page (async `params`) + the client scenario estimator.
 - `capture/` — a rendered `daily_scan` prompt with injected watchlist.
 - `live/` — **live** digest read from the SQLite DB at request time (force-dynamic) via the

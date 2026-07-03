@@ -14,3 +14,7 @@
 - `story-data.ts` — SQLite reader for `StoryPage` rows (following `live.ts` pattern).
   `loadStoryPage(id)` returns parsed `StoryPageData` or null; `listStoryPages()` returns
   id/symbol/title/createdAt list, newest first. Graceful fallback when DB/table is missing.
+- `signals-data.ts` — SQLite reader for `RuleEvent` rows (id, ruleId, firedAt, severity,
+  message, acked). Returns newest-first. Used by `app/signals/page.tsx`.
+- `journal-data.ts` — SQLite reader for `JournalEntry` rows (id, symbol, action, thesis,
+  invalidation, createdAt). Returns newest-first. Used by `app/journal/page.tsx`.

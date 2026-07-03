@@ -1,4 +1,4 @@
-import { despike } from "./despike";
+import { despike } from "@engine/lib/metrics";
 import { rsi } from "@engine/tools/technicals";
 import type { TickerRow } from "@engine/screener/engine";
 
@@ -32,6 +32,13 @@ export type ScreenerRow = TickerRow & {
   aiCodes: string[];
 };
 
+/**
+ * Assemble TickerRow data from the live DB for the engine screener.
+ *
+ * Data assembly (reading prices, computing RSI via @engine/tools/technicals,
+ * computing pctFrom52wHigh) lives here. All filtering/sorting/scoring is
+ * delegated to @engine/screener/engine.runScreen() by the page.
+ */
 export async function getScreenerRows(): Promise<ScreenerRow[]> {
   const db = await openDb();
   if (!db) return [];
@@ -96,7 +103,7 @@ export async function getScreenerRows(): Promise<ScreenerRow[]> {
       pricesMap.get(sym)!.push(val);
     }
 
-    // Process rows
+    // Process rows — data assembly only, no scoring
     return tickerRows.map((row) => {
       const sym = row.symbol as string;
       const sectorEntry = sectorsMap.get(sym) ?? { gicsCode: undefined, aiCodes: [] };
@@ -105,14 +112,14 @@ export async function getScreenerRows(): Promise<ScreenerRow[]> {
       const revPrices = pricesMap.get(sym) ?? [];
       const chronologicalPrices = [...revPrices].reverse();
 
-      // Compute RSI
+      // Compute RSI via @engine/tools/technicals (despiked via @engine/lib/metrics)
       let rsiVal: number | null = null;
       if (chronologicalPrices.length > 14) {
         const despiked = despike(chronologicalPrices);
         rsiVal = rsi(despiked, 14);
       }
 
-      // Compute pctFrom52wHighPct
+      // Compute pctFrom52wHighPct (simple data assembly, not indicator scoring)
       const latestClose = latestCloseMap.get(sym) ?? null;
       const fiftyTwoWeekHigh = row.fiftyTwoWeekHigh !== null ? (row.fiftyTwoWeekHigh as number) : null;
       let pctFrom52wHighPct: number | null = null;
