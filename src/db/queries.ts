@@ -35,13 +35,28 @@ export function loadCloses(db: SqlDb, symbol: string, opts: { despiked?: boolean
 
 export type DigestRow = { d: string; dataJson: string; llmMd?: string | null; llmProvider?: string | null; llmModel?: string | null };
 
+/**
+ * Upsert a digest by date: one row per market date. The `Digest` table has no
+ * UNIQUE on `d` (prisma schema is frozen this batch), so we delete any existing
+ * rows for that date then insert — additive SQL, no migration. This also cleans
+ * up historical duplicate rows for `d` the first time a date is re-saved (the old
+ * code inserted a fresh row every run). Returns the new row id.
+ */
 export function saveDigest(db: SqlDb, digest: DigestRow): number {
-  const info = db
-    .prepare('INSERT INTO "Digest" ("d","dataJson","llmMd","llmProvider","llmModel") VALUES (?,?,?,?,?)')
-    .run(digest.d, digest.dataJson, digest.llmMd ?? null, digest.llmProvider ?? null, digest.llmModel ?? null) as {
-    lastInsertRowid: number | bigint;
-  };
-  return Number(info.lastInsertRowid);
+  db.exec("BEGIN");
+  try {
+    db.prepare('DELETE FROM "Digest" WHERE "d"=?').run(digest.d);
+    const info = db
+      .prepare('INSERT INTO "Digest" ("d","dataJson","llmMd","llmProvider","llmModel") VALUES (?,?,?,?,?)')
+      .run(digest.d, digest.dataJson, digest.llmMd ?? null, digest.llmProvider ?? null, digest.llmModel ?? null) as {
+      lastInsertRowid: number | bigint;
+    };
+    db.exec("COMMIT");
+    return Number(info.lastInsertRowid);
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  }
 }
 
 export function loadLatestDigest(db: SqlDb): { id: number; d: string; dataJson: string; llmMd: string | null } | null {

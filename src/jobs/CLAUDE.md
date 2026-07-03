@@ -36,7 +36,23 @@ injected dependencies → fully tested with fakes (no network).
   `buildMarketInputs` (breadth/movers/pulses/divergence/credit/data-health) merged with
   recent `RuleEvent`s, upcoming catalysts (**14-day** window — the old 7d fell short of
   the earnings cluster and silenced the family), and failed-job health — then
-  `synthesize` → `saveDigest`.
+  `synthesize` → `saveDigest` (upsert-by-date: one Digest row per market date).
+- `backup.ts` — the daily SQLite backup job. `runBackupJob(db, {dir,keep,now})` does
+  `VACUUM INTO data/backups/engine-YYYY-MM-DD.db` (a consistent snapshot, safe while the
+  DB is live), then `pruneBackups(dir, keep=14)` deletes all but the newest N. Same-day
+  re-run overwrites today's file (idempotent). Never throws — a failure returns a detail
+  string. `listBackups`/`pruneBackups` are pure over the dir listing (dated filenames
+  sort chronologically) so retention is unit-testable with temp files.
+- `registry-live.ts` — the **shared LIVE job registry**, extracted from `scripts/job.ts`
+  so the CLI and the scheduler daemon run one code path. Owns the env + DB open
+  (`loadDotEnv` / `databaseFile` / `openDb`, mirroring `scripts/seed.ts`), the lazy
+  live fetchers/providers (yahoo2 / Stooq / EDGAR / `HttpProvider`), `buildLiveRegistry(db)`
+  (the runnable entries with `db` bound in), `jobCatalog()` (name+describe for `--list`
+  with NO DB/network — single-sourced with the registry), and `drainDossierQueueLive(db)`
+  (the scheduler's idle drain: `recoverStale` → live `runDossierJob`, one at a time,
+  respecting the llama single-flight lock). Registered jobs: `prices10y`, `fundamentals`,
+  `edgar_index`, `stats`, `news`, `earnings`, `rules`, `digest`, `overnight`, `dossier`,
+  `backup`. Importing it stays offline; only each `run` touches the wire.
 
 ## Tests
 
@@ -51,3 +67,9 @@ window math.
 earnings (upsert dedupe), the overnight order + failure-resilience + one-JobRun-per-step,
 `runPricesHealJob` / `runDigestJob`, and the catalyst-window regression (a near-term
 earnings cluster the old 7-day window missed now surfaces).
+`registry-live.test.ts` — the live-registry ASSEMBLY offline: `jobCatalog()` lists every
+job (incl. `backup`) with a describe and no DB; `buildLiveRegistry(db)` binds the db in,
+preserves names/order, and is single-sourced with the catalog.
+`backup.test.ts` — retention (`listBackups` filters+sorts dated files, `pruneBackups`
+keeps the newest N and deletes the oldest, no-op under the limit) with temp files, and
+`runBackupJob` (VACUUM INTO writes a real SQLite backup; same-day re-run overwrites).

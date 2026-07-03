@@ -25,7 +25,7 @@
     <key>KeepAlive</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>/Users/yash/Desktop/Programming/fin_research/data/logs/scheduler.out.log</string>
+    <string>/Users/yash/Desktop/Programming/fin_research/data/logs/scheduler.log</string>
     <key>StandardErrorPath</key>
     <string>/Users/yash/Desktop/Programming/fin_research/data/logs/scheduler.err.log</string>
   </dict>
