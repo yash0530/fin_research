@@ -12,7 +12,8 @@ Small, dependency-free numeric helpers used at every price read path.
   - `median(values)` · `pctChange(from, to)` (null on divide-by-zero) · `maxDrawdownPct(closes)`.
 - `universe.ts` — `parseUniverseCsv(csv)`: S&P rows (ticker/company/sector/industry) →
   `UniverseRow` with the GICS name mapped to its `g_*` code (unmapped → null). Quoted-field
-  aware. `countByGics(rows)` tallies constituents per code.
+  aware. `countByGics(rows)` tallies constituents per code; `summarizeUniverse(rows)` rolls
+  up total / mapped / unmapped / distinct sectors (used by the seed summary + CSV test).
 
 ## Why it matters
 

@@ -22,5 +22,7 @@ Standalone `tsx` scripts (not part of the library build).
   Each tick also runs the llama-server watchdog (`src/schedule/watchdog.ts`): probe
   `:8000/health`, and when down past the cooloff, `launchctl bootstrap` + `kickstart -k`
   the `com.local.llamacpp` service.
-- `seed.ts` — populates the DB (migrations + GICS 11 + AI-infra 12 sectors + demo tickers +
-  links + a sample digest) via the data layer. Run: `npm run seed`.
+- `seed.ts` — populates the DB (migrations + GICS 11 + AI-infra 12 sectors + the full
+  S&P universe from `config/sp500.csv` with GICS links + additive AI-infra `ai_*` links +
+  credit benchmarks + a sample digest) via `src/db/seed-helpers.seedUniverse`. Idempotent;
+  prints ticker/sector/link counts. Run: `npm run seed`.

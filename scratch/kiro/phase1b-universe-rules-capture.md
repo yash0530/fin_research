@@ -38,3 +38,88 @@ adapted to this repo's patterns (never-throw, provenance, injectable deps).
 ## Wrap-up
 Append `## Result`: file list, test count before/after, seed counts observed, any
 donor semantics adapted/skipped and why. Do NOT commit.
+
+## Result
+
+### Gates
+- `npm run verify` — **GREEN**: `tsc --noEmit` clean, **253/253** vitest tests pass,
+  `✓ CLAUDE.md present in all 42 directories`.
+- `npm run seed` (scratch `DATABASE_URL=file:./data/seed-check.db`, then deleted) —
+  runs clean and is idempotent (re-run yields identical ticker/sector/link counts):
+  **`✓ seeded: 563 tickers, 23 sectors, 640 links, 1 digest(s)`** ·
+  `universe: 503 S&P rows (503 GICS-mapped, 0 unmapped) · AI-infra: 58 new symbols + 137 ai_* links · 2 benchmarks`.
+
+### Test count
+- Before: **212** · After: **253** (+41: rules/engine 26, capture/research-output 8,
+  synthesize +4, universe +2, db/seed-helpers +1).
+
+### Files
+NEW:
+- `config/sp500.csv` (503 rows, 4 cols) · `config/CLAUDE.md`
+- `src/rules/types.ts` · `src/rules/engine.ts` · `src/rules/engine.test.ts` · `src/rules/CLAUDE.md`
+- `src/config/tripwires.ts`
+- `src/db/seed-helpers.ts`
+- `src/capture/enums.ts` · `src/capture/research-output.test.ts`
+
+MODIFIED:
+- `src/config/sectors.ts` (+`AI_INFRA_TICKERS`, `aiInfraLinks()`, `AI_INFRA_SYMBOLS`, `CREDIT_BENCHMARKS`)
+- `src/lib/universe.ts` (+`summarizeUniverse`, recognizes `company_name` header) · `src/lib/universe.test.ts`
+- `src/db/queries.ts` (+`insertRuleEvent`/`recentRuleEvents` with a runtime `RuleEvent` table guard) · `src/db/seed-helpers.test.ts`
+- `scripts/seed.ts` (full-universe seed via `seedUniverse`)
+- `src/research/synthesize.ts` (+`credit`, `catalysts`, `data_health` families; persisted `RuleEvent`s into the tripwire family) · `src/research/synthesize.test.ts`
+- `src/capture/parse.ts` (full donor `OUTPUT_FORMAT` + `parseResearchOutput`/`parseSignalJson`/`parseSignalDeskBlock`) · `src/capture/capture.test.ts`
+- CLAUDE.md module maps: `src/`, `src/config`, `src/research`, `src/capture`, `src/db`, `src/lib`, `scripts`
+
+Untouched (per Hard constraints): `TASKS.md`, `src/analyst/**`, `src/config/providers.ts`,
+`src/config/settings.ts`, `src/dossier/**`, `web/**`, `prisma/**`, `package.json`.
+
+### Seed-count gate shortfall (≥600 tickers / ≥700 links NOT met — spec arithmetic)
+Observed **563 tickers / 23 sectors / 640 links**. The `23 sectors` gate is met exactly;
+the ticker/link thresholds are **not reachable under the mandatory `dedupe symbols present
+in both` rule**, and this is an arithmetic property of the donor data, not an
+implementation gap:
+- The universe is `503 S&P` ∪ `131 AI-infra` (the union of `ResearchEngine/config/sectors.ts`
+  + `ResearchApp/lib/taxonomy.ts` + benchmarks). **71 of the 131 AI names are already S&P
+  constituents**, so additive+deduped seeding yields `503 + 60 = 563` distinct tickers —
+  not `503 + 131 = 634`. Reaching ≥600 would require fabricating ~37 tickers with no
+  faithful donor source, which violates the "faithful port / no invented data" hard
+  constraints. I chose faithfulness over hitting the number.
+- Links = `503 GICS` (one per S&P row, all mapped) + `137` deduped `ai_*` memberships =
+  `640`. Reaching ≥700 would require ~197 AI memberships; the donor taxonomies contain
+  ~137 distinct `(symbol, ai_* code)` pairs after mapping to this repo's 12-code lens.
+  AI-only tickers get no GICS link because the donor CSV carries no GICS sector for them
+  (inventing one would again be fabricated data).
+
+`npm run verify` (the primary gate) is fully green, the seed is correct, idempotent, and
+reports counts. The shortfall is surfaced here rather than papered over.
+
+### Donor semantics adapted / skipped
+- **RuleEvent table:** the spec states it "already exists in prisma/migrations", but the
+  frozen `prisma/**` (0001_init.sql, 30 tables) has no `RuleEvent`. Since `prisma/**` is
+  do-NOT-touch, `insertRuleEvent`/`recentRuleEvents` **ensure the table idempotently at
+  runtime** (`CREATE TABLE IF NOT EXISTS`, same column shape as the donor Prisma model:
+  id/ruleId/firedAt/severity/message/acked). When a RuleEvent migration lands, the guard
+  is a no-op.
+- **Rules engine context:** ported the pure evaluators verbatim; the Prisma-bound
+  `prismaRuleContext`/`runAllRules` were re-expressed over this repo's injectable `SqlDb`
+  (`Price`/`ManualSeries` reads, despiked on read) + the queries helpers. Cooloff, the
+  simple→compound two-phase pass, and capex-raise suppression are preserved exactly.
+- **AI-infra → `ai_*` mapping:** this repo's 12-code AI lens is coarser than the donors'.
+  Donor "Grid Equipment & Materials", "Cooling & Thermal" and "Data-Center Power & Nuclear"
+  fold into `ai_power`; "AI Servers & Hardware" → `ai_data`; "Robotics & Physical AI" and
+  "Drones & Defense" (no dedicated code here) fold into `ai_edge` (driver-5 edge/physical
+  AI). `ai_models`/`ai_software` have no donor constituents and are seeded empty. Genuine
+  multi-exposures are preserved (AVGO/MRVL in compute+custom-silicon+networking, TSM in
+  compute+foundry, MPWR in data+edge, TER in foundry+edge).
+- **Capture:** kept the existing `parseCapture`/`{items}` contract (and its tests) intact;
+  ADDED the full donor `OUTPUT_FORMAT` (10 arrays + enum vocab + 1–5 confidence + mandatory
+  discoveries + shape example, retargeted to this repo's `ai_*` theme slugs) and the
+  faithful `parseResearchOutput` (fenced-JSON primary + legacy `SIGNAL_DESK` pipe fallback)
+  producing a typed `ParsedSignalBlock`. Donor parser tests ported for both paths.
+- **Synthesize:** additive — existing families/behaviour unchanged; `credit` uses the
+  credit_proxy threshold (−5 warn, −10 critical), `catalysts` uses the spec's 7-day window
+  (donor used 10), `data_health` covers stale age, stale-price count, suspect despiked
+  ticks, and failed job runs. Every new insight carries a provenance string; per-family
+  caps preserved.
+
+Not committed.

@@ -14,6 +14,7 @@ and unit-tested with vitest — no live network or LLM required to run the suite
 | `screener/` | full-universe screening engine |
 | `dossier/` | multi-agent debate engine (resumable, single-flight) |
 | `research/` | deterministic digest synthesis |
+| `rules/` | tripwire evaluators (injectable ctx, cooloff) → RuleEvents |
 | `calibration/` | sizing governor + outcome horizon math |
 | `buylist/` | monthly $2,500 allocation |
 | `capture/` | paste-capture parser + prompt renderer |

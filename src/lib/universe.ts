@@ -55,7 +55,7 @@ export function parseUniverseCsv(csv: string): UniverseRow[] {
     return -1;
   };
   const tIdx = col("ticker", "symbol");
-  const cIdx = col("company", "name");
+  const cIdx = col("company_name", "company", "name");
   const sIdx = col("sector", "gics sector");
   const iIdx = col("industry", "gics sub-industry");
   if (tIdx < 0 || sIdx < 0) return [];
@@ -86,4 +86,26 @@ export function countByGics(rows: UniverseRow[]): Record<string, number> {
     counts[key] = (counts[key] ?? 0) + 1;
   }
   return counts;
+}
+
+export type UniverseSummary = {
+  total: number;
+  mapped: number;
+  unmapped: number;
+  sectors: number; // distinct g_* codes present
+  byGics: Record<string, number>;
+};
+
+/** Roll-up used by the seed's console summary and the CSV integrity test. */
+export function summarizeUniverse(rows: UniverseRow[]): UniverseSummary {
+  const byGics = countByGics(rows);
+  const mapped = rows.filter((r) => r.gicsCode !== null).length;
+  const sectors = Object.keys(byGics).filter((k) => k !== "unmapped").length;
+  return {
+    total: rows.length,
+    mapped,
+    unmapped: rows.length - mapped,
+    sectors,
+    byGics,
+  };
 }

@@ -156,3 +156,65 @@ export function countRows(db: SqlDb, table: string): number {
   const row = db.prepare(`SELECT count(*) AS c FROM "${table}"`).get() as { c: number };
   return row.c;
 }
+
+// ── RuleEvent (tripwire fires) ───────────────────────────────────────────────
+//
+// NOTE: the fixed prisma schema (prisma/** is frozen for this batch) does not yet
+// carry a RuleEvent table, so the helpers below ensure it idempotently at runtime
+// — same column shape as the donor's Prisma model (id, ruleId, firedAt, severity,
+// message, acked). When a RuleEvent migration lands, this guard becomes a no-op.
+
+const ruleEventTableEnsured = new WeakSet<object>();
+
+function ensureRuleEventTable(db: SqlDb): void {
+  if (ruleEventTableEnsured.has(db as unknown as object)) return;
+  db.exec(
+    'CREATE TABLE IF NOT EXISTS "RuleEvent" (' +
+      '"id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, ' +
+      '"ruleId" TEXT NOT NULL, ' +
+      '"firedAt" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, ' +
+      '"severity" TEXT NOT NULL, ' +
+      '"message" TEXT NOT NULL, ' +
+      '"acked" INTEGER NOT NULL DEFAULT 0)',
+  );
+  db.exec('CREATE INDEX IF NOT EXISTS "RuleEvent_ruleId_firedAt_idx" ON "RuleEvent"("ruleId","firedAt")');
+  ruleEventTableEnsured.add(db as unknown as object);
+}
+
+export type RuleEventRow = { id: number; ruleId: string; firedAt: string; severity: string; message: string; acked: number };
+export type RuleEventInput = { ruleId: string; severity: string; message: string; firedAt?: string };
+
+/** Record a tripwire fire. Returns the new row id. Never throws on a missing table. */
+export function insertRuleEvent(db: SqlDb, e: RuleEventInput): number {
+  ensureRuleEventTable(db);
+  const info = db
+    .prepare('INSERT INTO "RuleEvent" ("ruleId","firedAt","severity","message") VALUES (?,?,?,?)')
+    .run(e.ruleId, e.firedAt ?? new Date().toISOString(), e.severity, e.message) as {
+    lastInsertRowid: number | bigint;
+  };
+  return Number(info.lastInsertRowid);
+}
+
+/** Recent RuleEvents, newest first. Optional filter by ruleId / age window / count. */
+export function recentRuleEvents(
+  db: SqlDb,
+  opts: { ruleId?: string; sinceDays?: number; limit?: number } = {},
+): RuleEventRow[] {
+  ensureRuleEventTable(db);
+  const clauses: string[] = [];
+  const params: unknown[] = [];
+  if (opts.ruleId) {
+    clauses.push('"ruleId"=?');
+    params.push(opts.ruleId);
+  }
+  if (opts.sinceDays !== undefined) {
+    const lo = new Date(Date.now() - opts.sinceDays * 86_400_000).toISOString();
+    clauses.push('"firedAt">=?');
+    params.push(lo);
+  }
+  const where = clauses.length ? ` WHERE ${clauses.join(" AND ")}` : "";
+  const limit = opts.limit && opts.limit > 0 ? ` LIMIT ${Math.floor(opts.limit)}` : "";
+  return db
+    .prepare(`SELECT "id","ruleId","firedAt","severity","message","acked" FROM "RuleEvent"${where} ORDER BY "firedAt" DESC, "id" DESC${limit}`)
+    .all(...params) as RuleEventRow[];
+}

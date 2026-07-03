@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { parseUniverseCsv, countByGics } from "./universe";
+import { readFileSync, existsSync } from "node:fs";
+import { parseUniverseCsv, countByGics, summarizeUniverse } from "./universe";
 
 describe("parseUniverseCsv", () => {
   it("maps GICS sector names to g_* codes", () => {
@@ -45,5 +46,34 @@ describe("parseUniverseCsv", () => {
     expect(counts.g_info_tech).toBe(2);
     expect(counts.g_financials).toBe(1);
     expect(counts.unmapped).toBe(1);
+  });
+
+  it("summarizes mapped/unmapped/sector counts", () => {
+    const csv = [
+      "ticker,company,sector",
+      "MU,Micron,Information Technology",
+      "JPM,JPMorgan,Financials",
+      "ZZZ,Zeta,Unknownia",
+    ].join("\n");
+    const s = summarizeUniverse(parseUniverseCsv(csv));
+    expect(s.total).toBe(3);
+    expect(s.mapped).toBe(2);
+    expect(s.unmapped).toBe(1);
+    expect(s.sectors).toBe(2);
+  });
+});
+
+describe("config/sp500.csv integrity", () => {
+  it("parses the full donor universe with every row GICS-mapped", () => {
+    const path = "config/sp500.csv";
+    if (!existsSync(path)) throw new Error("config/sp500.csv missing — copy the donor CSV");
+    const rows = parseUniverseCsv(readFileSync(path, "utf8"));
+    const s = summarizeUniverse(rows);
+    expect(s.total).toBeGreaterThanOrEqual(500); // full S&P universe
+    expect(s.unmapped).toBe(0); // every S&P sector name maps to a g_* code
+    expect(s.sectors).toBe(11); // all 11 GICS sectors present
+    // Header columns preserved (ticker/company_name/sector/industry).
+    const mu = rows.find((r) => r.symbol === "MU");
+    expect(mu?.gicsCode).toBe("g_info_tech");
   });
 });

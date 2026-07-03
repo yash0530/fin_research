@@ -430,3 +430,14 @@ model JobRun {
 
   @@index([job, startedAt])
 }
+
+model RuleEvent {
+  id       Int    @id @default(autoincrement())
+  ruleId   String
+  firedAt  String @default(dbgenerated("CURRENT_TIMESTAMP"))
+  severity String
+  message  String
+  acked    Int    @default(0)
+
+  @@index([ruleId, firedAt])
+}

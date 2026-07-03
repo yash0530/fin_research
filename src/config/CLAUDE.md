@@ -19,6 +19,11 @@ budgets, or add a sector.
     `prices` (Yahoo throttle), `buylist` ($2500/min-lot), `edgar` (8 req/s).
 - `sectors.ts` — two coexisting taxonomies: `GICS_SEEDS` (11, base map, driver 0) and
   `AI_INFRA_SEEDS` (12, deep lens, drivers 1–5). `GICS_NAME_TO_CODE` maps S&P CSV rows.
+  `AI_INFRA_TICKERS` is the ported AI-infra membership (donor union → `ai_*` codes);
+  `aiInfraLinks()` flattens it to deduped `{symbol,code}` links; `CREDIT_BENCHMARKS`
+  are the sector-less HYG/IEF proxies.
+- `tripwires.ts` — the `TRIPWIRES` rule table (config DATA) the `src/rules/` engine
+  interprets: drawdown / consecutive-monthly / flag-equals / ratio-change / compound.
 
 ## Invariants
 

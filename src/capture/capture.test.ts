@@ -43,7 +43,8 @@ describe("renderPrompt", () => {
   it("injects the watchlist and always appends the output contract", () => {
     const p = renderPrompt("daily_scan", { asOf: "2026-07-02", watchlist: ["MU", "NVDA"] });
     expect(p).toContain("MU, NVDA");
-    expect(p).toContain("Return ONLY JSON");
+    expect(p).toContain("```json"); // full OUTPUT_FORMAT contract appended
+    expect(p).toContain("discoveries"); // mandatory-discoveries array present
   });
 
   it("injects the ticker for a ticker_check", () => {

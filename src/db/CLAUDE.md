@@ -14,8 +14,12 @@ WAL + busy_timeout, applies `prisma/migrations/*.sql` in order).
   restart and resume against a real database.
 - `queries.ts` — data-access layer over `SqlDb`: `insertPrices` (chunked INSERT OR IGNORE),
   `loadCloses` (**despiked on read**), `saveDigest`/`loadLatestDigest`, `saveRecCall`/
-  `loadRecCallsForGovernor`/`updateRecCallOutcome`. Tested against a DB seeded from
-  `0001_init.sql`, incl. persisted RecCalls feeding the calibration governor.
+  `loadRecCallsForGovernor`/`updateRecCallOutcome`, and `insertRuleEvent`/`recentRuleEvents`
+  (tripwire fires — the RuleEvent table is ensured idempotently at runtime since the
+  frozen prisma schema does not yet carry it). Tested against a DB seeded from `0001_init.sql`.
+- `seed-helpers.ts` — `seedUniverse(db, {universe, aiLinks, benchmarks})`: idempotent
+  full-market seeding — every S&P row → Ticker + GICS link, additive `ai_*` links (an
+  existing S&P name is never clobbered), plus sector-less benchmark tickers.
 
 ## Tests
 

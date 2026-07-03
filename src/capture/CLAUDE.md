@@ -9,7 +9,13 @@ Perplexity/Claude/ChatGPT → paste the answer back → parse into typed evidenc
   text,source?,confidence?,asOf?}]}`, salvaged by jsonsafe), then a **legacy line
   fallback** (`- [kind] text`, `$TICKER …`, `- bullet`). `parseStatus: json|legacy|empty`.
   Kinds: claim/risk/catalyst/target/verdict/theme_signal/watch/question/ticker_mention.
-  `OUTPUT_FORMAT` is the contract appended to every rendered prompt.
+  Also the **full-contract parser** `parseResearchOutput(raw)` (port of ResearchApp's
+  parser): the primary fenced-`json` block with 10 arrays → a typed `ParsedSignalBlock`,
+  falling back to the legacy pipe-delimited `SIGNAL_DESK_DATA_*` block. `OUTPUT_FORMAT`
+  is the full donor contract (10 arrays + enum vocab + 1–5 confidence + mandatory
+  discoveries + shape example) appended to every rendered prompt.
+- `enums.ts` — the controlled vocab the parser normalizes against (LEVELS, SENTIMENTS,
+  CYCLE_STAGES, VERDICT_STANCES).
 - `theme-map.ts` — `themeToSector(slug)`: Signal Desk theme slugs → ENGINE Sector codes
   (unknown → null → discovery).
 - `render.ts` — `renderPrompt(template, ctx)` for 4 templates (daily_scan,
@@ -26,3 +32,5 @@ external family and is citable in dossiers.
 
 `capture.test.ts` — JSON contract, prose/fence salvage, legacy fallback, empty,
 theme mapping, prompt rendering + injected watchlist/ticker.
+`research-output.test.ts` — ported donor cases: full fenced-`json` contract (all 10
+arrays), legacy pipe block, malformed-line tolerance, and JSON type safety.

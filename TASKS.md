@@ -117,6 +117,31 @@ and tested with fakes/mocks; wiring to live I/O is the remaining integration wor
   pipeline/PDUFA/runway; semis/energy/consumer/generic equivalents); `requiredTools` mapped
   to real TS registry names (no live transcripts/alt-data) — _verified: `validation-classify.test.ts`
   green; `check:claude` covers `src/dossier/prompts/`_
+- [x] 1.2b Living-Memo context threaded to planner + judge (donor fidelity fix from the
+  batch-A audit): `memoSummary` flows RunnerDeps → AgentCtx → prompts, "(no prior memo)"
+  fallback — _+3 prompt tests_
+- [x] 1.3 Full universe: `config/sp500.csv` (503 rows, all GICS-mapped) + `AI_INFRA_TICKERS`
+  union of both donor taxonomies → **seeded 563 tickers / 23 sectors / 641 links,
+  idempotent** on the real DB. NOTE: original gate said ≥600/≥700 — spec arithmetic error
+  (71 of 131 AI names are S&P members; dedupe ⇒ 563/640); faithfulness chosen over the
+  number. Donor sub-sectors folded: grid/cooling/power→`ai_power`, servers→`ai_data`,
+  robotics/drones→`ai_edge`; `ai_models`/`ai_software` seeded empty (no donor constituents)
+- [x] 1.4 Tripwire rules engine ported (`src/rules/` + `src/config/tripwires.ts`, 6 rules):
+  pure evaluators, cooloff, capex-raise suppression, despiked reads; fires persist as
+  RuleEvent rows — _26 tests_. **Schema drift found & fixed:** RuleEvent was in neither
+  schema.prisma nor 0001_init (run-1 claim wrong); runtime guard added by batch B +
+  proper `0002_rule_event.sql` migration + schema model (31 models, prisma validate ✅)
+- [x] 1.5 Synthesize families added: `credit` (−5 warn/−10 critical), `catalysts`
+  (7-day window; donor used 10), `data_health` (stale age/count, suspect ticks, failed
+  jobs); provenance on every insight; existing families untouched — _+4 tests_
+- [x] 1.6 Capture contract fidelity: full donor OUTPUT_FORMAT (10 arrays, enum vocab,
+  1–5 confidence, mandatory discoveries, shape example, retargeted to `ai_*` slugs) +
+  faithful `parseResearchOutput` (fenced-JSON primary, legacy SIGNAL_DESK pipe fallback);
+  donor parser fixtures ported — _+8 tests_. Existing `parseCapture` contract intact.
+
+_Suite after Phase 1: **253 tests / 43 files**, CLAUDE.md 42/42, tsc clean, seed
+idempotent. Known nit: `npm run seed` appends a sample digest each run (digest count
+grows); make it create-if-absent in the live-data batch._
 
 ## Documentation & housekeeping
 - [x] D.1 `TASKS.md` master checklist (this file)

@@ -9,7 +9,10 @@ full market.
 
 Families: `breadth` (% above 50-day MA), `movers` (top gainers/losers), `gics_pulse`
 and `ai_pulse` (sector extremes), `divergence` (sector vs hyperscaler capex proxy),
-`tripwire` (pass-through risk signals). Severity `info | warn | critical`.
+`tripwire` (pass-through risk signals + persisted `RuleEvent`s), `credit` (HYG/IEF
+financing-stress trend), `catalysts` (dated events inside the next-7-day window), and
+`data_health` (stale prices, suspect despiked ticks, failed job runs). Severity
+`info | warn | critical`.
 
 Discipline:
 - **Provenance on every insight** — `evidence` is never empty (tested).

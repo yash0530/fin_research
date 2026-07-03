@@ -1,13 +1,23 @@
 // Deterministic digest synthesis. Stored facts → ranked insights, EACH carrying
 // an `evidence` provenance string. The LLM never invents here; it only narrates
 // this output later. Generalized to full market: breadth, GICS pulse, AI-lens
-// pulse, tripwires, and sector-vs-hyperscaler divergence. Hard per-family caps
-// keep the digest readable at 500+ tickers.
+// pulse, tripwires (live + persisted RuleEvents), sector-vs-hyperscaler divergence,
+// credit (HYG/IEF financing proxy), near-term catalysts, and data-health. Hard
+// per-family caps keep the digest readable at 500+ tickers.
 
 export type Severity = "info" | "warn" | "critical";
 
 export type Insight = {
-  family: "breadth" | "movers" | "gics_pulse" | "ai_pulse" | "tripwire" | "divergence";
+  family:
+    | "breadth"
+    | "movers"
+    | "gics_pulse"
+    | "ai_pulse"
+    | "tripwire"
+    | "divergence"
+    | "credit"
+    | "catalysts"
+    | "data_health";
   severity: Severity;
   text: string;
   evidence: string; // provenance — never empty
@@ -22,7 +32,20 @@ export type SynthInput = {
   gicsPulse?: { sectorCode: string; retPct: number }[];
   aiPulse?: { sectorCode: string; retPct: number }[];
   tripwires?: { id: string; severity: Severity; message: string; evidence: string }[];
+  /** Persisted RuleEvents (from src/db/queries.recentRuleEvents) — feed the tripwire family. */
+  ruleEvents?: { ruleId: string; severity: Severity; message: string; firedAt: string }[];
   divergences?: { sectorCode: string; sectorRetPct: number; hyperscalerRetPct: number }[];
+  /** HYG/IEF ratio change (%) over ~30d — financing-stress proxy (see credit_proxy tripwire). */
+  credit?: { ratioChangePct: number; lookbackDays?: number; sectorCode?: string };
+  /** Dated catalysts; only those inside the next-7-day window from asOf are surfaced. */
+  catalysts?: { d: string; kind: string; symbol?: string; sectorCode?: string; title: string }[];
+  /** Data-quality signals: stale prices, failed overnight jobs, suspect despiked ticks. */
+  dataHealth?: {
+    ageDays?: number | null;
+    stalePriceCount?: number;
+    failedJobRuns?: string[];
+    suspectTicks?: string[];
+  };
 };
 
 export type Digest = {
@@ -35,6 +58,21 @@ export type Digest = {
 export type SynthCaps = { perFamily?: number; total?: number };
 
 const SEVERITY_RANK: Record<Severity, number> = { critical: 0, warn: 1, info: 2 };
+
+// Named thresholds (greppable, tunable in one place). Credit/catalyst semantics
+// follow the donor's deterministic synthesis + the credit_proxy tripwire.
+const T = {
+  creditStress: -5, // HYG/IEF 30d ≤ this → financing-stress warn (matches credit_proxy rule)
+  creditSevere: -10, // ≤ this → escalate to critical
+  catalystWindowDays: 7, // dated catalysts within this many days of asOf → surfaced
+  staleDays: 3, // price age > this → data-health warn
+};
+
+/** Add whole days to a YYYY-MM-DD string; lexicographic compare stays valid. */
+function addDaysStr(d: string, days: number): string {
+  const t = new Date(`${d}T00:00:00Z`).getTime() + days * 86_400_000;
+  return new Date(t).toISOString().slice(0, 10);
+}
 
 export function synthesize(input: SynthInput, caps: SynthCaps = {}): Digest {
   const perFamily = caps.perFamily ?? 3;
@@ -126,6 +164,86 @@ export function synthesize(input: SynthInput, caps: SynthCaps = {}): Digest {
         text: t.message,
         evidence: t.evidence || `tripwire:${t.id}`,
         symbol: undefined,
+      });
+    }
+  }
+
+  // ── Persisted RuleEvents → tripwire family (provenance = fire date) ──
+  if (input.ruleEvents) {
+    for (const e of input.ruleEvents) {
+      raw.push({
+        family: "tripwire",
+        severity: e.severity,
+        text: e.message,
+        evidence: `tripwire ${e.ruleId} fired ${e.firedAt.slice(0, 10)}`,
+      });
+    }
+  }
+
+  // ── Credit proxy (HYG/IEF financing-stress trend) ────────
+  if (input.credit) {
+    const chg = input.credit.ratioChangePct;
+    if (chg <= T.creditStress) {
+      const days = input.credit.lookbackDays ?? 30;
+      raw.push({
+        family: "credit",
+        severity: chg <= T.creditSevere ? "critical" : "warn",
+        text: `Credit proxy HYG/IEF ${chg.toFixed(1)}% (${days}d) — financing stress for data-center build. Verify ABS spreads at source.`,
+        evidence: `credit: HYG/IEF ratio change ${days}d = ${chg.toFixed(2)}%`,
+        sectorCode: input.credit.sectorCode,
+      });
+    }
+  }
+
+  // ── Near-term dated catalysts (next-7-day window from asOf) ──
+  if (input.catalysts) {
+    const horizon = addDaysStr(input.asOf, T.catalystWindowDays);
+    for (const c of input.catalysts) {
+      if (c.d < input.asOf || c.d > horizon) continue;
+      raw.push({
+        family: "catalysts",
+        severity: "info",
+        text: `${c.d} · ${c.kind}${c.symbol ? ` ${c.symbol}` : ""}: ${c.title}`,
+        evidence: `catalyst dated ${c.d} (within ${T.catalystWindowDays}d of ${input.asOf})`,
+        symbol: c.symbol,
+        sectorCode: c.sectorCode,
+      });
+    }
+  }
+
+  // ── Data health (stale prices, failed jobs, suspect despiked ticks) ──
+  if (input.dataHealth) {
+    const dh = input.dataHealth;
+    if (dh.ageDays !== null && dh.ageDays !== undefined && dh.ageDays > T.staleDays) {
+      raw.push({
+        family: "data_health",
+        severity: "warn",
+        text: `Price data is ${dh.ageDays} days stale — run the prices job before trusting moves.`,
+        evidence: `data_health: latest close ${dh.ageDays}d old as of ${input.asOf}`,
+      });
+    }
+    if (dh.stalePriceCount && dh.stalePriceCount > 0) {
+      raw.push({
+        family: "data_health",
+        severity: "info",
+        text: `${dh.stalePriceCount} ticker(s) have stale prices — coverage may be partial.`,
+        evidence: `data_health: ${dh.stalePriceCount} symbols with stale closes as of ${input.asOf}`,
+      });
+    }
+    if (dh.suspectTicks && dh.suspectTicks.length > 0) {
+      raw.push({
+        family: "data_health",
+        severity: "warn",
+        text: `${dh.suspectTicks.length} ticker(s) show implausible moves — almost certainly splits or bad ticks (despiked), not real. Refetch and verify.`,
+        evidence: `data_health: suspect ${dh.suspectTicks.slice(0, 6).join(", ")}`,
+      });
+    }
+    if (dh.failedJobRuns && dh.failedJobRuns.length > 0) {
+      raw.push({
+        family: "data_health",
+        severity: "info",
+        text: `${dh.failedJobRuns.length} overnight job issue(s) — coverage may be partial.`,
+        evidence: `data_health: ${dh.failedJobRuns.slice(0, 3).join("; ")}`,
       });
     }
   }

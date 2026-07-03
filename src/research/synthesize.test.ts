@@ -61,3 +61,53 @@ describe("synthesize", () => {
     expect(synthesize({ asOf: "2026-07-02" }).headline).toMatch(/Quiet tape/);
   });
 });
+
+describe("synthesize — credit / catalysts / data_health / ruleEvents families", () => {
+  it("flags credit stress with provenance and escalates a severe drop to critical", () => {
+    const warn = synthesize({ asOf: "2026-07-02", credit: { ratioChangePct: -6 } });
+    const c = warn.insights.find((i) => i.family === "credit");
+    expect(c?.severity).toBe("warn");
+    expect(c?.evidence).toContain("HYG/IEF");
+    const severe = synthesize({ asOf: "2026-07-02", credit: { ratioChangePct: -12 } });
+    expect(severe.insights.find((i) => i.family === "credit")?.severity).toBe("critical");
+    // A small move does not fire.
+    expect(synthesize({ asOf: "2026-07-02", credit: { ratioChangePct: -2 } }).insights.some((i) => i.family === "credit")).toBe(false);
+  });
+
+  it("surfaces only catalysts inside the next-7-day window", () => {
+    const d = synthesize({
+      asOf: "2026-07-02",
+      catalysts: [
+        { d: "2026-07-04", kind: "deadline", title: "DOE reactor target" },
+        { d: "2026-07-05", kind: "earnings", symbol: "VRT", title: "Vertiv Q2" },
+        { d: "2026-07-20", kind: "earnings", symbol: "MU", title: "too far out" },
+        { d: "2026-06-30", kind: "past", title: "already happened" },
+      ],
+    });
+    const cats = d.insights.filter((i) => i.family === "catalysts");
+    expect(cats).toHaveLength(2);
+    for (const c of cats) expect(c.evidence).toContain("catalyst dated");
+  });
+
+  it("emits data-health insights for stale prices, suspect ticks, and failed jobs", () => {
+    const d = synthesize({
+      asOf: "2026-07-02",
+      dataHealth: { ageDays: 5, stalePriceCount: 3, suspectTicks: ["ZZZ -88% (60d)"], failedJobRuns: ["prices: timeout"] },
+    });
+    const dh = d.insights.filter((i) => i.family === "data_health");
+    expect(dh.length).toBeGreaterThanOrEqual(3);
+    for (const i of dh) expect(i.evidence.length).toBeGreaterThan(0);
+    expect(dh.some((i) => i.text.includes("stale"))).toBe(true);
+  });
+
+  it("accepts persisted RuleEvents into the tripwire family with fire-date provenance", () => {
+    const d = synthesize({
+      asOf: "2026-07-02",
+      ruleEvents: [{ ruleId: "memory_exit", severity: "critical", message: "MEMORY EXIT SIGNAL", firedAt: "2026-07-01T12:00:00.000Z" }],
+    });
+    const tw = d.insights.find((i) => i.family === "tripwire");
+    expect(tw?.severity).toBe("critical");
+    expect(tw?.evidence).toBe("tripwire memory_exit fired 2026-07-01");
+    expect(d.headline).toMatch(/critical/);
+  });
+});
