@@ -177,7 +177,30 @@ grows); make it create-if-absent in the live-data batch (FIXED in batch C)._
   stage history.
 - [x] 3.3 Bug fixed from the run: stale `state.error` survived a successful resume
   (runner now clears it on start). KNOWN ISSUE → next batch: sector router classified
-  MU as `generic` (should be `semis` — analyzer KPI framing lost).
+  MU as `generic` (should be `semis` — analyzer KPI framing lost). **FIXED + verified
+  live in 3.4.**
+- [x] 3.4 SECOND dossier (NVDA, Jul 3) — full-platform validation in one run:
+  sector resolved → `ai_compute_gpu` (semis analyzer framing ✓ router fix live);
+  **10 stages incl. the automatic `story` stage** (page: "NVDA: Semiconductors /
+  Hardware — HOLD/MEDIUM"); judge 3% → **governor 2%** with the earned-trust
+  rationale (first non-zero governed size); critique let the verdict stand (no
+  systematic revision bias); 2,294s total, all >300s stages surviving the timeout
+  fix. RecCalls now: MU AVOID/LOW 0%, NVDA HOLD/MEDIUM 2%.
+
+## Phase 5 — Daemon reality (evidence, Jul 3 2026)
+- [x] 5.1 Scheduler daemon LIVE (detached, ticking 60s, heartbeats, idle dossier-queue
+  drain, llama watchdog). launchd assets ready (`deploy/`) but **blocked by macOS TCC**
+  (launchd agents can't read ~/Desktop; stack-sampled `open$NOCANCEL` hang) →
+  WORKAROUND: granted-shell detached process. Permanent fix is user-gated (node Full
+  Disk Access, or move the repo) → WELCOME_BACK.
+- [x] 5.2 **Wake detection verified live**: SIGSTOP the tsx WORKER (three prior
+  attempts froze the zsh wrapper / tsx parent — the process tree is
+  wrapper→cli→worker; only the worker's event loop matters) for 200s → thaw →
+  "[scheduler] wake detected (long inter-tick gap) → catch-up evaluation" logged,
+  same-date digest guard short-circuited the chain correctly.
+- [x] 5.3 saveDigest upsert-by-date; daily VACUUM backups (keep 14) wired into the
+  morning chain. NEXT ACCEPTANCE: tomorrow's 05:00+ window should produce the first
+  fully AUTONOMOUS morning digest (no human, no CEO command).
 
 ## Documentation & housekeeping
 - [x] D.1 `TASKS.md` master checklist (this file)
