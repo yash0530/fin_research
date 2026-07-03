@@ -31,4 +31,9 @@ Standalone `tsx` scripts (not part of the library build).
   job against `DATABASE_URL`; prints a per-job summary + a 0/1 exit code. `--list` prints
   the registry with NO DB or network (the live yahoo2/Stooq/EDGAR fetchers are built lazily
   inside each job's `run`). Registered: `prices10y`, `fundamentals`, `edgar_index`, `stats`,
-  `news`, `earnings`, `rules`, `digest`, `overnight`.
+  `news`, `earnings`, `rules`, `digest`, `overnight`, `dossier`. The `dossier` job
+  (`npm run job -- dossier --symbols=MU[,NVDA]`) enqueues (deduped) then runs the live
+  multi-agent deep dive one at a time — HttpProvider from `resolveProfile(role)` + real
+  yahoo2 fetchers (quotes/ownership) for the live tools; the flow itself lives in the
+  testable `src/dossier/job.runDossierJob`. With no `--symbols` it drains the existing
+  queue only.

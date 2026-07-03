@@ -18,7 +18,7 @@ import {
   type AgentCtx,
 } from "./agents";
 import { validateVerdict } from "./evidence-validation";
-import type { DossierState, DossierStore } from "./state";
+import type { DossierState, DossierStore, StageName } from "./state";
 import type { Verdict } from "./schemas";
 
 export type GovernFn = (conviction: string, judgeSize: number) => { governed: number; reason: string };
@@ -44,6 +44,8 @@ export type RunnerDeps = {
   memoSummary?: string;
   governSize?: GovernFn;
   now?: () => number;
+  /** Progress hook: fired ONCE per stage as it first completes (for CLI logging). */
+  onStage?: (name: StageName, at: number) => void;
 };
 
 /** Fallback verdict when the judge LLM fails — a dossier never crashes. */
@@ -76,9 +78,18 @@ export async function runDossier(id: string, deps: RunnerDeps): Promise<DossierS
   const state = deps.store.load(id);
   if (!state) throw new Error(`dossier ${id} not found`);
 
+  const emittedStages = new Set<StageName>();
   const persist = (): void => {
     state.updatedAt = now();
     deps.store.save(state);
+    if (deps.onStage) {
+      for (const name of Object.keys(state.stages) as StageName[]) {
+        if (state.stages[name] && !emittedStages.has(name)) {
+          emittedStages.add(name);
+          deps.onStage(name, now());
+        }
+      }
+    }
   };
   const bail = (reason: string): DossierState => {
     state.status = "failed";

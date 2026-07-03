@@ -40,6 +40,12 @@ import {
 import { routeDailyBars, fetchStooqDaily, type HttpResponse } from "../src/net/route";
 import { fetchSubmissions, type Fetcher } from "../src/net/fetchers";
 import { requireUserAgent, EDGAR_LIMITER, type EdgarFilingRow } from "../src/net/edgar";
+import { defaultClient } from "../src/net/yahoo2";
+import { HttpProvider, type FetchLike } from "../src/analyst/http-provider";
+import { resolveProfile, type AgentRole } from "../src/config/settings";
+import type { Provider } from "../src/analyst/types";
+import { runDossierJob } from "../src/dossier/job";
+import type { LiveFetchers } from "../src/tools/factory";
 
 // ── env + DB open (mirrors scripts/seed.ts) ──────────────────────────────────
 
@@ -111,6 +117,30 @@ function newsQueries(db: SqlDb): NewsQuery[] {
 function earningsSymbols(db: SqlDb): string[] {
   return Array.from(new Set([...watchlistSymbols(db), ...AI_INFRA_SYMBOLS]));
 }
+
+// ── dossier LIVE wiring (provider + fetchers, built lazily) ──────────────────
+
+/** Live LLM provider per agent role: HttpProvider over resolveProfile(role). */
+function liveProviderFor(role: AgentRole): Provider {
+  const profile = resolveProfile(role);
+  const apiKey = profile.apiKeyEnv ? process.env[profile.apiKeyEnv] : undefined;
+  const fetchImpl: FetchLike = (url, init) =>
+    fetch(url, init as RequestInit) as unknown as ReturnType<FetchLike>;
+  return new HttpProvider(profile, { fetchImpl, ...(apiKey ? { apiKey } : {}) });
+}
+
+/** Live tool fetchers wired to the existing yahoo2 adapters (network-bearing tools
+ *  without an adapter degrade to low-confidence results — never crash the debate). */
+function liveFetchers(): LiveFetchers {
+  return {
+    quotes: (symbols) => fetchQuoteBatch(symbols).then((r) => r.rows),
+    ownershipJson: (symbol) =>
+      defaultClient().quoteSummary(symbol, {
+        modules: ["majorHoldersBreakdown", "institutionOwnership"],
+      }),
+  };
+}
+
 
 // ── registry ──────────────────────────────────────────────────────────────────
 
@@ -215,6 +245,31 @@ const REGISTRY: JobEntry[] = [
       });
       const lines = summary.results.map((r) => `  ${r.ok ? "✓" : "✗"} ${r.job}: ${r.detail}`).join("\n");
       return { ok: summary.failed === 0, detail: `overnight — ok=${summary.ok} failed=${summary.failed}\n${lines}` };
+    },
+  },
+  {
+    name: "dossier",
+    describe: "Deep-dive: enqueue symbols (deduped) then run the live multi-agent debate one at a time.",
+    run: async ({ db, symbols }) => {
+      const { enqueued, ran } = await runDossierJob(db, symbols, {
+        providerFor: liveProviderFor,
+        live: liveFetchers(),
+        log: (msg) => console.log(msg),
+      });
+      const done = ran.filter((r) => r.status === "done").length;
+      const failed = ran.filter((r) => r.status === "failed").length;
+      const skipped = enqueued.filter((e) => !e.enqueued).length;
+      const lines = ran.map(
+        (r) =>
+          `  ${r.status === "done" ? "✓" : "✗"} ${r.symbol}: ${r.recommendation ?? r.status}` +
+          `${r.conviction ? `/${r.conviction}` : ""}` +
+          `${r.governedSizePct !== undefined ? ` size ${r.judgeSizePct}%→${r.governedSizePct}%` : ""}` +
+          ` (${r.stages} stages, ${r.wallClockSec.toFixed(1)}s)${r.error ? ` — ${r.error}` : ""}`,
+      );
+      return {
+        ok: failed === 0,
+        detail: `dossier — done=${done} failed=${failed} skipped=${skipped}\n${lines.join("\n")}`.trimEnd(),
+      };
     },
   },
 ];

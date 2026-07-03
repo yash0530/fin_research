@@ -141,7 +141,22 @@ and tested with fakes/mocks; wiring to live I/O is the remaining integration wor
 
 _Suite after Phase 1: **253 tests / 43 files**, CLAUDE.md 42/42, tsc clean, seed
 idempotent. Known nit: `npm run seed` appends a sample digest each run (digest count
-grows); make it create-if-absent in the live-data batch._
+grows); make it create-if-absent in the live-data batch (FIXED in batch C)._
+
+## Phase 2 — LIVE data runs (evidence, Jul 3 2026)
+- [x] 2.1 `edgar_index` LIVE: **554/554 symbols, 0 errors, 389,499 filings in 107.5s**
+  (303,526 Form 4 · 61,650 8-K · 14,492 10-Q · 4,890 10-K · 4,941 DEF 14A);
+  9 symbols without CIKs are benchmarks/ETFs. Required the job-CLI .env fix (faf8345).
+- [x] 2.2 `prices10y` LIVE: **1,343,110 rows · 558/563 symbols · 2016-06-27→2026-07-02
+  in 412s** (yahoo-finance2 session; the naive-fetch 429 wall never appeared).
+  5 persistent failures (ANSS, DAY, HOLX, MMC, PSTG) = stale/delisted Jan-2026 CSV
+  constituents — fail on both route legs, retried once; left as `error` rows so
+  `data_health` surfaces them; universe refresh will deactivate them properly.
+- [x] 2.3 `fundamentals` LIVE: **563/563, 0 errors, 3,379 quarter-rows / 556 symbols
+  in 464s**. HONEST CAVEAT: Yahoo's free quarterly window is ~6-8 quarters/symbol,
+  not the hoped ~5y (MU: 7). Deepening via annual series = backlog.
+- [~] 2.4 `overnight` chain LIVE → first real digest: running (from a clean worktree
+  of committed code while batch D edits the tree).
 
 ## Documentation & housekeeping
 - [x] D.1 `TASKS.md` master checklist (this file)

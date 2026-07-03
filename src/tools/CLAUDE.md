@@ -17,6 +17,14 @@ that agents cite from.
 - `cache.ts` — `ToolCache` (TTL, injectable clock) + `cacheKey(tool, args)` =
   `tool:sha1(stableStringify(args))` (order-independent).
 - `registry.ts` — `ToolRegistry` (instance-based) + `promptCatalog()` for the planner.
+- `factory.ts` — `buildProductionRegistry(db, opts)`: the **production wiring** that binds
+  every tool to the REAL schema (Price / FundamentalsQuarter / Ticker / TickerSector /
+  NewsItem / Catalyst). Local-data tools take no network; live tools take injected
+  fetchers (`LiveFetchers`) and **degrade gracefully** to a low-confidence,
+  `data_status:"missing"` result when offline. Every result keeps `sources[]`, an honest
+  `confidence`, and an explicit `data_status` (`ok | partial | missing`) — never a silent
+  empty. `qoe` is honestly `partial` (the local FundamentalsQuarter lacks the canonical
+  Beneish/Altman/Piotroski inputs). Tested in `factory.test.ts` over a temp migrated DB.
 
 ## Quant tools (pure math, golden-tested)
 

@@ -24,6 +24,14 @@ persistable state machine (the Python was a synchronous SSE stream).
   never-crash (judge falls back to HOLD/LOW on `LlmJsonError`).
 - `queue.ts` — `enqueueDossier` (dedupe), `drainOnce` (oldest, one per tick),
   `recoverStale` (requeue >90-min "running" on boot).
+- `job.ts` — `runDossierJob(db, symbols, deps)`: the **live job core** (factored out of
+  `scripts/job.ts` so it is FakeProvider-testable). Enqueues (deduped) → drains oldest-first
+  one at a time → for each dossier builds the production tool registry
+  (`tools/factory.buildProductionRegistry`) over the real DB, pulls `currentPrice` (latest
+  Price close), `memoSummary` (Memo table, null-safe), and a history-aware governor
+  (`calibration/governor`), runs `runDossier`, then persists the governed `RecCall` and
+  emits a verdict summary. `runner.onStage` is threaded to log each stage transition with
+  elapsed seconds. Tested in `job.test.ts` (run · dedupe · resume).
 
 ## Invariants
 
@@ -36,4 +44,5 @@ persistable state machine (the Python was a synchronous SSE stream).
 ## Tests
 
 `dossier-runner.test.ts` (happy path · uncited-drop · judge fallback · budget
-exhaustion · resume-after-bear) · `queue.test.ts` · `validation-classify.test.ts`.
+exhaustion · resume-after-bear) · `queue.test.ts` · `validation-classify.test.ts` ·
+`job.test.ts` (live job path: run + governed RecCall · dedupe · resume).

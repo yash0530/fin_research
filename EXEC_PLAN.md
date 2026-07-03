@@ -14,13 +14,29 @@ ROADMAP.md (program phases), NEXT_RUN.md (build contract), TASKS.md (ground trut
 | Research | **agy** (`agy` CLI, gemini 3.5 flash, medium/high) | Market research, competitive scans, data-source due diligence |
 | Ops | Claude via launchd/Bash | llama-server, scheduler daemon, backups |
 
-**Delegation protocol (hard rules):** every kiro batch gets a spec file
-(`scratch/kiro/<task>.md`) with intent, exact files, donor paths, gates
-(`npm run verify` green), and "append ## Result; do NOT commit". One kiro batch at a
-time; no workspace edits while a background batch runs. After every batch: `git diff
+**Delegation protocol (hard rules):** every batch gets a spec file
+(`scratch/kiro/<task>.md` or `scratch/agy/<task>.md`) with intent, exact files, donor
+paths, gates, and "append ## Result; do NOT commit". After every batch: `git diff
 --stat` sync, judgment review (line-by-line for business logic), then I commit.
 Every claim gets independently verified before its task closes — tests-green alone
 is not done (lesson from run 1).
+
+**Routing policy (owner directive, Jul 3):** route by difficulty — **agy** (Antigravity;
+start `--model opus` = Claude Opus 4.6 Thinking, fall back to `flash` = Gemini 3.5
+Flash when opus is exhausted) is the volume workhorse for routine/well-specified work
+(UI scaffolding, docs, boilerplate, ports with strong references); **kiro**
+(`claude-opus-4.8`, effort per task) takes the HARD engineering (integration,
+state machines, data integrity) and carries the heavier share; the CEO session does
+the extremely hard work (architecture, subtle logic, all verification, live ops).
+**On a usage limit in either CLI, shift its queue to the other.** Concurrent batches
+allowed ONLY with disjoint file sets (each spec carries an absolute do-NOT-touch wall
+for the other's lane).
+
+**Invocation (both CLIs die without care):** kiro needs a PTY —
+`script -q /dev/null kiro-cli chat --no-interactive --trust-all-tools --model
+claude-opus-4.8 --effort <e> "<pointer>"` as a BARE background command (compound
+prefixes break PTY allocation). agy via
+`bash ~/.claude/plugins/agy/scripts/agy-run.sh ask --model <opus|flash> "<pointer>"`.
 
 ## Waves (sequenced, each gated)
 
