@@ -19,5 +19,8 @@ Standalone `tsx` scripts (not part of the library build).
 - `scheduler.ts` — the scheduler daemon. `--once` evaluates a single decision tick and
   exits (verifiable); default runs the 60s tick loop with wake detection. Decisions come
   from the tested `src/schedule/wake`; the launchd agent is `deploy/com.engine.scheduler.plist`.
+  Each tick also runs the llama-server watchdog (`src/schedule/watchdog.ts`): probe
+  `:8000/health`, and when down past the cooloff, `launchctl bootstrap` + `kickstart -k`
+  the `com.local.llamacpp` service.
 - `seed.ts` — populates the DB (migrations + GICS 11 + AI-infra 12 sectors + demo tickers +
   links + a sample digest) via the data layer. Run: `npm run seed`.
