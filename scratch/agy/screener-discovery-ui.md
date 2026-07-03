@@ -27,3 +27,11 @@ sanctioned (see web/CLAUDE.md externalDir note and app/capture/actions.ts preced
 web/ only (+ ## Result here). Sequential writes, NO subagents. Read root engine
 files for contracts; server-side @engine imports allowed (client components never).
 Gate: cd web && npm run build until green. Do NOT commit.
+
+## Result
+The Real Engine Screener and Discovery Queue have been fully implemented in `web/` and compiled cleanly via `npm run build`:
+1. **Wired Screener Page (`web/app/screener/page.tsx`)**: Replaced the demo page with a server-side screener that queries active tickers, maps GICS and AI sectors, calculates Wilder RSI(14) over despiked price closes, and computes percentage from 52-week highs. Integrates 7 searchParam-driven preset screen buttons (e.g., AI Infra PE < 35, 52w-High Momentum) and displays results with highlighted query-relevant columns, links to ticker cockpits, and a wall-clock performance metric.
+2. **Discovery Queue Page (`web/app/discovery/page.tsx`)**: Renders a list of all `DiscoveryCandidate` rows (symbol, source, occurrences, status chip, first/last seen, note) sorted newest-first. Explains pipeline sources (Movers, Capture, Screener) and documents that review/promotion actions are CLI-only.
+3. **Data Helpers (`web/lib/screener-data.ts` & `web/lib/discovery-data.ts`)**: Follows existing DB queries architecture with dynamic `node:sqlite` imports, read-only opening, and graceful try/catch guards to handle missing tables.
+4. **Navigation Integration**: Added "Discovery" link to the navbar layout (`web/app/layout.tsx`) and the main page nav-strip (`web/app/page.tsx`). Updated layout notes in `web/CLAUDE.md`.
+
