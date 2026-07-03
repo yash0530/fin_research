@@ -177,6 +177,36 @@ export type FundamentalsBackfillOpts = {
   sleep?: (ms: number) => Promise<void>;
 };
 
+export const EDGAR_FACTS_TASK = "edgar_facts";
+
+export type EdgarFactsBackfillOpts = {
+  ciks: { symbol: string; cik: string }[];
+  fetchFacts: (cik: string, symbol: string) => Promise<FundamentalsQuarterRow[]>;
+  concurrency?: number; // default 2 (shares the 8 req/s EDGAR bucket)
+  staggerMs?: number; // default 400
+  sleep?: (ms: number) => Promise<void>;
+};
+
+/** edgar_facts: deep quarterly fundamentals from EDGAR XBRL companyfacts (years of
+ *  history) → FundamentalsQuarter. INSERT OR IGNORE means a Yahoo-seeded quarter is
+ *  never clobbered; EDGAR only ADDS the deeper back-history. */
+export async function backfillEdgarFacts(db: SqlDb, opts: EdgarFactsBackfillOpts): Promise<BackfillSummary> {
+  const cikBySymbol = new Map(opts.ciks.map((c) => [c.symbol.toUpperCase(), c.cik]));
+  return runBackfillPool<FundamentalsQuarterRow>({
+    symbols: opts.ciks.map((c) => c.symbol.toUpperCase()),
+    concurrency: opts.concurrency ?? 2,
+    staggerMs: opts.staggerMs ?? 400,
+    ...(opts.sleep ? { sleep: opts.sleep } : {}),
+    isDone: (s) => backfillIsDone(db, EDGAR_FACTS_TASK, s),
+    fetchOne: (s) => opts.fetchFacts(cikBySymbol.get(s) as string, s),
+    write: (_s, rows) => {
+      insertFundamentals(db, rows, 500);
+    },
+    markDone: (s, rows) => markBackfill(db, EDGAR_FACTS_TASK, s, "done", rows),
+    markError: (s) => markBackfill(db, EDGAR_FACTS_TASK, s, "error"),
+  });
+}
+
 /** fundamentals: quarterly fundamentals per symbol → FundamentalsQuarter. */
 export async function backfillFundamentals(db: SqlDb, opts: FundamentalsBackfillOpts): Promise<BackfillSummary> {
   return runBackfillPool<FundamentalsQuarterRow>({

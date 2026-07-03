@@ -22,6 +22,7 @@ describe("live registry assembly", () => {
     "prices10y",
     "fundamentals",
     "edgar_index",
+    "edgar_facts",
     "stats",
     "news",
     "earnings",

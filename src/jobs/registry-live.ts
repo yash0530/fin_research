@@ -15,14 +15,16 @@ import { readFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { createRequire } from "node:module";
 import type { SqlDb } from "../db/migrate";
-import { activeSymbols, watchlistSymbols } from "../db/queries";
+import { activeSymbols, watchlistSymbols, symbolsWithCik, type FundamentalsQuarterRow } from "../db/queries";
 import {
   backfillPrices10y,
   backfillFundamentals,
   backfillEdgarIndex,
+  backfillEdgarFacts,
   parseCompanyTickers,
   type BackfillSummary,
 } from "./backfill";
+import { parseCompanyFacts, type CompanyFacts } from "../net/edgar-facts";
 import { runStatsJob } from "./stats";
 import { runNewsJob, type NewsQuery } from "./news";
 import { runEarningsJob } from "./earnings";
@@ -114,6 +116,19 @@ async function fetchCikMap(): Promise<Record<string, string>> {
   return parseCompanyTickers(await res.json());
 }
 
+/** Deep XBRL fundamentals for one CIK (shares the 8 req/s EDGAR bucket). */
+async function fetchEdgarFacts(cik: string, symbol: string): Promise<FundamentalsQuarterRow[]> {
+  const ua = requireUserAgent();
+  return EDGAR_LIMITER.throttle(async () => {
+    const res = await fetch(`https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`, {
+      headers: { "User-Agent": ua, "Accept-Encoding": "gzip" },
+    });
+    if (res.status === 404) return []; // no XBRL facts for this issuer
+    if (!res.ok) throw new Error(`companyfacts CIK${cik}: HTTP ${res.status}`);
+    return parseCompanyFacts(symbol, (await res.json()) as CompanyFacts);
+  });
+}
+
 function newsQueries(db: SqlDb): NewsQuery[] {
   const queries: NewsQuery[] = [];
   for (const s of AI_INFRA_SEEDS) {
@@ -195,6 +210,15 @@ const JOB_DEFS: JobDef[] = [
         "edgar_index",
         await backfillEdgarIndex(db, { symbols: symbols ?? activeSymbols(db), cikMap, fetchFilings: edgarFilings }),
       );
+    },
+  },
+  {
+    name: "edgar_facts",
+    describe: "Deep quarterly fundamentals from EDGAR XBRL companyfacts (years) → FundamentalsQuarter.",
+    run: async (db, symbols) => {
+      const all = symbolsWithCik(db);
+      const ciks = symbols ? all.filter((c) => symbols.includes(c.symbol)) : all;
+      return backfillOutcome("edgar_facts", await backfillEdgarFacts(db, { ciks, fetchFacts: fetchEdgarFacts }));
     },
   },
   {
