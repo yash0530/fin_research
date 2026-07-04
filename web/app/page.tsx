@@ -82,6 +82,9 @@ export default async function Home() {
         <Link href="/tickers" className="verdict-badge buy" style={{ textDecoration: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', marginTop: 0 }}>
           Tickers
         </Link>
+        <Link href="/portfolio" className="verdict-badge buy" style={{ textDecoration: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', marginTop: 0 }}>
+          Portfolio
+        </Link>
         <Link href="/dossiers" className="verdict-badge buy" style={{ textDecoration: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', marginTop: 0 }}>
           Dossiers
         </Link>
