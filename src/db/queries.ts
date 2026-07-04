@@ -405,34 +405,61 @@ export type FundamentalsQuarterRow = {
   cash?: number | null;
   equity?: number | null;
   sharesOut?: number | null;
+  cfo?: number | null;
+  sga?: number | null;
+  depreciation?: number | null;
+  receivables?: number | null;
+  currentAssets?: number | null;
+  currentLiabilities?: number | null;
+  retainedEarnings?: number | null;
+  ppe?: number | null;
 };
 
 /** Chunked INSERT OR IGNORE into FundamentalsQuarter (PK symbol+periodEnd). */
 export function insertFundamentals(db: SqlDb, rows: FundamentalsQuarterRow[], chunkSize = 500): number {
-  const stmt = db.prepare(
-    'INSERT OR IGNORE INTO "FundamentalsQuarter" ' +
-      '("symbol","periodEnd","revenue","grossProfit","operatingIncome","netIncome","fcf","capex","totalAssets","totalDebt","cash","equity","sharesOut") ' +
-      "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-  );
+  const allColumns = [
+    "symbol",
+    "periodEnd",
+    "revenue",
+    "grossProfit",
+    "operatingIncome",
+    "netIncome",
+    "fcf",
+    "capex",
+    "totalAssets",
+    "totalDebt",
+    "cash",
+    "equity",
+    "sharesOut",
+    "cfo",
+    "sga",
+    "depreciation",
+    "receivables",
+    "currentAssets",
+    "currentLiabilities",
+    "retainedEarnings",
+    "ppe",
+  ] as const;
+
+  const tableInfo = db.prepare('PRAGMA table_info("FundamentalsQuarter")').all() as { name: string }[];
+  const existingCols = new Set(tableInfo.map((c) => c.name));
+  const activeCols = allColumns.filter((c) => existingCols.has(c));
+
+  const colNames = activeCols.map((c) => `"${c}"`).join(",");
+  const placeholders = activeCols.map(() => "?").join(",");
+  const query = `INSERT OR IGNORE INTO "FundamentalsQuarter" (${colNames}) VALUES (${placeholders})`;
+  const stmt = db.prepare(query);
+
   for (const part of chunk(rows, chunkSize)) {
     db.exec("BEGIN");
     try {
       for (const r of part) {
-        stmt.run(
-          r.symbol.toUpperCase(),
-          r.periodEnd,
-          num2(r.revenue),
-          num2(r.grossProfit),
-          num2(r.operatingIncome),
-          num2(r.netIncome),
-          num2(r.fcf),
-          num2(r.capex),
-          num2(r.totalAssets),
-          num2(r.totalDebt),
-          num2(r.cash),
-          num2(r.equity),
-          num2(r.sharesOut),
-        );
+        const vals = activeCols.map((col) => {
+          if (col === "symbol") return r.symbol.toUpperCase();
+          if (col === "periodEnd") return r.periodEnd;
+          return num2(r[col as Exclude<keyof FundamentalsQuarterRow, "symbol" | "periodEnd">]);
+        });
+        stmt.run(...vals);
       }
       db.exec("COMMIT");
     } catch (e) {

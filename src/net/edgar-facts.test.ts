@@ -24,6 +24,14 @@ const FACTS: CompanyFacts = {
         },
       },
       NetIncomeLoss: { units: { USD: [q(FY, "2025-08-31", 20, "Q1")] } },
+      NetCashProvidedByUsedInOperatingActivities: { units: { USD: [q(FY, "2025-08-31", 50, "Q1")] } },
+      SellingGeneralAndAdministrativeExpense: { units: { USD: [q(FY, "2025-08-31", 30, "Q1")] } },
+      DepreciationDepletionAndAmortization: { units: { USD: [q(FY, "2025-08-31", 15, "Q1")] } },
+      AccountsReceivableNetCurrent: { units: { USD: [{ end: "2025-08-31", val: 400, fy: 2025, fp: "Q1", form: "10-Q" }] } },
+      AssetsCurrent: { units: { USD: [{ end: "2025-08-31", val: 2000, fy: 2025, fp: "Q1", form: "10-Q" }] } },
+      LiabilitiesCurrent: { units: { USD: [{ end: "2025-08-31", val: 1200, fy: 2025, fp: "Q1", form: "10-Q" }] } },
+      RetainedEarningsAccumulatedDeficit: { units: { USD: [{ end: "2025-08-31", val: 800, fy: 2025, fp: "Q1", form: "10-Q" }] } },
+      PropertyPlantAndEquipmentNet: { units: { USD: [{ end: "2025-08-31", val: 2500, fy: 2025, fp: "Q1", form: "10-Q" }] } },
       Assets: { units: { USD: [{ end: "2025-08-31", val: 5000, fy: 2025, fp: "Q1", form: "10-Q" }] } },
       StockholdersEquity: { units: { USD: [{ end: "2025-08-31", val: 3000, fy: 2025, fp: "Q1", form: "10-Q" }] } },
       LongTermDebtNoncurrent: { units: { USD: [{ end: "2025-08-31", val: 900, fy: 2025, fp: "Q1", form: "10-Q" }] } },
@@ -57,6 +65,18 @@ describe("parseCompanyFacts", () => {
     expect(byEnd["2025-08-31"].equity).toBe(3000);
     expect(byEnd["2025-08-31"].totalDebt).toBe(1000); // 900 + 100
     expect(byEnd["2025-08-31"].sharesOut).toBe(1_100_000_000);
+    expect(byEnd["2025-08-31"].cfo).toBe(50);
+    expect(byEnd["2025-08-31"].sga).toBe(30);
+    expect(byEnd["2025-08-31"].depreciation).toBe(15);
+    expect(byEnd["2025-08-31"].receivables).toBe(400);
+    expect(byEnd["2025-08-31"].currentAssets).toBe(2000);
+    expect(byEnd["2025-08-31"].currentLiabilities).toBe(1200);
+    expect(byEnd["2025-08-31"].retainedEarnings).toBe(800);
+    expect(byEnd["2025-08-31"].ppe).toBe(2500);
+
+    // Verify other periods have nulls for these fields since they are not provided
+    expect(byEnd["2025-11-30"].cfo).toBeNull();
+    expect(byEnd["2025-11-30"].receivables).toBeNull();
   });
 
   it("uppercases the symbol and sorts by period-end", () => {

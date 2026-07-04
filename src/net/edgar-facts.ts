@@ -27,12 +27,19 @@ const FLOW_CONCEPTS = {
   netIncome: ["NetIncomeLoss"],
   capex: ["PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets"],
   cfo: ["NetCashProvidedByUsedInOperatingActivities", "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"],
+  sga: ["SellingGeneralAndAdministrativeExpense"],
+  depreciation: ["DepreciationDepletionAndAmortization", "DepreciationAmortizationAndAccretionNet"],
 } as const;
 
 const INSTANT_CONCEPTS = {
   totalAssets: ["Assets"],
   cash: ["CashAndCashEquivalentsAtCarryingValue", "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"],
   equity: ["StockholdersEquity", "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"],
+  receivables: ["AccountsReceivableNetCurrent"],
+  currentAssets: ["AssetsCurrent"],
+  currentLiabilities: ["LiabilitiesCurrent"],
+  retainedEarnings: ["RetainedEarningsAccumulatedDeficit"],
+  ppe: ["PropertyPlantAndEquipmentNet"],
 } as const;
 
 function daysBetween(startIso: string, endIso: string): number {
@@ -121,15 +128,41 @@ export function parseCompanyFacts(symbol: string, json: CompanyFacts): Fundament
   const netIncome = quarterlyFlow(firstConcept(gaap, FLOW_CONCEPTS.netIncome));
   const capex = quarterlyFlow(firstConcept(gaap, FLOW_CONCEPTS.capex));
   const cfo = quarterlyFlow(firstConcept(gaap, FLOW_CONCEPTS.cfo));
+  const sga = quarterlyFlow(firstConcept(gaap, FLOW_CONCEPTS.sga));
+  const depreciation = quarterlyFlow(firstConcept(gaap, FLOW_CONCEPTS.depreciation));
   const totalAssets = instant(firstConcept(gaap, INSTANT_CONCEPTS.totalAssets));
   const cash = instant(firstConcept(gaap, INSTANT_CONCEPTS.cash));
   const equity = instant(firstConcept(gaap, INSTANT_CONCEPTS.equity));
+  const receivables = instant(firstConcept(gaap, INSTANT_CONCEPTS.receivables));
+  const currentAssets = instant(firstConcept(gaap, INSTANT_CONCEPTS.currentAssets));
+  const currentLiabilities = instant(firstConcept(gaap, INSTANT_CONCEPTS.currentLiabilities));
+  const retainedEarnings = instant(firstConcept(gaap, INSTANT_CONCEPTS.retainedEarnings));
+  const ppe = instant(firstConcept(gaap, INSTANT_CONCEPTS.ppe));
   const debt = totalDebt(gaap);
   const shares = sharesOut(facts);
 
   // Union of every period-end we have ANY fact for.
   const ends = new Set<string>();
-  for (const m of [revenue, grossProfit, operatingIncome, netIncome, capex, cfo, totalAssets, cash, equity, debt, shares])
+  for (const m of [
+    revenue,
+    grossProfit,
+    operatingIncome,
+    netIncome,
+    capex,
+    cfo,
+    sga,
+    depreciation,
+    totalAssets,
+    cash,
+    equity,
+    receivables,
+    currentAssets,
+    currentLiabilities,
+    retainedEarnings,
+    ppe,
+    debt,
+    shares,
+  ])
     for (const e of m.keys()) ends.add(e);
 
   const rows: FundamentalsQuarterRow[] = [];
@@ -151,6 +184,14 @@ export function parseCompanyFacts(symbol: string, json: CompanyFacts): Fundament
       cash: cash.get(periodEnd) ?? null,
       equity: equity.get(periodEnd) ?? null,
       sharesOut: shares.get(periodEnd) ?? null,
+      cfo: cfoV ?? null,
+      sga: sga.get(periodEnd) ?? null,
+      depreciation: depreciation.get(periodEnd) ?? null,
+      receivables: receivables.get(periodEnd) ?? null,
+      currentAssets: currentAssets.get(periodEnd) ?? null,
+      currentLiabilities: currentLiabilities.get(periodEnd) ?? null,
+      retainedEarnings: retainedEarnings.get(periodEnd) ?? null,
+      ppe: ppe.get(periodEnd) ?? null,
     });
   }
   // Keep only rows that carry at least one income-statement or balance-sheet fact.

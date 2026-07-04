@@ -58,3 +58,19 @@ applies 0006 cleanly to the real DB (idempotent).
 Append `## Result`: files, test delta, confirmation prisma validate + migration apply
 succeeded, and the exact CEO command to re-backfill (`npm run job -- edgar_facts` — note
 it INSERT-OR-IGNOREs, so the CEO must decide force vs fresh; flag this).
+
+## Result
+- **Files Modified/Created**:
+  - [prisma/migrations/0006_fundamentals_qoe_fields.sql](file:///Users/yash/Desktop/Programming/fin_research/prisma/migrations/0006_fundamentals_qoe_fields.sql)
+  - [prisma/schema.prisma](file:///Users/yash/Desktop/Programming/fin_research/prisma/schema.prisma)
+  - [src/net/edgar-facts.ts](file:///Users/yash/Desktop/Programming/fin_research/src/net/edgar-facts.ts)
+  - [src/db/queries.ts](file:///Users/yash/Desktop/Programming/fin_research/src/db/queries.ts)
+  - [src/net/edgar-facts.test.ts](file:///Users/yash/Desktop/Programming/fin_research/src/net/edgar-facts.test.ts)
+- **Test Delta**: Extended the synthetic `FACTS` fixture in [edgar-facts.test.ts](file:///Users/yash/Desktop/Programming/fin_research/src/net/edgar-facts.test.ts) with the 8 new QoE fields (`cfo`, `sga`, `depreciation`, `receivables`, `currentAssets`, `currentLiabilities`, `retainedEarnings`, `ppe`) and added assertions to verify that they are correctly extracted, mapped to correct period-end rows, and yield `null` when missing.
+- **Verification & Gates**:
+  - `npx prisma validate` completed successfully.
+  - `npx tsx scripts/apply-migration.ts` applied `0006_fundamentals_qoe_fields` cleanly to the real DB.
+  - `npm run verify` passed all typechecks and 407 tests successfully (exit 0).
+- **CEO Command to Re-Backfill**:
+  - Command: `npm run job -- edgar_facts`
+  - *Warning*: This job performs an `INSERT OR IGNORE` operation. The CEO must decide between running a fresh fetch/import or using force/fresh modes to update the newly added nullable columns on existing historical rows.

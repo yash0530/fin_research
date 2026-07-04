@@ -101,19 +101,27 @@ model Price {
 }
 
 model FundamentalsQuarter {
-  symbol          String
-  periodEnd       String // YYYY-MM-DD
-  revenue         Float?
-  grossProfit     Float?
-  operatingIncome Float?
-  netIncome       Float?
-  fcf             Float?
-  capex           Float?
-  totalAssets     Float?
-  totalDebt       Float?
-  cash            Float?
-  equity          Float?
-  sharesOut       Float?
+  symbol             String
+  periodEnd          String // YYYY-MM-DD
+  revenue            Float?
+  grossProfit        Float?
+  operatingIncome    Float?
+  netIncome          Float?
+  fcf                Float?
+  capex              Float?
+  totalAssets        Float?
+  totalDebt          Float?
+  cash               Float?
+  equity             Float?
+  sharesOut          Float?
+  cfo                Float?
+  sga                Float?
+  depreciation       Float?
+  receivables        Float?
+  currentAssets      Float?
+  currentLiabilities Float?
+  retainedEarnings   Float?
+  ppe                Float?
 
   @@id([symbol, periodEnd])
   @@index([symbol])
