@@ -31,11 +31,22 @@ baseline. Output: a `backtest` job + a `/backtest` report page — "does breadth
 divergence/tripwire/momentum actually precede returns?" Honest: report null results
 plainly. This is cheap (no LLM) and turns the calibration thesis into evidence.
 
-### C — Prompt-eval harness + one measured prompt iteration
-CEO reviews real dossier transcripts (thinking) and identifies weaknesses; agy builds a
-golden-fixture eval (FakeProvider scripted debates + assertions on verdict discipline,
-citation density, falsifiability) so a `promptVersion` bump is grounded in a measured
-delta, not vibes. Then one real prompt improvement, version-bumped, with before/after.
+### C — Research-quality: canonical QoE forensics (PIVOTED from generic prompt-eval)
+CEO transcript review (scratch/transcript-review-findings.md) + a live check of a
+POST-backfill ARM dossier found the real weakness: the QoE forensics tool STILL
+degrades to an "FCF proxy / unavailable inputs / confidence:low" — M2's 20y
+fundamentals never reached it. `factory.ts` even hard-codes "local schema lacks
+canonical inputs", yet CFO = fcf+capex is already recoverable and the remaining
+Beneish/Altman/Piotroski inputs (SGA, depreciation, receivables, current assets/
+liabilities, retained earnings, PPE) are all PRESENT in the EDGAR companyfacts we
+already fetch — just never stored. So the highest-leverage "sharpen it" move:
+  C.1 (data) deepen FundamentalsQuarter + edgar-facts parser to carry the canonical
+      inputs; re-backfill.
+  C.2 (tool+eval) upgrade the QoE tool to canonical accrual + Altman/Piotroski;
+      golden eval asserting QoE returns canonical (not proxy) on deep data; re-run a
+      dossier to show confidence low→high, proxy→canonical.
+This is the measured iteration my transcript review demanded — it improves every
+future dossier's earnings-quality analysis, not one prompt string.
 
 ### D — Portfolio / thesis-monitoring surface (the deferred v1 item)
 Positions + owned-name tripwires (thesis-decay: a held name breaching its dossier's
