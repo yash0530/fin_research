@@ -327,23 +327,26 @@ describe("buildProductionRegistry — live tools", () => {
 });
 
 describe("dedupFundamentals", () => {
-  it("keeps the row with the most non-null deep fields when two rows are within 10 days", () => {
+  it("merges field-wise when two rows are within 10 days, taking first non-null preferring later", () => {
     const r1 = {
       periodEnd: "2026-05-28",
-      revenue: 100, grossProfit: 40, operatingIncome: 10, netIncome: 5, fcf: null, capex: null,
+      revenue: 90, grossProfit: 40, operatingIncome: 10, netIncome: 5, fcf: null, capex: null,
       totalAssets: 1000, totalDebt: 400, cash: 100, equity: 600, sharesOut: 50,
-      cfo: null, sga: null, depreciation: null, receivables: null, currentAssets: null, currentLiabilities: null, retainedEarnings: null, ppe: null
+      cfo: null, sga: null, depreciation: null, receivables: null, currentAssets: 400, currentLiabilities: null, retainedEarnings: null, ppe: null
     };
     const r2 = {
       periodEnd: "2026-05-31",
       revenue: 100, grossProfit: 40, operatingIncome: 10, netIncome: 5, fcf: 2, capex: 1,
       totalAssets: 1000, totalDebt: 400, cash: 100, equity: 600, sharesOut: 50,
-      cfo: 3, sga: 20, depreciation: 5, receivables: 80, currentAssets: 400, currentLiabilities: 150, retainedEarnings: 200, ppe: 300
+      cfo: 3, sga: 20, depreciation: 5, receivables: 80, currentAssets: null, currentLiabilities: 150, retainedEarnings: 200, ppe: 300
     };
     const result = dedupFundamentals([r1, r2]);
     expect(result.length).toBe(1);
     expect(result[0].periodEnd).toBe("2026-05-31");
-    expect(result[0].cfo).toBe(3);
+    expect(result[0].currentAssets).toBe(400); // from r1
+    expect(result[0].cfo).toBe(3); // from r2
+    expect(result[0].revenue).toBe(100); // from r2 (later preferred over r1 on tie)
+    expect(result[0].grossProfit).toBe(40);
   });
 });
 

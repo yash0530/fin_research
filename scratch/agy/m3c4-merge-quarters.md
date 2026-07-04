@@ -44,3 +44,9 @@ read time). SEQUENTIAL, no subagents. Do NOT commit.
 
 ## Wrap-up
 Append `## Result`: the merge change, the updated test, and confirmation verify is green.
+
+## Result
+
+- **Implementation**: Replaced row selection in `dedupFundamentals` (located in [factory.ts](file:///Users/yash/Desktop/Programming/fin_research/src/tools/factory.ts)) with a field-wise merge. The merge groups clusters of rows within 10 days of each other, sorting descending by `periodEnd` to select the first non-null value for every numeric field (preferring later/EDGAR on ties) and setting `periodEnd` to the latest date.
+- **Updated Test**: Adjusted the test suite in [factory.test.ts](file:///Users/yash/Desktop/Programming/fin_research/src/tools/factory.test.ts) to verify field-wise merge semantics: row A has `currentAssets`, row B has `cfo` and a tied `revenue` field → the merged row correctly possesses both fields, takes the later row's value for the tie, and has the latest `periodEnd` date.
+- **Verification**: Executed `npm run verify` successfully with exit code 0 (all 414 tests passing).

@@ -121,20 +121,6 @@ function loadTicker(db: SqlDb, symbol: string): TickerRow | undefined {
 
 export function dedupFundamentals(rows: FundRow[]): FundRow[] {
   if (rows.length <= 1) return rows;
-  
-  const countDeepFields = (r: FundRow): number => {
-    const fields = [
-      r.cfo,
-      r.sga,
-      r.depreciation,
-      r.receivables,
-      r.currentAssets,
-      r.currentLiabilities,
-      r.retainedEarnings,
-      r.ppe
-    ];
-    return fields.filter(f => f !== null && f !== undefined).length;
-  };
 
   const result: FundRow[] = [];
   let currentGroup: FundRow[] = [];
@@ -150,29 +136,78 @@ export function dedupFundamentals(rows: FundRow[]): FundRow[] {
       if (diffDays <= 10) {
         currentGroup.push(row);
       } else {
-        result.push(resolveGroup(currentGroup, countDeepFields));
+        result.push(mergeGroup(currentGroup));
         currentGroup = [row];
       }
     }
   }
   if (currentGroup.length > 0) {
-    result.push(resolveGroup(currentGroup, countDeepFields));
+    result.push(mergeGroup(currentGroup));
   }
   return result;
 }
 
-function resolveGroup(group: FundRow[], countDeepFields: (r: FundRow) => number): FundRow {
+function mergeGroup(group: FundRow[]): FundRow {
   if (group.length === 1) return group[0];
-  let bestRow = group[0];
-  let maxDeep = countDeepFields(bestRow);
-  for (let i = 1; i < group.length; i++) {
-    const count = countDeepFields(group[i]);
-    if (count > maxDeep) {
-      maxDeep = count;
-      bestRow = group[i];
+  const sorted = [...group].sort((a, b) => Date.parse(b.periodEnd) - Date.parse(a.periodEnd));
+  const latestPeriodEnd = sorted[0].periodEnd;
+
+  const numericFields: (keyof Omit<FundRow, "periodEnd">)[] = [
+    "revenue",
+    "grossProfit",
+    "operatingIncome",
+    "netIncome",
+    "fcf",
+    "capex",
+    "totalAssets",
+    "totalDebt",
+    "cash",
+    "equity",
+    "sharesOut",
+    "cfo",
+    "sga",
+    "depreciation",
+    "receivables",
+    "currentAssets",
+    "currentLiabilities",
+    "retainedEarnings",
+    "ppe"
+  ];
+
+  const merged: FundRow = {
+    periodEnd: latestPeriodEnd,
+    revenue: null,
+    grossProfit: null,
+    operatingIncome: null,
+    netIncome: null,
+    fcf: null,
+    capex: null,
+    totalAssets: null,
+    totalDebt: null,
+    cash: null,
+    equity: null,
+    sharesOut: null,
+    cfo: null,
+    sga: null,
+    depreciation: null,
+    receivables: null,
+    currentAssets: null,
+    currentLiabilities: null,
+    retainedEarnings: null,
+    ppe: null
+  };
+
+  for (const field of numericFields) {
+    for (const row of sorted) {
+      const val = row[field];
+      if (val !== null && val !== undefined) {
+        merged[field] = val;
+        break;
+      }
     }
   }
-  return bestRow;
+
+  return merged;
 }
 
 /** Quarterly fundamentals, oldest → newest. */
