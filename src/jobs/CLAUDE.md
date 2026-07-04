@@ -44,6 +44,11 @@ injected dependencies → fully tested with fakes (no network).
   re-run overwrites today's file (idempotent). Never throws — a failure returns a detail
   string. `listBackups`/`pruneBackups` are pure over the dir listing (dated filenames
   sort chronologically) so retention is unit-testable with temp files.
+- `backtest.ts` — `runBacktestJob`: runs the flagship deterministic backtest over the historical monthly grid (Jan-2010 to maxPriceDate - 400 days). Computes forward returns at 21, 63, 126, 252 days. Saves runs to JSON under `data/backtests/backtest-<YYYY-MM-DD-HHmmss>.json` and outputs a summary table.
+- `integrity.ts`
+  - `splitSuspects`, `flatRuns`, `gaps` — pure detectors of stock splits, flat runs, and chronological gaps.
+  - `runIntegrityJob` — scans Price table history for all active symbols using raw close prices for stock splits, and despiked close prices for flat runs and gaps.
+- `portfolio.ts` — `runPortfolioCheck`: scans all positions, loads current price and historical closes (despiked), and latest RecCall, runs `decaySignals`, and returns a summary detail string of critical/warn findings.
 - `registry-live.ts` — the **shared LIVE job registry**, extracted from `scripts/job.ts`
   so the CLI and the scheduler daemon run one code path. Owns the env + DB open
   (`loadDotEnv` / `databaseFile` / `openDb`, mirroring `scripts/seed.ts`), the lazy
@@ -53,11 +58,7 @@ injected dependencies → fully tested with fakes (no network).
   (the scheduler's idle drain: `recoverStale` → live `runDossierJob`, one at a time,
   respecting the llama single-flight lock). Registered jobs: `prices10y`, `fundamentals`,
   `edgar_index`, `stats`, `news`, `earnings`, `rules`, `digest`, `overnight`, `dossier`,
-  `backup`, `integrity_check`, `backtest`. Importing it stays offline; only each `run` touches the wire.
-- `integrity.ts`
-  - `splitSuspects`, `flatRuns`, `gaps` — pure detectors of stock splits, flat runs, and chronological gaps.
-  - `runIntegrityJob` — scans Price table history for all active symbols using raw close prices for stock splits, and despiked close prices for flat runs and gaps.
-- `backtest.ts` — `runBacktestJob`: runs the flagship deterministic backtest over the historical monthly grid (Jan-2010 to maxPriceDate - 400 days). Computes forward returns at 21, 63, 126, 252 days. Saves runs to JSON under `data/backtests/backtest-<YYYY-MM-DD-HHmmss>.json` and outputs a summary table.
+  `backup`, `integrity_check`, `backtest`, `portfolio_check`. Importing it stays offline; only each `run` touches the wire.
 
 ## Tests
 
@@ -79,3 +80,4 @@ preserves names/order, and is single-sourced with the catalog.
 keeps the newest N and deletes the oldest, no-op under the limit) with temp files, and
 `runBackupJob` (VACUUM INTO writes a real SQLite backup; same-day re-run overwrites).
 `integrity.test.ts` — unit tests for stock splits, flat runs, gaps, and testing `runIntegrityJob` using a migrated in-memory DB.
+`portfolio.test.ts` — unit tests for the `runPortfolioCheck` job over a fixture DB.

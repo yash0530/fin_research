@@ -14,6 +14,11 @@ import {
   closesBetween,
   symbolClosesUpTo,
   upsertFundamentals,
+  upsertPosition,
+  deletePosition,
+  listPositions,
+  latestCloseFor,
+  latestRecCallFor,
 } from "./queries";
 import { governSize } from "../calibration/governor";
 import type { RecCall } from "../dossier/state";
@@ -127,4 +132,61 @@ describe("data-access layer (real migrated DB)", () => {
     expect(row.grossProfit).toBe(2000);
     expect(row.sga).toBe(500);
   });
+
+  it("performs position CRUD and latest close/reccall retrieval", () => {
+    const db = migratedDb();
+    
+    // Test empty
+    expect(listPositions(db)).toEqual([]);
+    expect(latestCloseFor(db, "AAPL")).toBeNull();
+    expect(latestRecCallFor(db, "AAPL")).toBeNull();
+
+    // Test upsert AAPL
+    upsertPosition(db, { symbol: "AAPL", qty: 10, avgCost: 150 });
+    expect(listPositions(db)).toEqual([
+      { symbol: "AAPL", qty: 10, avgCost: 150, openedAt: null }
+    ]);
+
+    // Test update
+    upsertPosition(db, { symbol: "aapl", qty: 15, avgCost: 155, openedAt: "2026-07-03" });
+    expect(listPositions(db)).toEqual([
+      { symbol: "AAPL", qty: 15, avgCost: 155, openedAt: "2026-07-03" }
+    ]);
+
+    // Test multiple positions sorted by symbol
+    upsertPosition(db, { symbol: "MSFT", qty: 5, avgCost: 300 });
+    expect(listPositions(db)).toEqual([
+      { symbol: "AAPL", qty: 15, avgCost: 155, openedAt: "2026-07-03" },
+      { symbol: "MSFT", qty: 5, avgCost: 300, openedAt: null }
+    ]);
+
+    // Test latestCloseFor
+    insertPrices(db, [
+      { symbol: "AAPL", d: "2026-07-01", close: 160 },
+      { symbol: "AAPL", d: "2026-07-02", close: 165 },
+    ]);
+    expect(latestCloseFor(db, "AAPL")).toBe(165);
+    expect(latestCloseFor(db, "aapl")).toBe(165);
+
+    // Test latestRecCallFor
+    const call1 = rc("d1", { symbol: "AAPL", targetLow: 180, targetHigh: 200, stopPrice: 140, createdAt: 1000 });
+    const call2 = rc("d2", { symbol: "AAPL", targetLow: 190, targetHigh: 210, stopPrice: 145, createdAt: 2000 });
+    saveRecCall(db, call1);
+    saveRecCall(db, call2);
+
+    const latestCall = latestRecCallFor(db, "AAPL");
+    expect(latestCall).not.toBeNull();
+    expect(latestCall?.dossierId).toBe("d2");
+    expect(latestCall?.createdAt).toBe(2000);
+    expect(latestCall?.targetLow).toBe(190);
+    expect(latestCall?.targetHigh).toBe(210);
+    expect(latestCall?.stopPrice).toBe(145);
+
+    // Test delete
+    deletePosition(db, "AAPL");
+    expect(listPositions(db)).toEqual([
+      { symbol: "MSFT", qty: 5, avgCost: 300, openedAt: null }
+    ]);
+  });
 });
+

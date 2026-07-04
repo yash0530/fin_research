@@ -35,6 +35,7 @@ import { runOutcomesJob } from "./outcomes";
 import { runUniverseCheck } from "./universe";
 import { runIntegrityJob } from "./integrity";
 import { runBacktestJob } from "./backtest";
+import { runPortfolioCheck } from "./portfolio";
 import { runRulesJob } from "../rules/engine";
 import { TRIPWIRES } from "../config/tripwires";
 import { AI_INFRA_SEEDS, AI_INFRA_SYMBOLS } from "../config/sectors";
@@ -375,6 +376,14 @@ const JOB_DEFS: JobDef[] = [
     describe: "Run deterministic signal backtest over the historical grid.",
     run: async (db) => {
       const detail = await runBacktestJob(db);
+      return { ok: true, detail };
+    },
+  },
+  {
+    name: "portfolio_check",
+    describe: "Evaluate thesis-decay signals for all open positions.",
+    run: async (db) => {
+      const detail = await runPortfolioCheck(db);
       return { ok: true, detail };
     },
   },

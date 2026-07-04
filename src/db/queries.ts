@@ -841,4 +841,90 @@ export function symbolClosesFrom(db: SqlDb, symbol: string, fromD: string): { d:
   return db.prepare(query).all(symbol.toUpperCase(), fromD) as { d: string; close: number }[];
 }
 
+export type PositionRow = {
+  symbol: string;
+  qty: number;
+  avgCost: number;
+  openedAt?: string | null;
+};
+
+export function upsertPosition(db: SqlDb, pos: { symbol: string; qty: number; avgCost: number; openedAt?: string | null }): void {
+  db.prepare(
+    'INSERT INTO "Position" ("symbol", "qty", "avgCost", "openedAt") VALUES (?, ?, ?, ?) ' +
+      'ON CONFLICT("symbol") DO UPDATE SET qty=excluded.qty, avgCost=excluded.avgCost, openedAt=excluded.openedAt',
+  ).run(pos.symbol.toUpperCase(), pos.qty, pos.avgCost, pos.openedAt ?? null);
+}
+
+export function deletePosition(db: SqlDb, symbol: string): void {
+  db.prepare('DELETE FROM "Position" WHERE "symbol"=?').run(symbol.toUpperCase());
+}
+
+export function listPositions(db: SqlDb): { symbol: string; qty: number; avgCost: number; openedAt: string | null }[] {
+  return db.prepare('SELECT "symbol", "qty", "avgCost", "openedAt" FROM "Position" ORDER BY "symbol" ASC').all() as {
+    symbol: string;
+    qty: number;
+    avgCost: number;
+    openedAt: string | null;
+  }[];
+}
+
+export function latestCloseFor(db: SqlDb, symbol: string): number | null {
+  const closes = loadCloses(db, symbol);
+  return closes.length > 0 ? closes[closes.length - 1] : null;
+}
+
+type RecCallDbRow = {
+  id: number;
+  dossierId: string;
+  symbol: string;
+  action: string;
+  conviction: string;
+  priceAtCall: number;
+  targetLow: number | null;
+  targetHigh: number | null;
+  stopPrice: number | null;
+  judgeSizePct: number;
+  governedSizePct: number;
+  governorReason: string | null;
+  model: string | null;
+  thinkingMode: number;
+  promptVersion: string | null;
+  outcome1mPct: number | null;
+  outcome3mPct: number | null;
+  outcome6mPct: number | null;
+  outcome1yPct: number | null;
+  thesisFalsified: number | null;
+  createdAt: string;
+};
+
+export function latestRecCallFor(db: SqlDb, symbol: string): RecCall | null {
+  const row = db
+    .prepare('SELECT * FROM "RecCall" WHERE "symbol"=? ORDER BY "createdAt" DESC, "id" DESC LIMIT 1')
+    .get(symbol.toUpperCase()) as RecCallDbRow | undefined;
+  if (!row) return null;
+  return {
+    dossierId: row.dossierId,
+    symbol: row.symbol,
+    action: row.action as RecCall["action"],
+    conviction: row.conviction as RecCall["conviction"],
+    priceAtCall: row.priceAtCall,
+    targetLow: row.targetLow ?? 0,
+    targetHigh: row.targetHigh ?? 0,
+    stopPrice: row.stopPrice,
+    judgeSizePct: row.judgeSizePct,
+    governedSizePct: row.governedSizePct,
+    governorReason: row.governorReason ?? "",
+    model: row.model ?? "",
+    thinkingMode: !!row.thinkingMode,
+    promptVersion: row.promptVersion ?? "v1",
+    createdAt: new Date(row.createdAt).getTime(),
+    outcome1mPct: row.outcome1mPct,
+    outcome3mPct: row.outcome3mPct,
+    outcome6mPct: row.outcome6mPct,
+    outcome1yPct: row.outcome1yPct,
+    thesisFalsified: row.thesisFalsified === null || row.thesisFalsified === undefined ? null : !!row.thesisFalsified,
+  };
+}
+
+
 
