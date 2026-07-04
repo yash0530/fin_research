@@ -729,3 +729,23 @@ export function activeSectorMemberships(db: SqlDb): { symbol: string; sectorCode
     )
     .all() as { symbol: string; sectorCode: string; taxonomy: string }[];
 }
+
+/** Raw (symbol, d, close) rows between `sinceD` and `asOf` inclusive, ordered by symbol then date. */
+export function closesBetween(db: SqlDb, sinceD: string, asOf: string): { symbol: string; d: string; close: number }[] {
+  return db
+    .prepare('SELECT "symbol","d","close" FROM "Price" WHERE "d" BETWEEN ? AND ? ORDER BY "symbol" ASC, "d" ASC')
+    .all(sinceD, asOf) as { symbol: string; d: string; close: number }[];
+}
+
+/** A symbol's closes with `d <= asOf`, ordered oldest to newest. If limit is provided, only return the latest N rows. */
+export function symbolClosesUpTo(db: SqlDb, symbol: string, asOf: string, limit?: number): { d: string; close: number }[] {
+  let query = 'SELECT "d","close" FROM "Price" WHERE "symbol"=? AND "d"<=? ORDER BY "d" DESC';
+  const params: any[] = [symbol.toUpperCase(), asOf];
+  if (limit !== undefined && limit !== null) {
+    query += ' LIMIT ?';
+    params.push(limit);
+  }
+  const rows = db.prepare(query).all(...params) as { d: string; close: number }[];
+  return rows.reverse();
+}
+

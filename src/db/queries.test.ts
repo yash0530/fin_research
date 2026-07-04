@@ -11,6 +11,8 @@ import {
   saveRecCall,
   loadRecCallsForGovernor,
   updateRecCallOutcome,
+  closesBetween,
+  symbolClosesUpTo,
 } from "./queries";
 import { governSize } from "../calibration/governor";
 import type { RecCall } from "../dossier/state";
@@ -91,5 +93,22 @@ describe("data-access layer (real migrated DB)", () => {
     const recheck = governSize("HIGH", 10, loadRecCallsForGovernor(db, { symbol: "MU" }));
     expect(recheck.governed).toBe(2); // 2/5 favorable < 50% → capped
     expect(recheck.reason).toMatch(/favorable only 40%/);
+  });
+
+  it("guards against lookahead leaks (no lookahead test)", () => {
+    const db = migratedDb();
+    insertPrices(db, [
+      { symbol: "X", d: "2020-01-31", close: 100 },
+      { symbol: "X", d: "2020-02-28", close: 105 },
+      { symbol: "X", d: "2020-03-31", close: 110 },
+    ]);
+
+    const between = closesBetween(db, "2020-01-01", "2020-02-28");
+    expect(between).toHaveLength(2);
+    expect(between.map((b) => b.d)).toEqual(["2020-01-31", "2020-02-28"]);
+
+    const upTo = symbolClosesUpTo(db, "X", "2020-02-28");
+    expect(upTo).toHaveLength(2);
+    expect(upTo.map((b) => b.d)).toEqual(["2020-01-31", "2020-02-28"]);
   });
 });
