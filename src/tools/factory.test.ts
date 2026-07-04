@@ -15,7 +15,7 @@ import {
   type PriceRow,
 } from "../db/queries";
 import { execute } from "./types";
-import { buildProductionRegistry, type LiveFetchers } from "./factory";
+import { buildProductionRegistry, dedupFundamentals, type LiveFetchers } from "./factory";
 import type { QuoteStat } from "../net/yahoo2";
 import { accrualRatio, altmanZ, piotroskiF, beneishM, type AnnualPeriod } from "./qoe";
 
@@ -323,5 +323,148 @@ describe("buildProductionRegistry — live tools", () => {
     const r = await execute(reg.get("quote_snapshot")!, {});
     expect(r.data.data_status).toBe("missing");
     expect(String(r.data.note)).toMatch(/network down/);
+  });
+});
+
+describe("dedupFundamentals", () => {
+  it("keeps the row with the most non-null deep fields when two rows are within 10 days", () => {
+    const r1 = {
+      periodEnd: "2026-05-28",
+      revenue: 100, grossProfit: 40, operatingIncome: 10, netIncome: 5, fcf: null, capex: null,
+      totalAssets: 1000, totalDebt: 400, cash: 100, equity: 600, sharesOut: 50,
+      cfo: null, sga: null, depreciation: null, receivables: null, currentAssets: null, currentLiabilities: null, retainedEarnings: null, ppe: null
+    };
+    const r2 = {
+      periodEnd: "2026-05-31",
+      revenue: 100, grossProfit: 40, operatingIncome: 10, netIncome: 5, fcf: 2, capex: 1,
+      totalAssets: 1000, totalDebt: 400, cash: 100, equity: 600, sharesOut: 50,
+      cfo: 3, sga: 20, depreciation: 5, receivables: 80, currentAssets: 400, currentLiabilities: 150, retainedEarnings: 200, ppe: 300
+    };
+    const result = dedupFundamentals([r1, r2]);
+    expect(result.length).toBe(1);
+    expect(result[0].periodEnd).toBe("2026-05-31");
+    expect(result[0].cfo).toBe(3);
+  });
+});
+
+describe("QoE tool honesty and correctness evals", () => {
+  const dates = [
+    "2023-03-31",
+    "2023-06-30",
+    "2023-09-30",
+    "2023-12-31",
+    "2024-03-31",
+    "2024-06-30",
+    "2024-09-30",
+    "2024-12-31",
+  ];
+
+  it("(a) clean deep data for 8 consecutive quarters -> canonical (altmanZ + accrual non-null, data_status ok, no insane values)", async () => {
+    const db = new DatabaseSync(":memory:") as unknown as SqlDb;
+    applyMigrations(db, ALL_MIGRATIONS);
+
+    const quarters = dates.map((d) => ({
+      symbol: "MU_CLEAN",
+      periodEnd: d,
+      revenue: 250,
+      grossProfit: 100,
+      sga: 50,
+      depreciation: 12,
+      operatingIncome: 37,
+      netIncome: 25,
+      cfo: 30,
+      receivables: 100,
+      currentAssets: 500,
+      ppe: 300,
+      totalAssets: 1000,
+      currentLiabilities: 200,
+      totalDebt: 100,
+      equity: 600,
+      retainedEarnings: 250,
+      sharesOut: 100,
+    }));
+    insertFundamentals(db, quarters);
+
+    const reg = buildProductionRegistry(db, { symbol: "MU_CLEAN" });
+    const r = await execute(reg.get("qoe")!, {});
+    expect(r.data.data_status).toBe("ok");
+    expect(r.confidence).toBe("high");
+    expect(r.data.altmanZ).not.toBeNull();
+    expect(r.data.accrualRatio).not.toBeNull();
+    expect(r.data.accrualRatio).toBeCloseTo(-0.02, 4); // (100 - 120) / 1000
+    expect(r.data.computed).toContain("altmanZ");
+    expect(r.data.computed).toContain("accrualRatio");
+    expect(r.data.omitted).not.toContain("altmanZ");
+    expect(r.data.omitted).not.toContain("accrualRatio");
+  });
+
+  it("(b) sparse cfo but full balance sheet -> altmanZ emitted, accrual omitted, data_status partial", async () => {
+    const db = new DatabaseSync(":memory:") as unknown as SqlDb;
+    applyMigrations(db, ALL_MIGRATIONS);
+
+    const quarters = dates.map((d) => ({
+      symbol: "MU_SPARSE",
+      periodEnd: d,
+      revenue: 250,
+      grossProfit: 100,
+      sga: 50,
+      depreciation: 12,
+      operatingIncome: 37,
+      netIncome: 25,
+      cfo: null,
+      receivables: 100,
+      currentAssets: 500,
+      ppe: 300,
+      totalAssets: 1000,
+      currentLiabilities: 200,
+      totalDebt: 100,
+      equity: 600,
+      retainedEarnings: 250,
+      sharesOut: 100,
+    }));
+    insertFundamentals(db, quarters);
+
+    const reg = buildProductionRegistry(db, { symbol: "MU_SPARSE" });
+    const r = await execute(reg.get("qoe")!, {});
+    expect(r.data.data_status).toBe("partial");
+    expect(r.confidence).toBe("medium");
+    expect(r.data.altmanZ).not.toBeNull();
+    expect(r.data.accrualRatio).toBeNull();
+    expect(r.data.computed).toContain("altmanZ");
+    expect(r.data.omitted).toContain("accrualRatio: current-period inputs incomplete");
+  });
+
+  it("(c) fixture that would yield |accrual|>1 -> accrual omitted (sanity guard)", async () => {
+    const db = new DatabaseSync(":memory:") as unknown as SqlDb;
+    applyMigrations(db, ALL_MIGRATIONS);
+
+    const quarters = dates.map((d) => ({
+      symbol: "MU_INSANE",
+      periodEnd: d,
+      revenue: 250,
+      grossProfit: 100,
+      sga: 50,
+      depreciation: 12,
+      operatingIncome: 37,
+      netIncome: 25,
+      cfo: -1000,
+      receivables: 100,
+      currentAssets: 500,
+      ppe: 300,
+      totalAssets: 1000,
+      currentLiabilities: 200,
+      totalDebt: 100,
+      equity: 600,
+      retainedEarnings: 250,
+      sharesOut: 100,
+    }));
+    insertFundamentals(db, quarters);
+
+    const reg = buildProductionRegistry(db, { symbol: "MU_INSANE" });
+    const r = await execute(reg.get("qoe")!, {});
+    expect(r.data.accrualRatio).toBeNull();
+    expect(r.data.altmanZ).not.toBeNull();
+    expect(r.data.data_status).toBe("partial");
+    expect(r.data.omitted).toContain("accrualRatio: value out of bounds (|accrualRatio| > 1)");
   });
 });

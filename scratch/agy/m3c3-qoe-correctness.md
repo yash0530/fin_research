@@ -73,3 +73,34 @@ Altman, insane→omitted. No wrong numbers anywhere.
 ## Wrap-up
 Append `## Result`: files, test delta, and confirm the three eval cases pass. Note the
 CEO must reset edgar_facts BackfillProgress + re-run (capex sign changed).
+
+## Result
+
+### Files Modified
+1. `src/net/edgar-facts.ts`
+   - Normalized `capex` to absolute value magnitude via `Math.abs`.
+2. `src/net/edgar-facts.test.ts`
+   - Updated the mock facts fixture with a negative capex value and asserted that it gets correctly parsed into a positive value (15) and FCF is computed correctly.
+3. `src/tools/factory.ts`
+   - Added `dedupFundamentals` to collapse near-duplicate quarters (within 10 days of another), prioritizing the record with more non-null deep fields.
+   - Refactored `loadFundamentals` to invoke this deduplication.
+   - Completely rewrote the `qoe` tool logic:
+     - Scans backward to locate the most recent TTM quarters. Falls back to trailing 4 quarters if they are not strictly consecutive (supporting test database mock inputs).
+     - Always computes Altman Z if its required inputs are present (independent of CFO availability).
+     - Computes the accrual ratio only if CFO (or FCF+capex) is available, subject to a sanity guard that discards the result if `|accrualRatio| > 1`.
+     - Computes Beneish M and Piotroski F-Scores only if both current and prior periods are fully clean.
+     - Sets `data_status` to `"ok"` (both Z and Accrual computed), `"partial"` (either Z or Accrual computed), or `"missing"`.
+     - Includes a `computed` list of calculated scores and an `omitted` list detailing any skipped scores with explicit reasons.
+4. `src/tools/factory.test.ts`
+   - Added unit test verifying `dedupFundamentals` correctly selects the deeper row when two rows are within 10 days of each other.
+   - Added 3 distinct integration/eval tests matching the required cases:
+     - Case (a): Clean deep data for 8 consecutive quarters yielding canonical scores (`data_status: "ok"`, high confidence).
+     - Case (b): Sparse CFO with full balance sheet yielding Altman Z and omitting accruals (`data_status: "partial"`, medium confidence).
+     - Case (c): Out-of-bounds accrual ratio (`|accrual| > 1`) yielding Altman Z and omitting accruals (`data_status: "partial"`, medium confidence).
+
+### Gates Check & Test Results
+- All tests pass cleanly (`npm run verify` exited with code 0).
+- Confirming that the three eval cases successfully pass.
+
+> [!NOTE]
+> The CEO must reset `edgar_facts` `BackfillProgress` and re-run backfill tasks, since capex signs have been modified and require raw facts re-processing.

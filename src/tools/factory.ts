@@ -33,7 +33,7 @@ import { parseForm4, purchasesFromFilings, clusterBuySignal, type Form4Filing } 
 import { parseOwnership } from "./institutional";
 import { optionsMetrics, type OptionsChain } from "./options-metrics";
 import type { QuoteStat } from "../net/yahoo2";
-import { qoeReport, type AnnualPeriod } from "./qoe";
+import { qoeReport, type AnnualPeriod, altmanZ, accrualRatio, piotroskiF, beneishM } from "./qoe";
 
 export type DataStatus = "ok" | "partial" | "missing";
 
@@ -119,9 +119,65 @@ function loadTicker(db: SqlDb, symbol: string): TickerRow | undefined {
     .get(symbol.toUpperCase()) as TickerRow | undefined;
 }
 
+export function dedupFundamentals(rows: FundRow[]): FundRow[] {
+  if (rows.length <= 1) return rows;
+  
+  const countDeepFields = (r: FundRow): number => {
+    const fields = [
+      r.cfo,
+      r.sga,
+      r.depreciation,
+      r.receivables,
+      r.currentAssets,
+      r.currentLiabilities,
+      r.retainedEarnings,
+      r.ppe
+    ];
+    return fields.filter(f => f !== null && f !== undefined).length;
+  };
+
+  const result: FundRow[] = [];
+  let currentGroup: FundRow[] = [];
+  
+  for (const row of rows) {
+    if (currentGroup.length === 0) {
+      currentGroup.push(row);
+    } else {
+      const lastInGroup = currentGroup[currentGroup.length - 1];
+      const d1 = Date.parse(lastInGroup.periodEnd);
+      const d2 = Date.parse(row.periodEnd);
+      const diffDays = Math.round(Math.abs(d2 - d1) / 86_400_000);
+      if (diffDays <= 10) {
+        currentGroup.push(row);
+      } else {
+        result.push(resolveGroup(currentGroup, countDeepFields));
+        currentGroup = [row];
+      }
+    }
+  }
+  if (currentGroup.length > 0) {
+    result.push(resolveGroup(currentGroup, countDeepFields));
+  }
+  return result;
+}
+
+function resolveGroup(group: FundRow[], countDeepFields: (r: FundRow) => number): FundRow {
+  if (group.length === 1) return group[0];
+  let bestRow = group[0];
+  let maxDeep = countDeepFields(bestRow);
+  for (let i = 1; i < group.length; i++) {
+    const count = countDeepFields(group[i]);
+    if (count > maxDeep) {
+      maxDeep = count;
+      bestRow = group[i];
+    }
+  }
+  return bestRow;
+}
+
 /** Quarterly fundamentals, oldest → newest. */
-function loadFundamentals(db: SqlDb, symbol: string): FundRow[] {
-  return db
+export function loadFundamentals(db: SqlDb, symbol: string): FundRow[] {
+  const rows = db
     .prepare(
       'SELECT "periodEnd","revenue","grossProfit","operatingIncome","netIncome","fcf","capex",' +
         '"totalAssets","totalDebt","cash","equity","sharesOut","cfo","sga","depreciation",' +
@@ -129,6 +185,7 @@ function loadFundamentals(db: SqlDb, symbol: string): FundRow[] {
         'WHERE "symbol"=? ORDER BY "periodEnd" ASC',
     )
     .all(symbol.toUpperCase()) as FundRow[];
+  return dedupFundamentals(rows);
 }
 
 function sectorsFor(db: SqlDb, symbol: string): string[] {
@@ -260,33 +317,38 @@ function buildAnnualPeriod(fourQuarters: FundRow[]): AnnualPeriod {
   };
 }
 
-function calculateAccrualRatioFromAvailable(quarters: FundRow[]): number | null {
-  if (quarters.length === 0) return null;
-  const targetQuarters = quarters.slice(-4);
-  let totalNetIncome = 0;
-  let totalCfo = 0;
-  let hasNetIncome = false;
-  let hasCfo = false;
-
-  for (const q of targetQuarters) {
-    if (q.netIncome !== null && q.netIncome !== undefined) {
-      totalNetIncome += q.netIncome;
-      hasNetIncome = true;
-    }
-    const qCfo = q.cfo !== null && q.cfo !== undefined ? q.cfo :
-                 (q.fcf !== null && q.fcf !== undefined && q.capex !== null && q.capex !== undefined ? q.fcf + q.capex : null);
-    if (qCfo !== null) {
-      totalCfo += qCfo;
-      hasCfo = true;
-    }
-  }
-
-  const lastQ = targetQuarters[targetQuarters.length - 1];
-  const totalAssets = lastQ.totalAssets;
-  if (hasNetIncome && hasCfo && totalAssets !== null && totalAssets !== undefined && totalAssets !== 0) {
-    return (totalNetIncome - totalCfo) / totalAssets;
+function getQuarterCfo(q: FundRow): number | null {
+  if (q.cfo !== null && q.cfo !== undefined) return q.cfo;
+  if (q.fcf !== null && q.fcf !== undefined && q.capex !== null && q.capex !== undefined) {
+    return q.fcf + q.capex;
   }
   return null;
+}
+
+function hasAltmanZInputs(quarters: FundRow[]): boolean {
+  if (quarters.length !== 4) return false;
+  for (const q of quarters) {
+    if (q.revenue === null || q.revenue === undefined) return false;
+    if (q.operatingIncome === null || q.operatingIncome === undefined) return false;
+  }
+  const lastQ = quarters[3];
+  if (lastQ.totalAssets === null || lastQ.totalAssets === undefined) return false;
+  if (lastQ.equity === null || lastQ.equity === undefined) return false;
+  if (lastQ.retainedEarnings === null || lastQ.retainedEarnings === undefined) return false;
+  if (lastQ.currentAssets === null || lastQ.currentAssets === undefined) return false;
+  if (lastQ.currentLiabilities === null || lastQ.currentLiabilities === undefined) return false;
+  return true;
+}
+
+function hasAccrualRatioInputs(quarters: FundRow[]): boolean {
+  if (quarters.length !== 4) return false;
+  for (const q of quarters) {
+    if (q.netIncome === null || q.netIncome === undefined) return false;
+    if (getQuarterCfo(q) === null) return false;
+  }
+  const lastQ = quarters[3];
+  if (lastQ.totalAssets === null || lastQ.totalAssets === undefined || lastQ.totalAssets === 0) return false;
+  return true;
 }
 
 // ── factory ────────────────────────────────────────────────────────────────
@@ -445,47 +507,172 @@ export function buildProductionRegistry(db: SqlDb, opts: ProductionRegistryOpts 
       const sym = resolve(args as Record<string, unknown>);
       const src: Source[] = [{ label: `FundamentalsQuarter (local) ${sym}` }];
       const fund = loadFundamentals(db, sym);
-      if (fund.length === 0) return missing(`no fundamentals for ${sym}`, src);
 
-      if (fund.length >= 8) {
-        const last8 = fund.slice(-8);
-        if (areConsecutive(last8)) {
-          const currentQuarters = last8.slice(-4);
-          const priorQuarters = last8.slice(-8, -4);
-          if (canBuildCanonical(currentQuarters) && canBuildCanonical(priorQuarters)) {
-            const current = buildAnnualPeriod(currentQuarters);
-            const prior = buildAnnualPeriod(priorQuarters);
-            const report = qoeReport(current, prior);
-            return out(
-              {
-                symbol: sym,
-                ...report,
-                data_status: "ok" as DataStatus,
-              },
-              src,
-              "high",
-            );
-          }
+      const computed: string[] = [];
+      const omitted: string[] = [];
+      const flags: string[] = [];
+
+      if (fund.length === 0) {
+        return out(
+          {
+            symbol: sym,
+            accrualRatio: null,
+            altmanZ: null,
+            altmanZone: null,
+            piotroskiF: null,
+            beneishM: null,
+            beneishFlag: null,
+            sbcPctRevenue: null,
+            flags: [],
+            data_status: "missing" as DataStatus,
+            computed,
+            omitted: [
+              "altmanZ: no fundamentals data available",
+              "accrualRatio: no fundamentals data available",
+              "piotroskiF: no fundamentals data available",
+              "beneishM: no fundamentals data available",
+            ],
+          },
+          src,
+          "low",
+        );
+      }
+
+      // Find the most recent TTM quarters
+      let currentQuarters: FundRow[] | null = null;
+      let currentIdx = -1;
+      for (let i = fund.length - 4; i >= 0; i--) {
+        const slice = fund.slice(i, i + 4);
+        if (areConsecutive(slice)) {
+          currentQuarters = slice;
+          currentIdx = i;
+          break;
         }
       }
 
-      const acc = calculateAccrualRatioFromAvailable(fund);
+      if (currentQuarters === null && fund.length >= 4) {
+        currentQuarters = fund.slice(-4);
+        currentIdx = fund.length - 4;
+      }
+
+      if (currentQuarters === null) {
+        return out(
+          {
+            symbol: sym,
+            accrualRatio: null,
+            altmanZ: null,
+            altmanZone: null,
+            piotroskiF: null,
+            beneishM: null,
+            beneishFlag: null,
+            sbcPctRevenue: null,
+            flags: [],
+            data_status: "missing" as DataStatus,
+            computed,
+            omitted: [
+              "altmanZ: insufficient consecutive quarters for TTM",
+              "accrualRatio: insufficient consecutive quarters for TTM",
+              "piotroskiF: insufficient consecutive quarters for TTM",
+              "beneishM: insufficient consecutive quarters for TTM",
+            ],
+          },
+          src,
+          "low",
+        );
+      }
+
+      const currentPeriod = buildAnnualPeriod(currentQuarters);
+
+      let altmanZVal: number | null = null;
+      let altmanZoneVal: "safe" | "grey" | "distress" | null = null;
+      if (hasAltmanZInputs(currentQuarters)) {
+        altmanZVal = altmanZ(currentPeriod);
+        altmanZoneVal = altmanZVal > 2.99 ? "safe" : altmanZVal < 1.81 ? "distress" : "grey";
+        computed.push("altmanZ");
+        if (altmanZVal < 1.81) {
+          flags.push("Altman Z in distress zone");
+        }
+      } else {
+        omitted.push("altmanZ: current-period inputs incomplete");
+      }
+
+      let accrualRatioVal: number | null = null;
+      if (hasAccrualRatioInputs(currentQuarters)) {
+        const acc = accrualRatio(currentPeriod);
+        if (Math.abs(acc) > 1) {
+          omitted.push("accrualRatio: value out of bounds (|accrualRatio| > 1)");
+        } else {
+          accrualRatioVal = acc;
+          computed.push("accrualRatio");
+          if (acc > 0.1) {
+            flags.push("High positive accruals (earnings exceed cash flow)");
+          }
+        }
+      } else {
+        omitted.push("accrualRatio: current-period inputs incomplete");
+      }
+
+      let piotroskiFVal: number | null = null;
+      let beneishMVal: number | null = null;
+      let beneishFlagVal: "likely_manipulator" | "unlikely_manipulator" | null = null;
+
+      const hasPrior = currentIdx >= 4;
+      const priorQuarters = hasPrior ? fund.slice(currentIdx - 4, currentIdx) : null;
+      const isConsecutive8 = priorQuarters && areConsecutive([...priorQuarters, ...currentQuarters]);
+
+      let canComputePiotroskiAndBeneish = false;
+      let omitReason = "";
+
+      if (!isConsecutive8) {
+        omitReason = "prior-period inputs incomplete (insufficient consecutive quarters)";
+      } else if (!canBuildCanonical(currentQuarters)) {
+        omitReason = "current-period inputs incomplete";
+      } else if (!canBuildCanonical(priorQuarters!)) {
+        omitReason = "prior-period inputs incomplete";
+      } else {
+        canComputePiotroskiAndBeneish = true;
+      }
+
+      if (canComputePiotroskiAndBeneish) {
+        const priorPeriod = buildAnnualPeriod(priorQuarters!);
+        piotroskiFVal = piotroskiF(currentPeriod, priorPeriod);
+        beneishMVal = beneishM(currentPeriod, priorPeriod);
+        beneishFlagVal = beneishMVal > -1.78 ? "likely_manipulator" : "unlikely_manipulator";
+        computed.push("piotroskiF", "beneishM");
+        if (beneishMVal > -1.78) {
+          flags.push("Beneish M-Score suggests possible earnings manipulation");
+        }
+        if (piotroskiFVal <= 3) {
+          flags.push("Weak Piotroski fundamentals");
+        }
+      } else {
+        omitted.push(`piotroskiF: ${omitReason}`);
+        omitted.push(`beneishM: ${omitReason}`);
+      }
+
+      const data_status = (altmanZVal !== null && accrualRatioVal !== null) ? "ok" :
+                          (altmanZVal !== null || accrualRatioVal !== null) ? "partial" : "missing";
+
+      const confidence = data_status === "ok" ? "high" :
+                         (data_status === "partial" && altmanZVal !== null) ? "medium" : "low";
+
       return out(
         {
           symbol: sym,
-          accrualRatio: acc,
-          altmanZ: null,
-          altmanZone: null,
-          piotroskiF: null,
-          beneishM: null,
-          beneishFlag: null,
+          accrualRatio: accrualRatioVal,
+          altmanZ: altmanZVal,
+          altmanZone: altmanZoneVal,
+          piotroskiF: piotroskiFVal,
+          beneishM: beneishMVal,
+          beneishFlag: beneishFlagVal,
           sbcPctRevenue: null,
-          flags: [],
-          data_status: "partial" as DataStatus,
-          note: "Incomplete annual periods or missing core fields; canonical forensics unavailable.",
+          flags,
+          data_status,
+          computed,
+          omitted,
         },
         src,
-        "low",
+        confidence,
       );
     },
   });

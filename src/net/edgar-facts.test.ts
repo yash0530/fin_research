@@ -24,6 +24,7 @@ const FACTS: CompanyFacts = {
         },
       },
       NetIncomeLoss: { units: { USD: [q(FY, "2025-08-31", 20, "Q1")] } },
+      PaymentsToAcquirePropertyPlantAndEquipment: { units: { USD: [q(FY, "2025-08-31", -15, "Q1")] } },
       NetCashProvidedByUsedInOperatingActivities: { units: { USD: [q(FY, "2025-08-31", 50, "Q1")] } },
       SellingGeneralAndAdministrativeExpense: { units: { USD: [q(FY, "2025-08-31", 30, "Q1")] } },
       DepreciationDepletionAndAmortization: { units: { USD: [q(FY, "2025-08-31", 15, "Q1")] } },
@@ -66,6 +67,8 @@ describe("parseCompanyFacts", () => {
     expect(byEnd["2025-08-31"].totalDebt).toBe(1000); // 900 + 100
     expect(byEnd["2025-08-31"].sharesOut).toBe(1_100_000_000);
     expect(byEnd["2025-08-31"].cfo).toBe(50);
+    expect(byEnd["2025-08-31"].capex).toBe(15); // Math.abs(-15)
+    expect(byEnd["2025-08-31"].fcf).toBe(35); // 50 - 15
     expect(byEnd["2025-08-31"].sga).toBe(30);
     expect(byEnd["2025-08-31"].depreciation).toBe(15);
     expect(byEnd["2025-08-31"].receivables).toBe(400);

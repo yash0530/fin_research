@@ -126,7 +126,8 @@ export function parseCompanyFacts(symbol: string, json: CompanyFacts): Fundament
   const grossProfit = quarterlyFlow(firstConcept(gaap, FLOW_CONCEPTS.grossProfit));
   const operatingIncome = quarterlyFlow(firstConcept(gaap, FLOW_CONCEPTS.operatingIncome));
   const netIncome = quarterlyFlow(firstConcept(gaap, FLOW_CONCEPTS.netIncome));
-  const capex = quarterlyFlow(firstConcept(gaap, FLOW_CONCEPTS.capex));
+  const rawCapex = firstConcept(gaap, FLOW_CONCEPTS.capex);
+  const capex = quarterlyFlow(rawCapex ? rawCapex.map((p) => ({ ...p, val: Math.abs(p.val) })) : null);
   const cfo = quarterlyFlow(firstConcept(gaap, FLOW_CONCEPTS.cfo));
   const sga = quarterlyFlow(firstConcept(gaap, FLOW_CONCEPTS.sga));
   const depreciation = quarterlyFlow(firstConcept(gaap, FLOW_CONCEPTS.depreciation));
