@@ -84,3 +84,53 @@ UI/docs volume on opus 4.6 → flash 3.5) · `NEXT_RUN.md`/`ROADMAP.md` (histori
 plans).
 
 *(Sections below appended as the month progresses.)*
+
+---
+
+# Month 3 — "Prove it and sharpen it"
+
+Theme: the platform was built (M1) and deep (M2); month 3 asked whether the research is
+any GOOD and can we show it. Operating model: CEO thinks/specs/audits, **agy wrote all
+source** (~15 batches, flash 3.5). Four themes, four honest results.
+
+## A — Data integrity (the gate)
+Found the 20y price series used RAW close → unadjusted splits/recaps corrupted 15
+symbols (e.g. KDP 123→22 was a 2018 special-dividend recap). Fixed: ingest **adjusted
+close** (`yahoo2` now prefers `adjclose`), forced re-backfill. Verified: KDP smooth,
+real crashes (APA oil-war) correctly preserved. New job: `npm run job -- integrity_check`.
+
+## B — Backtest (the flagship) — READ docs/research/backtest-findings.md
+Replayed the deterministic signals over 107 monthly as-of points, 2010-2025 (leak-free,
+verified). **HONEST VERDICT: the raw signals do NOT have robust standalone edge.** The
++10% "excess" at 1y is volatility premium + survivorship bias (hit-rates ~50%; three
+contradictory signal families all converge on the same number). Weak-but-real:
+short-term reversal + a drawdown mean-reversion tilt. **Consequence: read the digest's
+movers/drawdown as "look here", NEVER "buy this". Don't trade signals mechanically** —
+which validates the research-first design. Re-run: `npm run job -- backtest`.
+
+## C — Canonical earnings forensics — READ docs/research/qoe-canonical-findings.md
+The QoE tool was silently degrading to an FCF proxy on every dossier. Now: stores 8
+canonical inputs (20y), computes real **Altman Z that tracks reality** (AAPL grey-zone
+vs MU/NVDA safe — a naive impl would miss that), canonical accrual (sanity-guarded).
+Honest limits documented: accrual can be inflated where quarterly CFO is sparse;
+Beneish/Piotroski honestly omitted (need clean annual periods — the documented next
+step). The 20y deep fundamentals also feed DCF, trends, and story charts.
+
+## D — Portfolio / thesis monitoring (closes research→own→monitor)
+NEW **`/portfolio`** page: enter your real positions (qty, avg cost) → P&L + mechanical
+**thesis-decay signals**: stop_breach (price below the dossier's stop), drawdown (≥25%
+off high), target_reached, below_cost. The dossier's free-text `what_would_change_mind`
+is shown as a MANUAL checklist (can't be auto-evaluated — honest). Job:
+`npm run job -- portfolio_check`. NOTE: demo positions were cleared — the portfolio is
+empty and yours to fill.
+
+## Month-3 owner notes / small tech debt
+- **Read the digest as a lens, not a signal to trade** (the backtest is why).
+- QoE forensics: Altman is solid; treat the accrual as directional, not precise.
+- `edgar_facts` re-runs skip on BackfillProgress — to re-fetch after a parser change you
+  must `DELETE FROM BackfillProgress WHERE task='edgar_facts'` first (should get a
+  `--force` flag like prices10y; minor backlog).
+- New jobs this month: `integrity_check`, `backtest`, `portfolio_check` (+ existing
+  `campaign`, `outcomes`, `universe_check` from earlier). New docs: `MONTH3_PLAN.md`,
+  `docs/research/backtest-findings.md`, `docs/research/qoe-canonical-findings.md`.
+- Suite: **425 tests**, verify + web build green, 61 CLAUDE.md dirs.
