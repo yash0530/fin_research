@@ -34,6 +34,7 @@ import { runBuyListJob } from "./buylist";
 import { runOutcomesJob } from "./outcomes";
 import { runUniverseCheck } from "./universe";
 import { runIntegrityJob } from "./integrity";
+import { runBacktestJob } from "./backtest";
 import { runRulesJob } from "../rules/engine";
 import { TRIPWIRES } from "../config/tripwires";
 import { AI_INFRA_SEEDS, AI_INFRA_SYMBOLS } from "../config/sectors";
@@ -366,6 +367,14 @@ const JOB_DEFS: JobDef[] = [
     describe: "Scan Price table history for unadjusted stock splits, flat runs, and chronological gaps.",
     run: async (db, symbols) => {
       const detail = await runIntegrityJob(db, symbols ?? activeSymbols(db));
+      return { ok: true, detail };
+    },
+  },
+  {
+    name: "backtest",
+    describe: "Run deterministic signal backtest over the historical grid.",
+    run: async (db) => {
+      const detail = await runBacktestJob(db);
       return { ok: true, detail };
     },
   },

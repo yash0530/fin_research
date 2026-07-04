@@ -53,10 +53,11 @@ injected dependencies → fully tested with fakes (no network).
   (the scheduler's idle drain: `recoverStale` → live `runDossierJob`, one at a time,
   respecting the llama single-flight lock). Registered jobs: `prices10y`, `fundamentals`,
   `edgar_index`, `stats`, `news`, `earnings`, `rules`, `digest`, `overnight`, `dossier`,
-  `backup`, `integrity_check`. Importing it stays offline; only each `run` touches the wire.
+  `backup`, `integrity_check`, `backtest`. Importing it stays offline; only each `run` touches the wire.
 - `integrity.ts`
   - `splitSuspects`, `flatRuns`, `gaps` — pure detectors of stock splits, flat runs, and chronological gaps.
   - `runIntegrityJob` — scans Price table history for all active symbols using raw close prices for stock splits, and despiked close prices for flat runs and gaps.
+- `backtest.ts` — `runBacktestJob`: runs the flagship deterministic backtest over the historical monthly grid (Jan-2010 to maxPriceDate - 400 days). Computes forward returns at 21, 63, 126, 252 days. Saves runs to JSON under `data/backtests/backtest-<YYYY-MM-DD-HHmmss>.json` and outputs a summary table.
 
 ## Tests
 

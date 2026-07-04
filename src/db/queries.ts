@@ -749,3 +749,10 @@ export function symbolClosesUpTo(db: SqlDb, symbol: string, asOf: string, limit?
   return rows.reverse();
 }
 
+/** A symbol's closes with `d >= fromD`, ordered oldest to newest. */
+export function symbolClosesFrom(db: SqlDb, symbol: string, fromD: string): { d: string; close: number }[] {
+  const query = 'SELECT "d","close" FROM "Price" WHERE "symbol"=? AND "d" >= ? ORDER BY "d" ASC';
+  return db.prepare(query).all(symbol.toUpperCase(), fromD) as { d: string; close: number }[];
+}
+
+
