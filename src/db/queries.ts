@@ -470,6 +470,65 @@ export function insertFundamentals(db: SqlDb, rows: FundamentalsQuarterRow[], ch
   return rows.length;
 }
 
+/** Chunked INSERT ... ON CONFLICT DO UPDATE. Overwrites existing fundamentals. */
+export function upsertFundamentals(db: SqlDb, rows: FundamentalsQuarterRow[], chunkSize = 500): number {
+  const allColumns = [
+    "symbol",
+    "periodEnd",
+    "revenue",
+    "grossProfit",
+    "operatingIncome",
+    "netIncome",
+    "fcf",
+    "capex",
+    "totalAssets",
+    "totalDebt",
+    "cash",
+    "equity",
+    "sharesOut",
+    "cfo",
+    "sga",
+    "depreciation",
+    "receivables",
+    "currentAssets",
+    "currentLiabilities",
+    "retainedEarnings",
+    "ppe",
+  ] as const;
+
+  const tableInfo = db.prepare('PRAGMA table_info("FundamentalsQuarter")').all() as { name: string }[];
+  const existingCols = new Set(tableInfo.map((c) => c.name));
+  const activeCols = allColumns.filter((c) => existingCols.has(c));
+
+  const colNames = activeCols.map((c) => `"${c}"`).join(",");
+  const placeholders = activeCols.map(() => "?").join(",");
+  const updateCols = activeCols.filter((c) => c !== "symbol" && c !== "periodEnd");
+  const updateExpr = updateCols.map((c) => `"${c}"=excluded."${c}"`).join(",");
+
+  const query = `INSERT INTO "FundamentalsQuarter" (${colNames}) VALUES (${placeholders}) ` +
+    `ON CONFLICT("symbol","periodEnd") DO UPDATE SET ${updateExpr}`;
+  const stmt = db.prepare(query);
+
+  for (const part of chunk(rows, chunkSize)) {
+    db.exec("BEGIN");
+    try {
+      for (const r of part) {
+        const vals = activeCols.map((col) => {
+          if (col === "symbol") return r.symbol.toUpperCase();
+          if (col === "periodEnd") return r.periodEnd;
+          return num2(r[col as Exclude<keyof FundamentalsQuarterRow, "symbol" | "periodEnd">]);
+        });
+        stmt.run(...vals);
+      }
+      db.exec("COMMIT");
+    } catch (e) {
+      db.exec("ROLLBACK");
+      throw e;
+    }
+  }
+  return rows.length;
+}
+
 // ── EdgarFiling ──────────────────────────────────────────────────────────────
 
 export type EdgarFilingInsert = {

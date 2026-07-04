@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { createRequire } from "node:module";
 import { applyMigrations, type SqlDb } from "../db/migrate";
 import {
@@ -16,11 +17,16 @@ import {
 import { execute } from "./types";
 import { buildProductionRegistry, type LiveFetchers } from "./factory";
 import type { QuoteStat } from "../net/yahoo2";
+import { accrualRatio, altmanZ, piotroskiF, beneishM, type AnnualPeriod } from "./qoe";
 
 // node:sqlite via createRequire (vite-safe), matching the repo's other DB tests.
 const nodeRequire = createRequire(import.meta.url);
 const { DatabaseSync } = nodeRequire("node:sqlite") as typeof import("node:sqlite");
-const initSql = readFileSync("prisma/migrations/0001_init.sql", "utf8");
+
+const ALL_MIGRATIONS = readdirSync("prisma/migrations")
+  .filter((f) => f.endsWith(".sql"))
+  .sort()
+  .map((name) => ({ name: name.replace(/\.sql$/, ""), sql: readFileSync(join("prisma/migrations", name), "utf8") }));
 
 // ── fixtures ─────────────────────────────────────────────────────────────────
 
@@ -36,7 +42,7 @@ function priceSeries(symbol: string, start: number, n: number, startPrice: numbe
 }
 
 function seed(db: SqlDb): void {
-  applyMigrations(db, [{ name: "0001_init", sql: initSql }]);
+  applyMigrations(db, ALL_MIGRATIONS);
 
   insertSectors(db, [{ code: "ai_memory", name: "Memory", taxonomy: "ai_infra", driver: 2 }]);
 
@@ -148,13 +154,80 @@ describe("buildProductionRegistry — local tools over a temp migrated DB", () =
     expect(r.data.data_status).toBe("ok");
   });
 
-  it("qoe honestly reports partial (canonical inputs absent from local schema)", async () => {
+  it("qoe honestly reports partial (canonical inputs absent or incomplete)", async () => {
     const reg = buildProductionRegistry(newDb(), { symbol: "MU" });
     const r = await execute(reg.get("qoe")!, {});
     expect(r.data.data_status).toBe("partial");
-    expect(r.data.accrualProxyRatio).not.toBeNull();
-    expect(Array.isArray(r.data.unavailableInputs)).toBe(true);
+    expect(r.data.accrualRatio).not.toBeNull();
     expect(r.confidence).toBe("low");
+  });
+
+  it("qoe returns canonical scores when 8 consecutive quarters of deep data are present", async () => {
+    const db = new DatabaseSync(":memory:") as unknown as SqlDb;
+    applyMigrations(db, ALL_MIGRATIONS);
+
+    const t: AnnualPeriod = {
+      revenue: 1000, grossProfit: 400, sga: 200, depreciation: 50, ebit: 150, netIncome: 100,
+      receivables: 100, currentAssets: 500, ppe: 300, totalAssets: 1000, currentLiabilities: 200,
+      longTermDebt: 100, totalLiabilities: 400, retainedEarnings: 250, sharesOut: 100, cfo: 120,
+      workingCapital: 300, sbc: 30, marketValueEquity: 1500,
+    };
+    const p: AnnualPeriod = {
+      revenue: 900, grossProfit: 360, sga: 180, depreciation: 45, ebit: 130, netIncome: 80,
+      receivables: 80, currentAssets: 450, ppe: 280, totalAssets: 950, currentLiabilities: 210,
+      longTermDebt: 120, totalLiabilities: 420, retainedEarnings: 180, sharesOut: 100, cfo: 95,
+      workingCapital: 240, sbc: 25,
+    };
+
+    const dates = [
+      "2023-03-31",
+      "2023-06-30",
+      "2023-09-30",
+      "2023-12-31",
+      "2024-03-31",
+      "2024-06-30",
+      "2024-09-30",
+      "2024-12-31",
+    ];
+
+    const tQuarters = Array.from({ length: 8 }, (_, i) => {
+      const isCurrent = i >= 4;
+      const base = isCurrent ? t : p;
+      return {
+        symbol: "MU",
+        periodEnd: dates[i],
+        revenue: base.revenue / 4,
+        grossProfit: base.grossProfit / 4,
+        sga: base.sga / 4,
+        depreciation: base.depreciation / 4,
+        operatingIncome: base.ebit / 4,
+        netIncome: base.netIncome / 4,
+        cfo: base.cfo / 4,
+        receivables: base.receivables,
+        currentAssets: base.currentAssets,
+        ppe: base.ppe,
+        totalAssets: base.totalAssets,
+        currentLiabilities: base.currentLiabilities,
+        totalDebt: base.longTermDebt,
+        equity: base.totalAssets - base.totalLiabilities,
+        retainedEarnings: base.retainedEarnings,
+        sharesOut: base.sharesOut,
+      };
+    });
+    insertFundamentals(db, tQuarters);
+
+    const reg = buildProductionRegistry(db, { symbol: "MU" });
+    const r = await execute(reg.get("qoe")!, {});
+    expect(r.data.data_status).toBe("ok");
+    expect(r.confidence).toBe("high");
+    expect(r.data.accrualRatio).toBeCloseTo(accrualRatio(t), 4);
+    
+    const tWithoutMVE = { ...t };
+    delete tWithoutMVE.marketValueEquity;
+    expect(r.data.altmanZ).toBeCloseTo(altmanZ(tWithoutMVE), 3);
+    
+    expect(r.data.piotroskiF).toBe(piotroskiF(t, p));
+    expect(r.data.beneishM).toBeCloseTo(beneishM(t, p), 3);
   });
 
   it("dcf computes a fair-value range from local FCF", async () => {

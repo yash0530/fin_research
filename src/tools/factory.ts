@@ -33,6 +33,7 @@ import { parseForm4, purchasesFromFilings, clusterBuySignal, type Form4Filing } 
 import { parseOwnership } from "./institutional";
 import { optionsMetrics, type OptionsChain } from "./options-metrics";
 import type { QuoteStat } from "../net/yahoo2";
+import { qoeReport, type AnnualPeriod } from "./qoe";
 
 export type DataStatus = "ok" | "partial" | "missing";
 
@@ -81,6 +82,14 @@ type FundRow = {
   cash: number | null;
   equity: number | null;
   sharesOut: number | null;
+  cfo: number | null;
+  sga: number | null;
+  depreciation: number | null;
+  receivables: number | null;
+  currentAssets: number | null;
+  currentLiabilities: number | null;
+  retainedEarnings: number | null;
+  ppe: number | null;
 };
 
 type TickerRow = {
@@ -115,7 +124,8 @@ function loadFundamentals(db: SqlDb, symbol: string): FundRow[] {
   return db
     .prepare(
       'SELECT "periodEnd","revenue","grossProfit","operatingIncome","netIncome","fcf","capex",' +
-        '"totalAssets","totalDebt","cash","equity","sharesOut" FROM "FundamentalsQuarter" ' +
+        '"totalAssets","totalDebt","cash","equity","sharesOut","cfo","sga","depreciation",' +
+        '"receivables","currentAssets","currentLiabilities","retainedEarnings","ppe" FROM "FundamentalsQuarter" ' +
         'WHERE "symbol"=? ORDER BY "periodEnd" ASC',
     )
     .all(symbol.toUpperCase()) as FundRow[];
@@ -161,6 +171,122 @@ const out = <T extends Record<string, unknown>>(
 /** A uniform "no usable data" result (still sourced + honest). */
 function missing(note: string, sources: Source[]): ToolOutput<Record<string, unknown>> {
   return out({ data_status: "missing" as DataStatus, note }, sources, "low");
+}
+
+function areConsecutive(quarters: FundRow[]): boolean {
+  for (let i = 1; i < quarters.length; i++) {
+    const d1 = new Date(quarters[i - 1].periodEnd).getTime();
+    const d2 = new Date(quarters[i].periodEnd).getTime();
+    const diffDays = (d2 - d1) / (1000 * 60 * 60 * 24);
+    if (diffDays < 60 || diffDays > 120) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function canBuildCanonical(fourQuarters: FundRow[]): boolean {
+  if (fourQuarters.length !== 4) return false;
+  for (const q of fourQuarters) {
+    if (q.revenue === null || q.revenue === undefined) return false;
+    if (q.grossProfit === null || q.grossProfit === undefined) return false;
+    if (q.sga === null || q.sga === undefined) return false;
+    if (q.depreciation === null || q.depreciation === undefined) return false;
+    if (q.operatingIncome === null || q.operatingIncome === undefined) return false;
+    if (q.netIncome === null || q.netIncome === undefined) return false;
+
+    const quarterCfo = q.cfo !== null && q.cfo !== undefined ? q.cfo :
+                       (q.fcf !== null && q.fcf !== undefined && q.capex !== null && q.capex !== undefined ? q.fcf + q.capex : null);
+    if (quarterCfo === null) return false;
+  }
+
+  const lastQ = fourQuarters[3];
+  if (lastQ.receivables === null || lastQ.receivables === undefined) return false;
+  if (lastQ.currentAssets === null || lastQ.currentAssets === undefined) return false;
+  if (lastQ.ppe === null || lastQ.ppe === undefined) return false;
+  if (lastQ.totalAssets === null || lastQ.totalAssets === undefined) return false;
+  if (lastQ.currentLiabilities === null || lastQ.currentLiabilities === undefined) return false;
+  if (lastQ.totalDebt === null || lastQ.totalDebt === undefined) return false;
+  if (lastQ.equity === null || lastQ.equity === undefined) return false;
+  if (lastQ.retainedEarnings === null || lastQ.retainedEarnings === undefined) return false;
+  if (lastQ.sharesOut === null || lastQ.sharesOut === undefined) return false;
+
+  return true;
+}
+
+function buildAnnualPeriod(fourQuarters: FundRow[]): AnnualPeriod {
+  const lastQ = fourQuarters[3];
+  let revenue = 0;
+  let grossProfit = 0;
+  let sga = 0;
+  let depreciation = 0;
+  let ebit = 0;
+  let netIncome = 0;
+  let cfo = 0;
+
+  for (const q of fourQuarters) {
+    revenue += q.revenue ?? 0;
+    grossProfit += q.grossProfit ?? 0;
+    sga += q.sga ?? 0;
+    depreciation += q.depreciation ?? 0;
+    ebit += q.operatingIncome ?? 0;
+    netIncome += q.netIncome ?? 0;
+    const qCfo = q.cfo !== null && q.cfo !== undefined ? q.cfo :
+                 (q.fcf !== null && q.fcf !== undefined && q.capex !== null && q.capex !== undefined ? q.fcf + q.capex : 0);
+    cfo += qCfo;
+  }
+
+  const totalAssets = lastQ.totalAssets ?? 0;
+  const equity = lastQ.equity ?? 0;
+  const totalLiabilities = totalAssets - equity;
+
+  return {
+    revenue,
+    grossProfit,
+    sga,
+    depreciation,
+    ebit,
+    netIncome,
+    receivables: lastQ.receivables ?? 0,
+    currentAssets: lastQ.currentAssets ?? 0,
+    ppe: lastQ.ppe ?? 0,
+    totalAssets,
+    currentLiabilities: lastQ.currentLiabilities ?? 0,
+    longTermDebt: lastQ.totalDebt ?? 0,
+    totalLiabilities,
+    retainedEarnings: lastQ.retainedEarnings ?? 0,
+    sharesOut: lastQ.sharesOut ?? 0,
+    cfo,
+  };
+}
+
+function calculateAccrualRatioFromAvailable(quarters: FundRow[]): number | null {
+  if (quarters.length === 0) return null;
+  const targetQuarters = quarters.slice(-4);
+  let totalNetIncome = 0;
+  let totalCfo = 0;
+  let hasNetIncome = false;
+  let hasCfo = false;
+
+  for (const q of targetQuarters) {
+    if (q.netIncome !== null && q.netIncome !== undefined) {
+      totalNetIncome += q.netIncome;
+      hasNetIncome = true;
+    }
+    const qCfo = q.cfo !== null && q.cfo !== undefined ? q.cfo :
+                 (q.fcf !== null && q.fcf !== undefined && q.capex !== null && q.capex !== undefined ? q.fcf + q.capex : null);
+    if (qCfo !== null) {
+      totalCfo += qCfo;
+      hasCfo = true;
+    }
+  }
+
+  const lastQ = targetQuarters[targetQuarters.length - 1];
+  const totalAssets = lastQ.totalAssets;
+  if (hasNetIncome && hasCfo && totalAssets !== null && totalAssets !== undefined && totalAssets !== 0) {
+    return (totalNetIncome - totalCfo) / totalAssets;
+  }
+  return null;
 }
 
 // ── factory ────────────────────────────────────────────────────────────────
@@ -311,45 +437,52 @@ export function buildProductionRegistry(db: SqlDb, opts: ProductionRegistryOpts 
     },
   });
 
-  // ── LOCAL: qoe (partial — local schema lacks canonical inputs) ───────────────
+  // ── LOCAL: qoe ─────────────────────────────────────────────────────────────
   tools.push({
     name: "qoe",
-    describe: () => "Quality-of-earnings signal from local fundamentals (FCF-based accrual proxy; canonical scores need fields not in the local schema).",
+    describe: () => "Quality-of-earnings canonical forensics (Altman Z, Beneish M, Piotroski F, accrual ratio) or FCF-fallback.",
     run: async (args) => {
       const sym = resolve(args as Record<string, unknown>);
       const src: Source[] = [{ label: `FundamentalsQuarter (local) ${sym}` }];
       const fund = loadFundamentals(db, sym);
       if (fund.length === 0) return missing(`no fundamentals for ${sym}`, src);
-      const latest = fund[fund.length - 1];
-      const ni = num(latest.netIncome);
-      const fcf = num(latest.fcf);
-      const ta = num(latest.totalAssets);
-      // Canonical Beneish/Altman/Piotroski need receivables, PPE, retained earnings,
-      // CFO, SGA, depreciation, current assets/liabilities — none carried locally.
-      const MISSING_INPUTS = [
-        "receivables",
-        "ppe",
-        "retainedEarnings",
-        "cfo",
-        "sga",
-        "depreciation",
-        "currentAssets",
-        "currentLiabilities",
-        "totalLiabilities",
-      ];
-      const accrualProxyRatio = ni !== null && fcf !== null && ta !== null && ta !== 0 ? (ni - fcf) / ta : null;
+
+      if (fund.length >= 8) {
+        const last8 = fund.slice(-8);
+        if (areConsecutive(last8)) {
+          const currentQuarters = last8.slice(-4);
+          const priorQuarters = last8.slice(-8, -4);
+          if (canBuildCanonical(currentQuarters) && canBuildCanonical(priorQuarters)) {
+            const current = buildAnnualPeriod(currentQuarters);
+            const prior = buildAnnualPeriod(priorQuarters);
+            const report = qoeReport(current, prior);
+            return out(
+              {
+                symbol: sym,
+                ...report,
+                data_status: "ok" as DataStatus,
+              },
+              src,
+              "high",
+            );
+          }
+        }
+      }
+
+      const acc = calculateAccrualRatioFromAvailable(fund);
       return out(
         {
           symbol: sym,
-          accrualProxyRatio, // (netIncome − FCF) / totalAssets; canonical uses CFO
-          accrualProxyNote: "FCF used as a CFO proxy — not the canonical accrual ratio",
-          netIncome: ni,
-          fcf,
-          totalAssets: ta,
-          canonicalScores: null,
-          unavailableInputs: MISSING_INPUTS,
+          accrualRatio: acc,
+          altmanZ: null,
+          altmanZone: null,
+          piotroskiF: null,
+          beneishM: null,
+          beneishFlag: null,
+          sbcPctRevenue: null,
+          flags: [],
           data_status: "partial" as DataStatus,
-          note: "Beneish M / Altman Z / Piotroski F not computed — inputs absent from local FundamentalsQuarter",
+          note: "Incomplete annual periods or missing core fields; canonical forensics unavailable.",
         },
         src,
         "low",

@@ -1,11 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { createRequire } from "node:module";
 import { applyMigrations, type SqlDb } from "../db/migrate";
 import { countRows, backfillIsDone } from "../db/queries";
 import {
   backfillPrices10y,
   backfillFundamentals,
+  backfillEdgarFacts,
   backfillEdgarIndex,
   parseCompanyTickers,
   runBackfillPool,
@@ -14,11 +16,15 @@ import type { DailyBar } from "../net/yahoo2";
 
 const nodeRequire = createRequire(import.meta.url);
 const { DatabaseSync } = nodeRequire("node:sqlite") as typeof import("node:sqlite");
-const INIT = readFileSync("prisma/migrations/0001_init.sql", "utf8");
+
+const ALL_MIGRATIONS = readdirSync("prisma/migrations")
+  .filter((f) => f.endsWith(".sql"))
+  .sort()
+  .map((name) => ({ name: name.replace(/\.sql$/, ""), sql: readFileSync(join("prisma/migrations", name), "utf8") }));
 
 function migratedDb(): SqlDb {
   const db = new DatabaseSync(":memory:") as unknown as SqlDb;
-  applyMigrations(db, [{ name: "0001_init", sql: INIT }]);
+  applyMigrations(db, ALL_MIGRATIONS);
   return db;
 }
 
@@ -158,6 +164,34 @@ describe("backfillFundamentals (mocked fetcher, real DB)", () => {
     });
     expect(summary).toMatchObject({ done: 1, rows: 2 });
     expect(countRows(db, "FundamentalsQuarter")).toBe(2);
+  });
+});
+
+describe("backfillEdgarFacts (mocked fetcher, real DB)", () => {
+  it("upserts quarterly fundamentals and updates existing rows", async () => {
+    const db = migratedDb();
+    // 1. Initial write with partial data (e.g., from Yahoo)
+    db.prepare(
+      'INSERT INTO "FundamentalsQuarter" ("symbol","periodEnd","revenue") VALUES (?,?,?)',
+    ).run("MU", "2024-08-31", 7000);
+
+    // 2. Run backfillEdgarFacts to upsert and populate extra fields
+    const summary = await backfillEdgarFacts(db, {
+      ciks: [{ symbol: "MU", cik: "0000723125" }],
+      fetchFacts: async (cik, symbol) => [
+        { symbol, periodEnd: "2024-08-31", revenue: 7100, grossProfit: 2000, sga: 500 },
+      ],
+      staggerMs: 0,
+      sleep: noSleep,
+    });
+
+    expect(summary).toMatchObject({ done: 1, rows: 1 });
+    expect(countRows(db, "FundamentalsQuarter")).toBe(1);
+
+    const row = db.prepare('SELECT "revenue", "grossProfit", "sga" FROM "FundamentalsQuarter" WHERE "symbol"=? AND "periodEnd"=?').get("MU", "2024-08-31") as { revenue: number; grossProfit: number; sga: number };
+    expect(row.revenue).toBe(7100);
+    expect(row.grossProfit).toBe(2000);
+    expect(row.sga).toBe(500);
   });
 });
 

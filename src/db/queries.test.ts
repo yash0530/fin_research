@@ -13,6 +13,7 @@ import {
   updateRecCallOutcome,
   closesBetween,
   symbolClosesUpTo,
+  upsertFundamentals,
 } from "./queries";
 import { governSize } from "../calibration/governor";
 import type { RecCall } from "../dossier/state";
@@ -110,5 +111,20 @@ describe("data-access layer (real migrated DB)", () => {
     const upTo = symbolClosesUpTo(db, "X", "2020-02-28");
     expect(upTo).toHaveLength(2);
     expect(upTo.map((b) => b.d)).toEqual(["2020-01-31", "2020-02-28"]);
+  });
+
+  it("upserts fundamentals overwriting on conflict", () => {
+    const db = migratedDb();
+    upsertFundamentals(db, [
+      { symbol: "MU", periodEnd: "2024-08-31", revenue: 6800, grossProfit: 1800 },
+    ]);
+    upsertFundamentals(db, [
+      { symbol: "MU", periodEnd: "2024-08-31", revenue: 7000, grossProfit: 2000, sga: 500 },
+    ]);
+    const row = db.prepare('SELECT "revenue", "grossProfit", "sga" FROM "FundamentalsQuarter" WHERE "symbol"=? AND "periodEnd"=?')
+      .get("MU", "2024-08-31") as { revenue: number; grossProfit: number; sga: number };
+    expect(row.revenue).toBe(7000);
+    expect(row.grossProfit).toBe(2000);
+    expect(row.sga).toBe(500);
   });
 });
