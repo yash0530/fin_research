@@ -1,0 +1,10 @@
+import { createRequire } from "node:module";
+import { upsertPosition } from "../src/db/queries";
+import type { SqlDb } from "../src/db/migrate";
+const req = createRequire(import.meta.url);
+const { DatabaseSync } = req("node:sqlite") as typeof import("node:sqlite");
+const db = new DatabaseSync("data/engine.db") as unknown as SqlDb;
+db.exec("PRAGMA busy_timeout=8000;");
+upsertPosition(db, { symbol: "MU", qty: 10, avgCost: 1200, openedAt: "2026-06-01" });
+upsertPosition(db, { symbol: "SNDK", qty: 50, avgCost: 60, openedAt: "2026-05-01" });
+console.log("positions created: MU (avgCost 1200), SNDK (avgCost 60)");
