@@ -1,4 +1,11 @@
 #!/usr/bin/env tsx
+// ⚠️ DEPRECATED / NOT INSTALLED. The platform is now ON-DEMAND only: runs are
+// triggered from the web UI (or `npm run job -- <name> --manage-llama`), which boots
+// llama-server per run and kills it after (src/analyst/llama-lifecycle.ts). This
+// always-on daemon and its launchd agent were retired (see deploy/uninstall-launchd.sh).
+// The file is kept for reference; its llama launch args now live in src/config/llama.ts
+// and the boot/teardown logic is superseded by the lifecycle module. Do not install it.
+//
 // Scheduler daemon — the platform that runs itself. It ticks every 60s:
 //   • morning window + no digest for today's market date → run the overnight chain
 //     (one JobRun row per step, exactly as the CLI does) then the daily backup;

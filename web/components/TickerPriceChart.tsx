@@ -48,6 +48,12 @@ export default function TickerPriceChart({ data }: Props) {
     try {
       const date = new Date(tickStr);
       if (isNaN(date.getTime())) return tickStr;
+      if (data.length <= 30) {
+        return date.toLocaleDateString(undefined, {
+          month: "short",
+          day: "numeric",
+        });
+      }
       return date.toLocaleDateString(undefined, {
         month: "short",
         year: "2-digit",

@@ -5,6 +5,13 @@
 - `ScenarioEstimator.tsx` — **client** component; recomputes `impliedPrice` (from
   `@engine/story/build`) as sliders/presets change, so the estimator matches the frozen
   scenario math exactly.
+- `run-ui.tsx` — **client**; shared on-demand-run bits: the `useRunStatus()` polling hook
+  (polls `getRunStatusAction` every 3s; calls `router.refresh()` when a run finishes so
+  server components pull fresh rows) + the `RunStatusPill` (idle/booting/running) + button
+  style. `import type`-only from the server-only status lib (no runtime server import).
+- `RunStatusBar.tsx` — **client**; home-page control bar: **Refresh digest** (boots model
+  for narration) + **Refresh data** (no model) buttons, disabled while a run is in progress,
+  with the live status pill. Calls the `app/actions.ts` server actions.
 
 ## story/ — editorial story-page components
 

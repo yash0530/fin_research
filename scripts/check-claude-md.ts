@@ -15,6 +15,7 @@ const IGNORE = new Set([
   ".vitest",
   "__fixtures__",
   ".next",
+  ".claude", // harness state (session locks/settings), not source
 ]);
 
 function walk(dir: string, out: string[]): void {

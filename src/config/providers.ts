@@ -3,6 +3,11 @@
 //   - "openai_compat": POST {baseUrl}/chat/completions
 // Adding a provider = adding a profile here + a key in .env. Never a code change.
 //
+// The local qwen_local endpoint is single-sourced from ./llama.ts (which also owns
+// the on-demand launch command), so the URL is defined in exactly one place.
+
+import { LLAMA_BASE_URL } from "./llama";
+//
 // NEW vs. ResearchEngine: every profile declares `contextWindow` and
 // `thinkingMode`. The dossier context-budget guard reads `contextWindow` from
 // the ACTIVE profile instead of a hardcoded 64K, so swapping Qwen for another
@@ -36,7 +41,7 @@ export const PROVIDER_PROFILES: Record<string, ProviderProfile> = {
   // One call in flight at a time (`-np 1`); 64K context.
   qwen_local: {
     protocol: "openai_compat",
-    baseUrl: "http://localhost:8000/v1",
+    baseUrl: LLAMA_BASE_URL,
     model: "qwen3.6-27b",
     apiKeyEnv: null,
     maxTokens: 8192,

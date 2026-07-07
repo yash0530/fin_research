@@ -1,6 +1,7 @@
 import { listDossiers } from "@/lib/dossier-data";
 import Link from "next/link";
 import "@/components/story/story.css";
+import RunDeepDive from "./RunDeepDive";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -41,38 +42,9 @@ export default async function DossiersPage() {
           </p>
         </header>
 
-        <div className="panel" style={{ border: '1px solid var(--line)', background: 'var(--surface)', borderRadius: '12px', padding: '2rem', maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
-          <h2 className="story-h2">Start an agentic research debate</h2>
-          <p className="body" style={{ margin: '1rem 0' }}>
-            To run a live deep-dive dossier debate for a specific asset symbol, execute the following command in your terminal:
-          </p>
-          <pre style={{
-            background: 'var(--inset)',
-            color: 'var(--ink)',
-            padding: '12px',
-            borderRadius: '6px',
-            fontFamily: 'var(--fmono)',
-            fontSize: '14px',
-            overflowX: 'auto',
-            border: '1px solid var(--line)'
-          }}>
-            npm run job -- dossier --symbols=MU
-          </pre>
-          <p className="body" style={{ color: 'var(--muted)', fontSize: '14px', marginTop: '1.5rem' }}>
-            To process or resume any pending/queued dossiers in the store:
-          </p>
-          <pre style={{
-            background: 'var(--inset)',
-            color: 'var(--ink)',
-            padding: '12px',
-            borderRadius: '6px',
-            fontFamily: 'var(--fmono)',
-            fontSize: '14px',
-            overflowX: 'auto',
-            border: '1px solid var(--line)'
-          }}>
-            npm run job -- dossier
-          </pre>
+        <div style={{ maxWidth: '640px', margin: '0 auto' }}>
+          <h2 className="story-h2" style={{ textAlign: 'center' }}>Start an agentic research debate</h2>
+          <RunDeepDive />
         </div>
       </div>
     );
@@ -87,6 +59,8 @@ export default async function DossiersPage() {
           Queued deep-dive debates between autonomous agents. Each ends in a governed, citation-checked verdict.
         </p>
       </header>
+
+      <RunDeepDive />
 
       <div className="panel" style={{ border: '1px solid var(--line)', background: 'var(--surface)', borderRadius: '12px', padding: '1rem', overflowX: 'auto', margin: 0 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>

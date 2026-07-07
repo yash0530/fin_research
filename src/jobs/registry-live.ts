@@ -15,7 +15,7 @@ import { readFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { createRequire } from "node:module";
 import type { SqlDb } from "../db/migrate";
-import { activeSymbols, watchlistSymbols, symbolsWithCik, type FundamentalsQuarterRow } from "../db/queries";
+import { activeSymbols, watchlistSymbols, symbolsWithCik, insertJobRun, type FundamentalsQuarterRow } from "../db/queries";
 import {
   backfillPrices10y,
   backfillFundamentals,
@@ -29,6 +29,7 @@ import { runStatsJob } from "./stats";
 import { runNewsJob, type NewsQuery } from "./news";
 import { runEarningsJob } from "./earnings";
 import { runOvernight, runPricesHealJob, runDigestJob } from "./overnight";
+import { runChain } from "./runner";
 import { runBackupJob } from "./backup";
 import { runBuyListJob } from "./buylist";
 import { runOutcomesJob } from "./outcomes";
@@ -288,6 +289,32 @@ const JOB_DEFS: JobDef[] = [
       });
       const lines = summary.results.map((r) => `  ${r.ok ? "✓" : "✗"} ${r.job}: ${r.detail}`).join("\n");
       return { ok: summary.failed === 0, detail: `overnight — ok=${summary.ok} failed=${summary.failed}\n${lines}` };
+    },
+  },
+  {
+    name: "refresh_data",
+    describe: "Refresh market data only, NO model: prices-heal → stats → news → earnings → rules.",
+    run: async (db, symbols) => {
+      const syms = symbols ?? activeSymbols(db);
+      const summary = await runChain(
+        [
+          { name: "prices-heal", fn: () => runPricesHealJob(db, { symbols: syms, fetchBars: routedBars }) },
+          { name: "stats", fn: () => runStatsJob(db, { symbols: syms, fetchQuotes: (s) => fetchQuoteBatch(s).then((r) => r.rows) }) },
+          { name: "news", fn: () => runNewsJob(db, { queries: newsQueries(db), fetchRss: (url) => fetch(url).then((r) => r.text()) }) },
+          {
+            name: "earnings",
+            fn: () =>
+              runEarningsJob(db, {
+                symbols: earningsSymbols(db),
+                fetchEarnings: (s) => fetchEarningsDates(s).then((r) => r.rows.map((x) => ({ symbol: x.symbol, d: x.d }))),
+              }),
+          },
+          { name: "rules", fn: () => runRulesJob(db, TRIPWIRES) },
+        ],
+        (r) => insertJobRun(db, { job: r.job, ok: r.ok, detail: r.detail }),
+      );
+      const lines = summary.results.map((r) => `  ${r.ok ? "✓" : "✗"} ${r.job}: ${r.detail}`).join("\n");
+      return { ok: summary.failed === 0, detail: `refresh_data — ok=${summary.ok} failed=${summary.failed}\n${lines}` };
     },
   },
   {

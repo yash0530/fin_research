@@ -12,7 +12,7 @@ editorial story page. Suite: 356 tests. Your calibration ledger has begun.
 
 ## What to do in your first 30 minutes
 
-1. `cd fin_research && npm run verify` — see it green.
+1. `npm run verify` — see it green.
 2. `cd web && npm run dev` → open `/` — your morning read is waiting.
    Then `/dossiers`, `/story`, `/tickers/NVDA`, `/calibration`.
 3. Read `TASKS.md` (the honest ledger) and `EXEC_PLAN.md`'s status log (the ops
@@ -134,3 +134,36 @@ empty and yours to fill.
   `campaign`, `outcomes`, `universe_check` from earlier). New docs: `MONTH3_PLAN.md`,
   `docs/research/backtest-findings.md`, `docs/research/qoe-canonical-findings.md`.
 - Suite: **425 tests**, verify + web build green, 61 CLAUDE.md dirs.
+
+---
+
+# Switched to ON-DEMAND (no more automation)
+
+**What changed (owner directive):** the platform no longer runs itself. The always-on
+scheduler daemon and the always-resident model are **gone**. Nothing runs, and nothing
+holds RAM, until you click a button.
+
+- **How you run things now:**
+  - Web UI → `/dossiers` **Run deep-dive** (type 1+ tickers), `/` **Refresh digest** and
+    **Refresh data**. Or CLI: `npm run job -- <name> --manage-llama`.
+  - Every model-bearing run **boots `llama-server` into memory, does the work, then kills
+    it to free the RAM**. Boot is ~1–2 min cold (fast if the model is still page-cached).
+    Data-only jobs (`refresh_data`) never boot the model.
+- **The mechanism:** `scripts/job.ts --manage-llama` wraps the run in a single-run lock
+  (`src/jobs/run-lock.ts`, a `data/run.lock` pidfile) + `withLlamaServer`
+  (`src/analyst/llama-lifecycle.ts`, boot→wait-for-`/health`→run→SIGTERM/SIGKILL). The web
+  buttons spawn that exact process detached (`web/lib/run-trigger.ts`) and poll for status.
+  A second run while one is in flight is refused (`[BUSY]`); a crashed run's orphaned model
+  is reaped on the next run.
+- **Automation removed:** both launchd agents (`com.engine.scheduler`, `com.local.llamacpp`)
+  were booted out; `scripts/scheduler.ts` is deprecated/not-installed; the dossier
+  **campaign no longer auto-seeds** (still available as a manual `campaign` job). The
+  model's launch command now lives, version-controlled, in `src/config/llama.ts`.
+  Migrating a machine off the old setup: `bash deploy/uninstall-launchd.sh`.
+- **`start.sh`/`stop.sh`** updated: `start.sh` launches only the Web UI (no daemon);
+  `stop.sh` also kills any resident `llama-server` to free RAM.
+- Suite: **438 tests** (+13: llama-lifecycle, run-lock), verify + web build green.
+
+**One thing to know:** the calibration ledger will now grow only as fast as you click.
+The campaign used to grind ~1 dossier/hour unattended; that's off. Queue deep-dives
+deliberately on names you care about.

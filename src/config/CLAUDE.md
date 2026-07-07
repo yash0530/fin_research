@@ -5,6 +5,11 @@ budgets, or add a sector.
 
 ## Files
 
+- `llama.ts` — **single source of truth for the local llama-server**: the endpoint
+  (`LLAMA_BASE_URL`/`LLAMA_HEALTH_URL`, dialed as `localhost`, bound as `127.0.0.1`) AND
+  the on-demand launch command (`llamaLaunchArgv()` — the exact MTP/flash-attn/64K argv
+  ported from the retired launchd plist) + boot/stop timeouts. `providers.ts` imports
+  `LLAMA_BASE_URL` from here so the URL is defined once. All values env-overridable.
 - `providers.ts` — `PROVIDER_PROFILES`. Each profile declares `protocol`, `baseUrl`,
   `model`, `maxTokens`, and — new vs. the old ENGINE — **`contextWindow`** and
   **`thinkingMode`**. `qwen_local` is primary; `gemma4_local` is the documented

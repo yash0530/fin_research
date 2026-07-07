@@ -5,18 +5,28 @@ A personal, local-first investing research engine that unifies three prior proje
 > [!IMPORTANT]
 > **Honest Limit & Prohibition:** ENGINE produces research, not investment advice. There is no broker integration, no order placement, and no trade execution code anywhere in this repository, ever. All trades must be executed manually.
 
+## Operating model — on-demand, not always-on
+ENGINE runs **only when you ask it to**. There is no background daemon and the local model
+is **not kept resident**. Each run — a deep-dive, a digest refresh — boots `llama-server`
+into memory, does the work, then **kills it to free the RAM**. Trigger runs from the web UI
+(**Run deep-dive** on `/dossiers`; **Refresh digest** / **Refresh data** on `/`) or the CLI
+(`npm run job -- <name> --manage-llama`). Migrating off an older always-on install? Run
+`bash deploy/uninstall-launchd.sh` once.
+
 ## Requirements
 - **OS:** macOS
 - **Runtime:** Node.js 22+
-- **Local Model:** `llama-server` running Qwen 3.6 27B at `http://localhost:8000` (see donor reference: [LOCAL_QWEN_SETUP.md](file:///Users/yash/Desktop/Programming/ResearchEngine/LOCAL_QWEN_SETUP.md))
+- **Local Model:** `llama-server` + the Qwen 3.6 27B GGUF installed (launch command in
+  `src/config/llama.ts`; **booted on-demand per run**, not kept running). Setup donor
+  reference: [LOCAL_QWEN_SETUP.md](file:///Users/yash/Desktop/Programming/ResearchEngine/LOCAL_QWEN_SETUP.md)
 - **Environment:** `EDGAR_USER_AGENT` environment variable set (format: `Name email`) to query SEC EDGAR.
 
 ## LIVE Status
 - **Data Universe:** 563-ticker dual-taxonomy universe (GICS base + AI-infra lens).
 - **Core Datasets:** 1.34M-row 10-year daily price history, 389k SEC EDGAR filings, Yahoo Finance quarterly fundamentals (~6–8 quarters depth), and SEC EDGAR XBRL companyfacts quarterly fundamentals (~64–82 quarters/symbol back to 2006–2008, expanding database to 35k rows).
-- **Overnight Chain:** Automated nightly job: prices → stats → news → earnings → tripwires → digest (synthesizing a 16-insight morning digest) + outcomes.
+- **Digest Chain (on-demand):** `Refresh digest` runs prices → stats → news → earnings → tripwires → digest (a ~16-insight morning read) + outcomes; `Refresh data` runs the same minus the model. Both boot the model only if narration is needed and free it after.
 - **Multi-Agent Dossier Engine & Memos:** On-demand deep-dive debate on local Qwen running stages: planner → tools → bull → bear → rebuttal → judge → critique → memo → story. Generates human-gated Living Memos (10 sections) that compound knowledge across runs. Features citation enforcement ("no naked numbers").
-- **Calibration Campaign:** Automated queue stocking (watchlist → AI lens → GICS leaders, backlog-capped) running via `campaign` job or daemon. Evaluates 1m/3m/6m/1y outcomes from local closes under a calibration governor that caps sizing at 2% until a favorable track record is earned.
+- **Calibration:** The `campaign` job can seed the dossier queue (watchlist → AI lens → GICS leaders) for a deliberate manual batch. Evaluates 1m/3m/6m/1y outcomes from local closes under a calibration governor that caps sizing at 2% until a favorable track record is earned. (No longer auto-seeded on a timer.)
 - **Story Pages:** Flagship editorial layouts generated from frozen data snapshots, including a client scenario estimator.
 - **Web UI:** Interactive Next.js routes for morning read (`/`), digest history (`/digest/[date]`), ticker cockpits (`/tickers/[symbol]`), dossiers (`/dossiers/[id]`), signals (`/signals`), journal (`/journal`), discovery (`/discovery`), memos (`/memos`), calibration (`/calibration`), buylist (`/buylist`), and stories (`/story`).
 
@@ -36,20 +46,22 @@ A personal, local-first investing research engine that unifies three prior proje
    npm run job -- prices10y
    npm run job -- fundamentals
    ```
-4. **Run the overnight pipeline:**
+4. **Refresh the digest** (`--manage-llama` boots the model for narration, then frees it):
    ```bash
-   npm run job -- overnight
+   npm run job -- overnight --manage-llama    # or: refresh_data (no model)
    ```
-5. **Run a deep-dive dossier debate:**
+5. **Run a deep-dive dossier debate** (`--manage-llama` = boot model → run → kill it):
    ```bash
-   npm run job -- dossier --symbols=MU
+   npm run job -- dossier --symbols=MU --manage-llama
    ```
-6. **Start the Web UI:**
+6. **Start the Web UI** (the on-demand buttons live here — no daemon):
    ```bash
    cd web && npm run dev
    ```
+   Then click **Run deep-dive** (`/dossiers`) or **Refresh digest / data** (`/`). Each click
+   boots `llama-server` for that run and kills it after. (Data-only jobs never boot it.)
 
-To run all checks and verify the codebase is green (runs 348 tests, TypeScript checks, and CLAUDE.md checks):
+To run all checks and verify the codebase is green (runs the full suite, TypeScript checks, and CLAUDE.md checks):
 ```bash
 npm run verify
 ```

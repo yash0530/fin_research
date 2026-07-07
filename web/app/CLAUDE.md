@@ -3,7 +3,8 @@
 Server components by default; they call engine functions at render time.
 
 - `layout.tsx` — shell (nav + the "research, not advice" disclaimer) + `globals.css`.
-- `page.tsx` — home = morning read dashboard from SQLite DB (`latestDigest()`) grouped by family with severity chips, or empty state instructions.
+- `page.tsx` — home = morning read dashboard from SQLite DB (`latestDigest()`) grouped by family with severity chips, or empty state. Mounts `<RunStatusBar>` (on-demand **Refresh digest** / **Refresh data** buttons).
+- `actions.ts` — **`"use server"`**: `refreshDigestAction()` (spawns `overnight --manage-llama`) and `refreshDataAction()` (spawns `refresh_data`, no model). Both spawn detached engine jobs via `@/lib/run-trigger` and return immediately; guarded on the run-lock.
 - `digest/[d]/` — past digest page by date (identically rendered, force-dynamic).
 - `screener/` — `runScreen` over the demo universe.
 - `buylist/` — monthly allocation page reading from BuyList/BuyListItem tables with fallback candidate preview.

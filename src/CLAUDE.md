@@ -7,7 +7,7 @@ and unit-tested with vitest — no live network or LLM required to run the suite
 
 | Dir | Role |
 |---|---|
-| `analyst/` | LLM plumbing: JSON salvage, the `completeJson` retry harness, the per-endpoint lock, the provider abstraction, and `FakeProvider` |
+| `analyst/` | LLM plumbing: JSON salvage, the `completeJson` retry harness, the per-endpoint lock, the provider abstraction, `FakeProvider`, and the on-demand `llama-lifecycle` (boot/wait/kill the local model) |
 | `lib/` | pure primitives (despike, metrics) used by every read path |
 | `config/` | provider profiles, per-role model routing, dual sector taxonomy |
 | `tools/` | evidence ledger, budget, cache, registry, and the ported quant tools |

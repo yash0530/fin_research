@@ -1,4 +1,6 @@
 import { despike } from "./despike";
+import { buildProductionRegistry } from "@engine/tools/factory";
+import { execute } from "@engine/tools/types";
 
 // Server-only data loader for tickers, SQLite queries using node:sqlite.
 // Follows the digest-data.ts / dossier-data.ts patterns.
@@ -119,6 +121,9 @@ export interface TickerDetail {
   catalysts: CatalystInfo[];
   dossiers: DossierStateInfo[];
   recCalls: RecCallInfo[];
+  dcf?: any;
+  qoe?: any;
+  technicals?: any;
 }
 
 interface SqlDb {
@@ -280,7 +285,7 @@ export async function listTickers(filters: {
  */
 export async function tickerDetail(
   symbol: string,
-  range: "1y" | "5y" = "1y"
+  range: string = "1y"
 ): Promise<TickerDetail | null> {
   const db = await openDb();
   if (!db) return null;
@@ -306,7 +311,14 @@ export async function tickerDetail(
     }));
 
     // 3. Fetch Prices + Despike
-    const limit = range === "5y" ? 1300 : 260;
+    let limit = 260;
+    if (range === "1d") limit = 2;
+    else if (range === "5d") limit = 5;
+    else if (range === "1m") limit = 22;
+    else if (range === "3m") limit = 65;
+    else if (range === "1y") limit = 260;
+    else if (range === "3y") limit = 780;
+    else if (range === "5y") limit = 1300;
     const priceRows = db.prepare(`
       SELECT d, close FROM Price
       WHERE symbol = ?
@@ -326,15 +338,38 @@ export async function tickerDetail(
       rawClose: rawCloses[idx],
     }));
 
-    // 4. Fetch Quarters (last 6)
+    // 4. Fetch Quarters (last 20 to allow deduplication)
     const quarterRows = db.prepare(`
       SELECT * FROM FundamentalsQuarter
       WHERE symbol = ?
       ORDER BY periodEnd DESC
-      LIMIT 6
+      LIMIT 20
     `).all(symbol);
 
-    const quarters: QuarterInfo[] = quarterRows.map((r) => {
+    const mergedRows: typeof quarterRows = [];
+    for (const r of quarterRows) {
+      let mergedWithExisting = false;
+      const rDate = new Date(r.periodEnd as string);
+      for (const existing of mergedRows) {
+        const eDate = new Date(existing.periodEnd as string);
+        const diffDays = Math.abs(rDate.getTime() - eDate.getTime()) / (1000 * 60 * 60 * 24);
+        if (diffDays <= 7) {
+          // Merge fields: fill null values in existing row from r
+          for (const col of Object.keys(existing)) {
+            if (existing[col] === null && r[col] !== null) {
+              existing[col] = r[col];
+            }
+          }
+          mergedWithExisting = true;
+          break;
+        }
+      }
+      if (!mergedWithExisting) {
+        mergedRows.push({ ...r });
+      }
+    }
+
+    const quarters: QuarterInfo[] = mergedRows.slice(0, 6).map((r) => {
       const revenue = r.revenue !== null ? (r.revenue as number) : null;
       const grossProfit = r.grossProfit !== null ? (r.grossProfit as number) : null;
       const operatingIncome = r.operatingIncome !== null ? (r.operatingIncome as number) : null;
@@ -363,14 +398,13 @@ export async function tickerDetail(
       };
     });
 
-    // 5. Fetch Filings (last 20, form-filtered)
-    // Filter to forms of interest
+    // 5. Fetch Filings (last 10, core financial forms only, excluding Form 4)
     const filingRows = db.prepare(`
       SELECT accessionNo, form, filedAt, primaryDoc, cik
       FROM EdgarFiling
-      WHERE symbol = ? AND form IN ('10-K', '10-Q', '8-K', '4', 'DEF 14A')
+      WHERE symbol = ? AND form IN ('10-K', '10-Q', '8-K', 'DEF 14A')
       ORDER BY filedAt DESC
-      LIMIT 20
+      LIMIT 10
     `).all(symbol);
 
     const filings: FilingInfo[] = filingRows.map((r) => {
@@ -488,6 +522,47 @@ export async function tickerDetail(
       createdAt: r.createdAt as string,
     }));
 
+    // 10. Execute DCF, QoE and Technicals tools
+    const registry = buildProductionRegistry(db as any);
+    const dcfTool = registry.get("dcf");
+    const qoeTool = registry.get("qoe");
+    const techTool = registry.get("technicals");
+
+    let dcf: any = null;
+    let qoe: any = null;
+    let technicals: any = null;
+
+    if (dcfTool) {
+      try {
+        const res = await execute(dcfTool, { symbol });
+        if (!res.error && res.data && res.data.data_status !== "missing") {
+          dcf = res.data;
+        }
+      } catch (err) {
+        console.error("Error executing DCF tool:", err);
+      }
+    }
+    if (qoeTool) {
+      try {
+        const res = await execute(qoeTool, { symbol });
+        if (!res.error && res.data && res.data.data_status !== "missing") {
+          qoe = res.data;
+        }
+      } catch (err) {
+        console.error("Error executing QoE tool:", err);
+      }
+    }
+    if (techTool) {
+      try {
+        const res = await execute(techTool, { symbol });
+        if (!res.error && res.data && res.data.data_status !== "missing") {
+          technicals = res.data;
+        }
+      } catch (err) {
+        console.error("Error executing Technicals tool:", err);
+      }
+    }
+
     return {
       symbol: tRow.symbol as string,
       name: (tRow.name as string) ?? null,
@@ -513,6 +588,9 @@ export async function tickerDetail(
       catalysts,
       dossiers,
       recCalls,
+      dcf,
+      qoe,
+      technicals,
     };
   } catch (err) {
     console.error("Error loading tickerDetail:", err);

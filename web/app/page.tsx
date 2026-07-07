@@ -1,6 +1,7 @@
 import { latestDigest, listDigests } from "@/lib/digest-data";
 import Link from "next/link";
 import "@/components/story/story.css";
+import RunStatusBar from "@/components/RunStatusBar";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -52,6 +53,8 @@ export default async function Home() {
           <p className="body" style={{ color: 'var(--muted)', fontSize: '14px', marginTop: '1.5rem' }}>
             This process reads current asset prices, scans watchlist rule triggers, evaluates hyperscaler credit indicators, and writes the synthesized results directly to the local SQLite store.
           </p>
+          <p className="body" style={{ marginTop: '1.5rem', fontWeight: 600 }}>…or just click below:</p>
+          <RunStatusBar />
         </div>
       </div>
     );
@@ -113,6 +116,9 @@ export default async function Home() {
           Capture
         </Link>
       </div>
+
+      {/* On-demand run controls */}
+      <RunStatusBar />
 
       {/* Insights Content */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginTop: '1.5rem' }}>

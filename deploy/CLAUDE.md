@@ -1,24 +1,25 @@
 # deploy/ — deployment artifacts
 
-launchd wiring that turns the scheduler daemon into a self-running service.
+The platform is **on-demand only** — there is no always-on daemon and no
+always-resident model. Work runs when the user clicks a button in the web UI (or runs
+`npm run job -- <name> --manage-llama`), which boots llama-server for that run and
+kills it on completion (see `src/analyst/llama-lifecycle.ts` + `src/jobs/run-lock.ts`).
 
-- `com.engine.scheduler.plist` — the launchd agent for `scripts/scheduler.ts`.
-  `RunAtLoad` + `KeepAlive` keep it alive across logins/crashes; stdout →
-  `data/logs/scheduler.log`, stderr → `data/logs/scheduler.err.log`. `WorkingDirectory`
-  and log paths are pinned to this checkout — edit them if you move the repo.
-- `install-launchd.sh` — idempotent installer: copies the plist into
-  `~/Library/LaunchAgents`, `launchctl bootout`s any existing instance, `bootstrap`s
-  the `gui/$(id -u)` domain, `kickstart`s it, and prints status. Re-run any time.
-  Uninstall: `launchctl bootout gui/$(id -u)/com.engine.scheduler && rm ~/Library/LaunchAgents/com.engine.scheduler.plist`.
+- `uninstall-launchd.sh` — removes ALL prior automation: boots out + deletes the
+  scheduler agent (`com.engine.scheduler`), boots out + disables the always-resident
+  model agent (`com.local.llamacpp` → `.plist.bak`), and kills any lingering
+  scheduler/llama processes. Idempotent. Run once when migrating off the old
+  self-running deployment:
 
-The daemon's schedule DECISIONS are the tested `src/schedule/{wake,watchdog,tick}`
-modules; `scripts/scheduler.ts --once` runs a single READ-ONLY decision pass (verifiable,
-no side effects). The long-lived loop wires the overnight chain + daily backup +
-dossier-queue drain to the LIVE jobs via the shared `src/jobs/registry-live` (the same
-code path as the `npm run job` CLI), and probes/restarts the llama-server each tick.
+  ```bash
+  bash deploy/uninstall-launchd.sh
+  ```
 
-## CEO install (one command)
+## History (removed)
 
-```bash
-bash deploy/install-launchd.sh
-```
+Earlier the platform ran itself via two launchd agents: `com.engine.scheduler`
+(the 60s tick loop in `scripts/scheduler.ts` — overnight chain + auto-seeded dossier
+campaign) and `com.local.llamacpp` (`KeepAlive` kept the 27B model in RAM forever, with
+the scheduler watchdog restarting it). Both were retired in the move to on-demand runs.
+The llama launch args they used now live, version-controlled, in `src/config/llama.ts`.
+`scripts/scheduler.ts` is retained for reference but is **deprecated / not installed**.

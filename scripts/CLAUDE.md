@@ -16,7 +16,12 @@ Standalone `tsx` scripts (not part of the library build).
 - `smoke.ts` — end-to-end smoke of the deterministic pipeline (digest → screener →
   FakeProvider dossier → governed buy-list); prints ✓/✗ and exits non-zero on failure.
   Run: `npm run smoke`.
-- `scheduler.ts` — the scheduler daemon that runs the platform itself. `--once` runs ONE
+- `scheduler.ts` — **⚠️ DEPRECATED / NOT INSTALLED.** The always-on daemon that used to
+  run the platform itself (overnight chain + auto-seeded dossier campaign + llama
+  watchdog). Retired in favor of on-demand runs (see `job.ts --manage-llama` and
+  `deploy/uninstall-launchd.sh`); kept only for reference. Its llama launch args now live
+  in `src/config/llama.ts`. Below describes its historical behavior:
+- `scheduler.ts` (history) — the scheduler daemon that ran the platform itself. `--once` runs ONE
   **read-only** decision pass (reads the latest Digest date via `src/schedule/tick`.
   `evaluateCatchUp`, prints `shouldCatchUp`, and exits 0 with NO side effects — the
   verification gate; in normal operation today's digest exists so it short-circuits).
@@ -46,3 +51,8 @@ Standalone `tsx` scripts (not part of the library build).
   yahoo2 fetchers (quotes/ownership) for the live tools; the flow itself lives in the
   testable `src/dossier/job.runDossierJob`. With no `--symbols` it drains the existing
   queue only.
+  **`--manage-llama`**: wrap the run in the single-run lock (`src/jobs/run-lock`) +
+  `withLlamaServer` (`src/analyst/llama-lifecycle`) — boot llama-server, run the job, then
+  KILL it (free RAM) and release the lock. A second `--manage-llama` run while one holds
+  the lock aborts with `[BUSY]` (exit 3). This is the entrypoint the web on-demand buttons
+  spawn (data-only jobs like `refresh_data` omit the flag → no model boot).

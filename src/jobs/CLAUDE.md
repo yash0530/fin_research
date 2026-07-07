@@ -49,6 +49,11 @@ injected dependencies → fully tested with fakes (no network).
   - `splitSuspects`, `flatRuns`, `gaps` — pure detectors of stock splits, flat runs, and chronological gaps.
   - `runIntegrityJob` — scans Price table history for all active symbols using raw close prices for stock splits, and despiked close prices for flat runs and gaps.
 - `portfolio.ts` — `runPortfolioCheck`: scans all positions, loads current price and historical closes (despiked), and latest RecCall, runs `decaySignals`, and returns a summary detail string of critical/warn findings.
+- `run-lock.ts` — the **single-run pidfile guard** for on-demand runs (`data/run.lock`).
+  `acquireRunLock`/`releaseRunLock`/`readRunLock`/`isRunActive` + `setLockLlamaPid`. Two
+  clicks can't double-boot the model; a stale lock (owner pid dead) is taken over and its
+  orphaned `llamaPid` reaped (SIGKILL) so a crashed run never leaks RAM. Injectable
+  kill/alive → unit-tested with a temp lockfile.
 - `registry-live.ts` — the **shared LIVE job registry**, extracted from `scripts/job.ts`
   so the CLI and the scheduler daemon run one code path. Owns the env + DB open
   (`loadDotEnv` / `databaseFile` / `openDb`, mirroring `scripts/seed.ts`), the lazy
@@ -57,8 +62,10 @@ injected dependencies → fully tested with fakes (no network).
   with NO DB/network — single-sourced with the registry), and `drainDossierQueueLive(db)`
   (the scheduler's idle drain: `recoverStale` → live `runDossierJob`, one at a time,
   respecting the llama single-flight lock). Registered jobs: `prices10y`, `fundamentals`,
-  `edgar_index`, `stats`, `news`, `earnings`, `rules`, `digest`, `overnight`, `dossier`,
-  `backup`, `integrity_check`, `backtest`, `portfolio_check`. Importing it stays offline; only each `run` touches the wire.
+  `edgar_index`, `stats`, `news`, `earnings`, `rules`, `digest`, `overnight`,
+  `refresh_data` (the data chain minus the model: prices-heal→stats→news→earnings→rules,
+  the no-model "Refresh data" button target), `dossier`, `backup`, `integrity_check`,
+  `backtest`, `portfolio_check`. Importing it stays offline; only each `run` touches the wire.
 
 ## Tests
 

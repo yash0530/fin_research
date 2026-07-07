@@ -4,6 +4,18 @@ The dashboard-first UI for ENGINE. A separate Next.js 15 (App Router, React 19) 
 the dependency-light, fully-tested engine core in `../src` stays isolated — the root
 `npm run verify` is never destabilized by UI deps.
 
+## On-demand runs (no automation)
+
+The platform is on-demand only. Three buttons trigger work: **Refresh data** (no model),
+**Refresh digest** (boots the model for narration), and **Run deep-dive** (the multi-agent
+dossier). Each button's server action (`app/actions.ts`, `app/dossiers/actions.ts`) spawns a
+DETACHED `tsx scripts/job.ts … [--manage-llama]` child via `lib/run-trigger.ts` and returns
+immediately — the heavy work runs OUT of the Next request, and `--manage-llama` makes that
+child boot llama-server for the run and kill it after (freeing RAM). Client islands
+(`components/run-ui.tsx`, `RunStatusBar.tsx`, `app/dossiers/RunDeepDive.tsx`) poll
+`getRunStatusAction` (~3s) for `idle | booting | running` and `router.refresh()` on
+completion. A filesystem run-lock (`@engine/jobs/run-lock`) prevents concurrent runs.
+
 ## How it relates to the engine
 
 - Imports the **real, tested** engine via the `@engine/*` alias (`../src/*`), enabled by

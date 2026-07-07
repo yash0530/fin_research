@@ -18,3 +18,11 @@
   message, acked). Returns newest-first. Used by `app/signals/page.tsx`.
 - `journal-data.ts` — SQLite reader for `JournalEntry` rows (id, symbol, action, thesis,
   invalidation, createdAt). Returns newest-first. Used by `app/journal/page.tsx`.
+- `run-trigger.ts` — **server-only**: spawn an engine job as a DETACHED child
+  (`repoRoot()/node_modules/.bin/tsx scripts/job.ts <name> [args] [--manage-llama]`,
+  `cwd=repoRoot`, absolute `DATABASE_URL`, stdout→`data/logs/ondemand-*.log`). The web
+  app's ONE place that spawns a process — the 40-min dossier runs OUT of the Next request.
+  Also exports `repoRoot()` + `runLockPath()`.
+- `run-status.ts` — **server-only**: `getRunStatus()` assembles the polled UI status from
+  the run-lock (`@engine/jobs/run-lock`) + a short llama `/health` probe → `{ busy, phase:
+  idle|booting|running, job, symbols }`. Cheap enough to poll every ~3s.

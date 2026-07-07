@@ -56,7 +56,8 @@ function formatDate(dateStr: string | null): string {
 export default async function TickerDetailPage({ params, searchParams }: Props) {
   const { symbol } = await params;
   const { range } = await searchParams;
-  const activeRange = range === "5y" ? "5y" : "1y";
+  const validRanges = ["1d", "5d", "1m", "3m", "1y", "3y", "5y"];
+  const activeRange = range && validRanges.includes(range) ? range : "1y";
 
   const detail = await tickerDetail(symbol.toUpperCase(), activeRange);
 
@@ -128,8 +129,8 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
     { label: "52W Range", value: detail.fiftyTwoWeekLow && detail.fiftyTwoWeekHigh ? `$${detail.fiftyTwoWeekLow.toFixed(0)} - $${detail.fiftyTwoWeekHigh.toFixed(0)}` : "—" },
     {
       label: "Year Change",
-      value: detail.yearChange !== null ? `${(detail.yearChange * 100).toFixed(1)}%` : "—",
-      delta: detail.yearChange !== null ? `${detail.yearChange >= 0 ? "+" : ""}${(detail.yearChange * 100).toFixed(1)}%` : undefined,
+      value: detail.yearChange !== null ? `${detail.yearChange.toFixed(1)}%` : "—",
+      delta: detail.yearChange !== null ? `${detail.yearChange >= 0 ? "+" : ""}${detail.yearChange.toFixed(1)}%` : undefined,
       deltaDirection: detail.yearChange === null ? undefined : (detail.yearChange >= 0 ? "up" as const : "down" as const),
     },
   ];
@@ -208,40 +209,26 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
                 <h3 className="story-h2" style={{ fontSize: '1.1rem', margin: 0 }}>Historical Price Trend</h3>
                 <span className="body dim" style={{ fontSize: '12px' }}>Despiked close series over selected timeframe</span>
               </div>
-              <div className="presets" style={{ margin: 0 }}>
-                <Link
-                  href={`?range=1y`}
-                  className={activeRange === "1y" ? "on" : ""}
-                  style={{
-                    textDecoration: 'none',
-                    fontFamily: 'var(--fmono)',
-                    fontSize: '12px',
-                    padding: '4px 12px',
-                    borderRadius: '999px',
-                    background: activeRange === "1y" ? 'var(--accent-soft)' : 'var(--surface)',
-                    color: activeRange === "1y" ? 'var(--accent-deep)' : 'var(--ink)',
-                    border: `1px solid ${activeRange === "1y" ? 'var(--accent)' : 'var(--line-2)'}`
-                  }}
-                >
-                  1Y
-                </Link>
-                <Link
-                  href={`?range=5y`}
-                  className={activeRange === "5y" ? "on" : ""}
-                  style={{
-                    textDecoration: 'none',
-                    fontFamily: 'var(--fmono)',
-                    fontSize: '12px',
-                    padding: '4px 12px',
-                    borderRadius: '999px',
-                    background: activeRange === "5y" ? 'var(--accent-soft)' : 'var(--surface)',
-                    color: activeRange === "5y" ? 'var(--accent-deep)' : 'var(--ink)',
-                    border: `1px solid ${activeRange === "5y" ? 'var(--accent)' : 'var(--line-2)'}`,
-                    marginLeft: '6px'
-                  }}
-                >
-                  5Y
-                </Link>
+              <div className="presets" style={{ display: 'flex', gap: '4px', margin: 0 }}>
+                {["1d", "5d", "1m", "3m", "1y", "3y", "5y"].map((r) => (
+                  <Link
+                    key={r}
+                    href={`?range=${r}`}
+                    className={activeRange === r ? "on" : ""}
+                    style={{
+                      textDecoration: 'none',
+                      fontFamily: 'var(--fmono)',
+                      fontSize: '12px',
+                      padding: '4px 10px',
+                      borderRadius: '999px',
+                      background: activeRange === r ? 'var(--accent-soft)' : 'var(--surface)',
+                      color: activeRange === r ? 'var(--accent-deep)' : 'var(--ink)',
+                      border: `1px solid ${activeRange === r ? 'var(--accent)' : 'var(--line-2)'}`
+                    }}
+                  >
+                    {r.toUpperCase()}
+                  </Link>
+                ))}
               </div>
             </div>
 
@@ -255,6 +242,176 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
                 </pre>
               </div>
             )}
+          </div>
+
+          {/* Quant Analytics Grid */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <h3 className="story-h2" style={{ fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', margin: 0 }}>Quant Cockpit Analytics</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+              
+              {/* 1. DCF Valuation Panel */}
+              <div className="panel" style={{ border: '1px solid var(--line)', background: 'var(--surface)', borderRadius: '12px', padding: '1.25rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '180px', margin: 0 }}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>
+                    <span style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--muted)', fontWeight: 600 }}>DCF Valuation</span>
+                    {detail.dcf && detail.dcf.upsidePctBase != null && (
+                      <span className={`verdict-badge ${detail.dcf.upsidePctBase >= 0 ? 'buy' : 'avoid'}`} style={{ fontSize: '10px', padding: '2px 8px', margin: 0 }}>
+                        {detail.dcf.upsidePctBase >= 0 ? '+' : ''}{detail.dcf.upsidePctBase.toFixed(1)}% Base Upside
+                      </span>
+                    )}
+                  </div>
+                  {detail.dcf && detail.dcf.fairValueRange ? (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '13px', color: 'var(--muted)' }}>Fair Value (Base):</span>
+                        <span style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'var(--fdisp)' }}>
+                          {detail.dcf.fairValueRange.base != null ? `$${detail.dcf.fairValueRange.base.toFixed(2)}` : '—'}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--faint)', marginBottom: '12px' }}>
+                        <span>Bear: {detail.dcf.fairValueRange.bear != null ? `$${detail.dcf.fairValueRange.bear.toFixed(2)}` : '—'}</span>
+                        <span>Bull: {detail.dcf.fairValueRange.bull != null ? `$${detail.dcf.fairValueRange.bull.toFixed(2)}` : '—'}</span>
+                      </div>
+                      {/* Visual gauge showing current price vs bear/base/bull */}
+                      {latestPrice && detail.dcf.fairValueRange.bear != null && detail.dcf.fairValueRange.bull != null && (
+                        <div style={{ width: '100%', marginTop: '8px' }}>
+                          <div style={{ height: '4px', background: 'var(--line)', borderRadius: '2px', position: 'relative' }}>
+                            {(() => {
+                              const bear = detail.dcf.fairValueRange.bear!;
+                              const bull = detail.dcf.fairValueRange.bull!;
+                              const current = latestPrice.close;
+                              const pct = Math.max(0, Math.min(100, ((current - bear) / (bull - bear)) * 100));
+                              return (
+                                <div style={{
+                                  position: 'absolute',
+                                  left: `${pct}%`,
+                                  top: '-4px',
+                                  width: '12px',
+                                  height: '12px',
+                                  borderRadius: '50%',
+                                  background: 'var(--accent-deep)',
+                                  border: '2px solid var(--surface)',
+                                  transform: 'translateX(-50%)',
+                                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                }} title={`Current Price: $${current.toFixed(2)} (${pct.toFixed(0)}% of range)`} />
+                              );
+                            })()}
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: 'var(--faint)', marginTop: '4px' }}>
+                            <span>Bear</span>
+                            <span style={{ color: 'var(--accent-deep)', fontWeight: 600 }}>Current Price</span>
+                            <span>Bull</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '12px', color: 'var(--muted)', padding: '1rem 0', textAlign: 'center' }}>
+                      No FCF or shares data to run DCF model.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 2. Quality of Earnings (QoE) Panel */}
+              <div className="panel" style={{ border: '1px solid var(--line)', background: 'var(--surface)', borderRadius: '12px', padding: '1.25rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '180px', margin: 0 }}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>
+                    <span style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--muted)', fontWeight: 600 }}>Quality of Earnings</span>
+                    {detail.qoe && detail.qoe.altmanZone && (
+                      <span className={`verdict-badge ${
+                        detail.qoe.altmanZone === 'safe' ? 'buy' : detail.qoe.altmanZone === 'grey' ? 'hold' : 'avoid'
+                      }`} style={{ fontSize: '10px', padding: '2px 8px', margin: 0 }}>
+                        Z-Zone: {detail.qoe.altmanZone.toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  {detail.qoe ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '13px', color: 'var(--muted)' }}>Piotroski F-Score:</span>
+                        <span style={{ fontSize: '14px', fontWeight: 700, color: detail.qoe.piotroskiF >= 7 ? 'var(--pos)' : detail.qoe.piotroskiF <= 3 ? 'var(--neg)' : 'var(--ink)' }}>
+                          {detail.qoe.piotroskiF != null ? `${detail.qoe.piotroskiF}/9` : '—'}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '13px', color: 'var(--muted)' }}>Altman Z-Score:</span>
+                        <span style={{ fontSize: '14px', fontWeight: 700 }}>
+                          {detail.qoe.altmanZ != null ? detail.qoe.altmanZ.toFixed(2) : '—'}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '13px', color: 'var(--muted)' }}>Beneish M-Score:</span>
+                        <span style={{ fontSize: '14px', fontWeight: 700, color: detail.qoe.beneishFlag === 'likely_manipulator' ? 'var(--neg)' : 'var(--pos)' }}>
+                          {detail.qoe.beneishM != null ? detail.qoe.beneishM.toFixed(2) : '—'}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '13px', color: 'var(--muted)' }}>Sloan Accrual Ratio:</span>
+                        <span style={{ fontSize: '14px', fontWeight: 700, color: detail.qoe.accrualRatio != null && Math.abs(detail.qoe.accrualRatio) > 0.1 ? 'var(--neg)' : 'var(--ink)' }}>
+                          {detail.qoe.accrualRatio != null ? `${(detail.qoe.accrualRatio * 100).toFixed(1)}%` : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '12px', color: 'var(--muted)', padding: '1rem 0', textAlign: 'center' }}>
+                      No fundamentals data to run QoE metrics.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 3. Technical Momentum Panel */}
+              <div className="panel" style={{ border: '1px solid var(--line)', background: 'var(--surface)', borderRadius: '12px', padding: '1.25rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '180px', margin: 0 }}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>
+                    <span style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--muted)', fontWeight: 600 }}>Technical Momentum</span>
+                    {detail.technicals && detail.technicals.maCross && (
+                      <span className={`verdict-badge ${
+                        detail.technicals.maCross.state === 'bullish' ? 'buy' : detail.technicals.maCross.state === 'bearish' ? 'avoid' : 'hold'
+                      }`} style={{ fontSize: '10px', padding: '2px 8px', margin: 0 }}>
+                        {detail.technicals.maCross.state === 'bullish' ? 'Golden Cross' : detail.technicals.maCross.state === 'bearish' ? 'Death Cross' : 'No Regime'}
+                      </span>
+                    )}
+                  </div>
+                  {detail.technicals ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '13px', color: 'var(--muted)' }}>RSI (14d):</span>
+                        <span style={{ fontSize: '14px', fontWeight: 700, color: detail.technicals.rsi14 > 70 ? 'var(--neg)' : detail.technicals.rsi14 < 30 ? 'var(--pos)' : 'var(--ink)' }}>
+                          {detail.technicals.rsi14 != null ? detail.technicals.rsi14.toFixed(1) : '—'}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '13px', color: 'var(--muted)' }}>50-day SMA:</span>
+                        <span style={{ fontSize: '14px', fontWeight: 700, fontFamily: 'var(--fmono)' }}>
+                          {detail.technicals.sma50 != null ? `$${detail.technicals.sma50.toFixed(2)}` : '—'}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '13px', color: 'var(--muted)' }}>200-day SMA:</span>
+                        <span style={{ fontSize: '14px', fontWeight: 700, fontFamily: 'var(--fmono)' }}>
+                          {detail.technicals.sma200 != null ? `$${detail.technicals.sma200.toFixed(2)}` : '—'}
+                        </span>
+                      </div>
+                      {detail.technicals.macd && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '13px', color: 'var(--muted)' }}>MACD Hist:</span>
+                          <span style={{ fontSize: '14px', fontWeight: 700, color: detail.technicals.macd.histogram >= 0 ? 'var(--pos)' : 'var(--neg)' }}>
+                            {detail.technicals.macd.histogram != null ? detail.technicals.macd.histogram.toFixed(3) : '—'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '12px', color: 'var(--muted)', padding: '1rem 0', textAlign: 'center' }}>
+                      No price history to run technical analysis.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+            </div>
           </div>
 
           {/* Stat Tape (Key Metrics) */}
@@ -395,7 +552,7 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
             <h3 className="story-h2" style={{ fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', borderBottom: '1px solid var(--line)', paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>Recent SEC Filings</h3>
             {detail.filings.length > 0 ? (
               <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {detail.filings.map((f) => (
+                {detail.filings.slice(0, 5).map((f) => (
                   <li key={f.accessionNo} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', borderBottom: '1px solid var(--line)', paddingBottom: '6px' }}>
                     <div>
                       <a href={f.url} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600, color: 'var(--accent-deep)', textDecoration: 'none' }}>

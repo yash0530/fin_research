@@ -10,3 +10,6 @@ coverage/
 data/*.db
 data/*.db-*
 data/backtests/*.json
+.web.pid
+.claude/
+data/research/
