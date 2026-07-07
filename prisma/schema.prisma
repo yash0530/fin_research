@@ -450,3 +450,33 @@ model RuleEvent {
 
   @@index([ruleId, firedAt])
 }
+
+model Candidate {
+  symbol        String @id
+  tier          Int
+  triggerTags   String
+  qualification String
+  computedAt    String
+  userState     String @default("INBOX")
+}
+
+model WatchlistEntry {
+  symbol        String @id
+  userLocked    Int    @default(1)
+  buyUnder      Float?
+  valueBase     Float?
+  valueLow      Float?
+  valueHigh     Float?
+  thesis        String?
+  disconfirming String?
+  createdAt     String
+  updatedAt     String
+}
+
+model DecisionSnapshot {
+  id        Int    @id @default(autoincrement())
+  symbol    String
+  createdAt String
+  payload   String
+}
+

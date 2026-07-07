@@ -12,6 +12,10 @@ ENGINE convention — we do NOT run `prisma migrate dev` against the live SQLite
   `_migrations`, it is an INTERNAL underscore-prefixed table, so it is intentionally
   NOT a `schema.prisma` model (Prisma cannot own an underscore table). `CREATE IF NOT
   EXISTS`, so applying it where the store already ran is a no-op.
+- `0004_story_page.sql` — the `StoryPage` table.
+- `0005_reccall_promptversion.sql` — add promptVersion and thinkingMode to RecCall.
+- `0006_fundamentals_qoe_fields.sql` — add canonical QoE fields to FundamentalsQuarter.
+- `0007_screens_funnel.sql` — create Candidate, WatchlistEntry, and DecisionSnapshot tables.
 
 New migrations are numbered and additive (ALTER/CREATE only); never destructive without
 an explicit backup step first.

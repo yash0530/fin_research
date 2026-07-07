@@ -59,6 +59,28 @@ import { recoverStale } from "../dossier/queue";
 import { seedCampaign } from "../dossier/campaign";
 import { SqliteDossierStore } from "../db/sqlite-store";
 import type { LiveFetchers } from "../tools/factory";
+import { computeFScore, screenApplicability } from "../screens/fscore";
+import { computeAccruals } from "../screens/accruals";
+import { computeDilution } from "../screens/dilution";
+import { computeCohortCheapness } from "../screens/cohort";
+import { computeEarningsTrend } from "../screens/earnings-trend";
+
+function computeEvToEbit(quarters: any[], marketCap: number | null): number | null {
+  if (quarters.length < 4 || marketCap === null || marketCap <= 0) return null;
+  const ttmQuarters = quarters.slice(-4);
+  let ebitSum = 0;
+  for (const q of ttmQuarters) {
+    if (q.operatingIncome === null || q.operatingIncome === undefined) return null;
+    ebitSum += q.operatingIncome;
+  }
+  if (ebitSum <= 0) return null;
+
+  const latest = ttmQuarters[3];
+  const debt = latest.totalDebt ?? 0;
+  const cash = latest.cash ?? 0;
+  const ev = marketCap + debt - cash;
+  return ev / ebitSum;
+}
 
 // ── env + DB open (mirrors scripts/seed.ts) ──────────────────────────────────
 
@@ -413,6 +435,111 @@ const JOB_DEFS: JobDef[] = [
       const detail = await runPortfolioCheck(db);
       return { ok: true, detail };
     },
+  },
+  {
+    name: "screens",
+    describe: "Compute Piotroski, Sloan, dilution, cohort, and YoY earnings screens and upsert Candidates.",
+    run: async (db, symbols) => {
+      const syms = symbols ?? activeSymbols(db);
+
+      // Gather cohort inputs for ALL active symbols to build sector-relative cohorts
+      const allActive = activeSymbols(db);
+      const cohortInputs: { symbol: string; sectorCode: string; evToEbit: number | null }[] = [];
+      for (const symbol of allActive) {
+        try {
+          const gicsRow = db.prepare('SELECT "sectorCode" FROM "TickerSector" WHERE "symbol"=? AND "sectorCode" LIKE \'g_%\' LIMIT 1').get(symbol) as { sectorCode: string } | undefined;
+          const sectorCode = gicsRow?.sectorCode;
+          if (!sectorCode) continue;
+
+          const quarters = db.prepare('SELECT * FROM "FundamentalsQuarter" WHERE "symbol"=? ORDER BY "periodEnd" ASC').all(symbol) as any[];
+          const tickerRow = db.prepare('SELECT "marketCap" FROM "Ticker" WHERE "symbol"=?').get(symbol) as { marketCap: number | null } | undefined;
+          const marketCap = tickerRow?.marketCap ?? null;
+
+          const evToEbit = computeEvToEbit(quarters, marketCap);
+          cohortInputs.push({ symbol, sectorCode, evToEbit });
+        } catch (e) {
+          // Robustness: skip errors for individual symbol cohort collection
+        }
+      }
+
+      const cohortResult = computeCohortCheapness(cohortInputs);
+      const cheapSymbols = cohortResult.cheap;
+
+      let done = 0;
+      let errors = 0;
+
+      for (const symbol of syms) {
+        try {
+          const gicsRow = db.prepare('SELECT "sectorCode" FROM "TickerSector" WHERE "symbol"=? AND "sectorCode" LIKE \'g_%\' LIMIT 1').get(symbol) as { sectorCode: string } | undefined;
+          const sectorCode = gicsRow?.sectorCode;
+
+          const quarters = db.prepare('SELECT * FROM "FundamentalsQuarter" WHERE "symbol"=? ORDER BY "periodEnd" ASC').all(symbol) as any[];
+          const tickerRow = db.prepare('SELECT "marketCap" FROM "Ticker" WHERE "symbol"=?').get(symbol) as { marketCap: number | null } | undefined;
+          const marketCap = tickerRow?.marketCap ?? null;
+
+          const applicability = sectorCode ? screenApplicability([sectorCode]) : { applicable: true };
+
+          const fscore = computeFScore(quarters);
+          const accruals = computeAccruals(quarters);
+          const dilution = computeDilution(quarters);
+          const earningsTrend = computeEarningsTrend(quarters);
+          const evToEbit = computeEvToEbit(quarters, marketCap);
+          const cheap = cheapSymbols.has(symbol);
+
+          // Quality gates check
+          const passesGates =
+            applicability.applicable &&
+            fscore.score >= 7 &&
+            accruals.verdict === "pass" &&
+            dilution.verdict === "pass" &&
+            cheap;
+
+          const tier = passesGates ? 2 : 3;
+
+          const triggerTags: string[] = [];
+          if (fscore.score >= 7) triggerTags.push("High F-Score");
+          if (accruals.verdict === "pass") triggerTags.push("Low Accruals");
+          if (dilution.verdict === "pass") triggerTags.push("No Dilution");
+          if (cheap) triggerTags.push("Cheap Cohort");
+          if (earningsTrend.verdict === "improvingConfirmed") triggerTags.push("YoY Earnings Improving");
+          else if (earningsTrend.verdict === "deteriorating") triggerTags.push("YoY Earnings Deteriorating");
+
+          const qualification = {
+            fscore: { score: fscore.score, maxComputable: fscore.maxComputable, verdict: fscore.score >= 7 ? "pass" : "fail" },
+            accruals: { value: accruals.value, verdict: accruals.verdict },
+            dilution: { value: dilution.value, verdict: dilution.verdict },
+            earningsTrend: { zScore: earningsTrend.zScore, verdict: earningsTrend.verdict },
+            cohort: { evToEbit, cheap }
+          };
+
+          const computedAt = new Date().toISOString();
+
+          db.prepare(
+            'INSERT INTO "Candidate" ("symbol", "tier", "triggerTags", "qualification", "computedAt", "userState") ' +
+            'VALUES (?, ?, ?, ?, ?, ?) ' +
+            'ON CONFLICT("symbol") DO UPDATE SET ' +
+            '"tier"=excluded.tier, "triggerTags"=excluded.triggerTags, "qualification"=excluded.qualification, "computedAt"=excluded.computedAt'
+          ).run(
+            symbol,
+            tier,
+            JSON.stringify(triggerTags),
+            JSON.stringify(qualification),
+            computedAt,
+            "INBOX"
+          );
+
+          done++;
+        } catch (e) {
+          errors++;
+          console.warn(`[screens job] failed to compute screens for ${symbol}:`, e);
+        }
+      }
+
+      return {
+        ok: errors === 0,
+        detail: `screens: done=${done} errors=${errors} cheapCohort=${cheapSymbols.size}`,
+      };
+    }
   },
 ];
 
