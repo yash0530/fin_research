@@ -1,3 +1,13 @@
+/** The fields of an InsiderTx row the cluster screen actually reads. */
+export interface InsiderTxLike {
+  filerName: string;
+  filerRole: string;
+  txDate: string;
+  value: number;
+  tenPercentOwner: number;
+  tenB51: number;
+}
+
 export interface FundamentalsQuarter {
   symbol: string;
   periodEnd: string;

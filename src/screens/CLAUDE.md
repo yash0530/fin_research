@@ -9,6 +9,8 @@ Pure modules evaluating individual tickers over historical quarterly fundamental
 - `dilution.ts` — 3-year (12-quarter) net share count change percentage.
 - `cohort.ts` — Sector-relative cohort cheapness based on EV/EBIT (selects the bottom 25% within each sector).
 - `earnings-trend.ts` — Seasonal-naive earnings trend z-score calculated over the latest EPS vs expected EPS and historical errors.
+- `insider-cluster.ts` — Evaluates market-cap-scaled insider purchase clusters over a rolling 30-day window, excluding 10b5-1 plans and passive 10% owners.
+- `eightk-classify.ts` — Classifies reported 8-K items and detects earnings guidance direction (up/down) using regex.
 - `types.ts` — Shared database-equivalent TypeScript interfaces (e.g. `FundamentalsQuarter`).
 
 ## Design Patterns

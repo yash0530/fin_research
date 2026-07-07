@@ -16,6 +16,8 @@ ENGINE convention — we do NOT run `prisma migrate dev` against the live SQLite
 - `0005_reccall_promptversion.sql` — add promptVersion and thinkingMode to RecCall.
 - `0006_fundamentals_qoe_fields.sql` — add canonical QoE fields to FundamentalsQuarter.
 - `0007_screens_funnel.sql` — create Candidate, WatchlistEntry, and DecisionSnapshot tables.
+- `0008_edgar_events.sql` — create InsiderTx and FilingEvent tables with required unique constraints and indexes to support the Form 4 cluster screen and 8-K regex classifier.
+
 
 New migrations are numbered and additive (ALTER/CREATE only); never destructive without
 an explicit backup step first.

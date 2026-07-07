@@ -64,6 +64,10 @@ import { computeAccruals } from "../screens/accruals";
 import { computeDilution } from "../screens/dilution";
 import { computeCohortCheapness } from "../screens/cohort";
 import { computeEarningsTrend } from "../screens/earnings-trend";
+import { fetchForm4 } from "../net/edgar-form4";
+import { checkInsiderCluster } from "../screens/insider-cluster";
+import { classify8k } from "../screens/eightk-classify";
+
 
 function computeEvToEbit(quarters: any[], marketCap: number | null): number | null {
   if (quarters.length < 4 || marketCap === null || marketCap <= 0) return null;
@@ -540,6 +544,211 @@ const JOB_DEFS: JobDef[] = [
         detail: `screens: done=${done} errors=${errors} cheapCohort=${cheapSymbols.size}`,
       };
     }
+  },
+  {
+    name: "form4",
+    describe: "Fetch and parse Form 4 filings for the last 90 days, upsert transactions, and check for insider clusters.",
+    run: async (db, symbols) => {
+      const syms = symbols ?? activeSymbols(db);
+      const ua = requireUserAgent();
+      let done = 0;
+      let errors = 0;
+      let clusterCount = 0;
+
+      for (const symbol of syms) {
+        try {
+          const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+          const filings = db.prepare(
+            'SELECT "accessionNo", "cik", "primaryDoc", "filedAt" ' +
+            'FROM "EdgarFiling" ' +
+            'WHERE "symbol" = ? AND "form" = \'4\' AND "filedAt" >= ?'
+          ).all(symbol, ninetyDaysAgo) as { accessionNo: string; cik: string; primaryDoc: string | null; filedAt: string }[];
+
+          for (const f of filings) {
+            if (!f.primaryDoc) continue;
+            // Fetch and parse Form 4
+            const txs = await fetchForm4(
+              f.cik,
+              f.accessionNo,
+              f.primaryDoc,
+              symbol,
+              f.filedAt,
+              httpFetch,
+              ua
+            );
+
+            if (txs.length > 0) {
+              const insertStmt = db.prepare(
+                'INSERT OR IGNORE INTO "InsiderTx" ' +
+                '("symbol", "filerName", "filerRole", "txDate", "code", "shares", "price", "value", "sharesOwnedAfter", "tenPercentOwner", "tenB51", "accessionNo", "txIndex", "filedAt") ' +
+                'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+              );
+              db.exec("BEGIN");
+              try {
+                for (const row of txs) {
+                  insertStmt.run(
+                    row.symbol,
+                    row.filerName,
+                    row.filerRole,
+                    row.txDate,
+                    row.code,
+                    row.shares,
+                    row.price,
+                    row.value,
+                    row.sharesOwnedAfter,
+                    row.tenPercentOwner,
+                    row.tenB51,
+                    row.accessionNo,
+                    row.txIndex,
+                    row.filedAt
+                  );
+                }
+                db.exec("COMMIT");
+              } catch (e) {
+                db.exec("ROLLBACK");
+                throw e;
+              }
+            }
+          }
+
+          // Run insider-cluster per symbol
+          const tickerRow = db.prepare('SELECT "marketCap" FROM "Ticker" WHERE "symbol"=?').get(symbol) as { marketCap: number | null } | undefined;
+          const marketCap = tickerRow?.marketCap ?? null;
+
+          const txs = db.prepare('SELECT * FROM "InsiderTx" WHERE "symbol"=?').all(symbol) as any[];
+          const clusterResult = checkInsiderCluster(txs, marketCap);
+
+          const existing = db.prepare('SELECT * FROM "Candidate" WHERE "symbol"=?').get(symbol) as any;
+          let triggerTags: string[] = [];
+          let qualification: any = {};
+          let userState = "INBOX";
+          let tier = 3;
+
+          if (existing) {
+            triggerTags = JSON.parse(existing.triggerTags);
+            qualification = JSON.parse(existing.qualification);
+            userState = existing.userState;
+            tier = existing.tier;
+          }
+
+          const tag = "insider-cluster";
+          const hasTag = triggerTags.includes(tag);
+
+          if (clusterResult.clustered) {
+            if (!hasTag) triggerTags.push(tag);
+            qualification.insiderCluster = clusterResult;
+            clusterCount++;
+          } else {
+            if (hasTag) triggerTags = triggerTags.filter((t) => t !== tag);
+            delete qualification.insiderCluster;
+          }
+
+          if (existing || clusterResult.clustered) {
+            db.prepare(
+              'INSERT INTO "Candidate" ("symbol", "tier", "triggerTags", "qualification", "computedAt", "userState") ' +
+              'VALUES (?, ?, ?, ?, ?, ?) ' +
+              'ON CONFLICT("symbol") DO UPDATE SET ' +
+              '"tier"=excluded.tier, "triggerTags"=excluded.triggerTags, "qualification"=excluded.qualification, "computedAt"=excluded.computedAt'
+            ).run(
+              symbol,
+              tier,
+              JSON.stringify(triggerTags),
+              JSON.stringify(qualification),
+              new Date().toISOString(),
+              userState
+            );
+          }
+
+          done++;
+        } catch (e) {
+          errors++;
+          console.warn(`[form4 job] failed to process Form 4 for ${symbol}:`, e);
+        }
+      }
+
+      return { ok: errors === 0, detail: `form4: done=${done} errors=${errors} clustered=${clusterCount}` };
+    },
+  },
+  {
+    name: "events8k",
+    describe: "Fetch and classify 8-K filings for the last 30 days and upsert FilingEvent records.",
+    run: async (db, symbols) => {
+      const syms = symbols ?? activeSymbols(db);
+      const ua = requireUserAgent();
+      let done = 0;
+      let errors = 0;
+      let eventsCount = 0;
+
+      for (const symbol of syms) {
+        try {
+          const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+          const filings = db.prepare(
+            'SELECT "accessionNo", "cik", "primaryDoc", "filedAt" ' +
+            'FROM "EdgarFiling" ' +
+            'WHERE "symbol" = ? AND "form" = \'8-K\' AND "filedAt" >= ?'
+          ).all(symbol, thirtyDaysAgo) as { accessionNo: string; cik: string; primaryDoc: string | null; filedAt: string }[];
+
+          for (const f of filings) {
+            if (!f.primaryDoc) continue;
+            const cleanCik = f.cik.replace(/\D/g, "").replace(/^0+/, "");
+            const accessionNoNoDashes = f.accessionNo.replace(/-/g, "");
+            const url = `https://www.sec.gov/Archives/edgar/data/${cleanCik}/${accessionNoNoDashes}/${f.primaryDoc}`;
+
+            const res = await EDGAR_LIMITER.throttle(() =>
+              httpFetch(url, { headers: { "User-Agent": ua, "Accept-Encoding": "gzip" } })
+            );
+            if (!res.ok) {
+              throw new Error(`EDGAR 8-K fetch ${f.accessionNo}: HTTP ${res.status}`);
+            }
+            let text = await res.text();
+            if (text.length > 20000) {
+              text = text.slice(0, 20000);
+            }
+
+            const events = classify8k(text);
+
+            if (events.length > 0) {
+              const insertEventStmt = db.prepare(
+                'INSERT INTO "FilingEvent" ' +
+                '("symbol", "accessionNo", "form", "item", "kind", "headline", "snippet", "severity", "filedAt") ' +
+                'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ' +
+                'ON CONFLICT("accessionNo", "item") DO UPDATE SET ' +
+                '"kind"=excluded.kind, "headline"=excluded.headline, "snippet"=excluded.snippet, "severity"=excluded.severity, "filedAt"=excluded.filedAt'
+              );
+
+              db.exec("BEGIN");
+              try {
+                for (const ev of events) {
+                  insertEventStmt.run(
+                    symbol,
+                    f.accessionNo,
+                    "8-K",
+                    ev.item,
+                    ev.kind,
+                    ev.headline,
+                    ev.snippet,
+                    ev.severity,
+                    f.filedAt
+                  );
+                  eventsCount++;
+                }
+                db.exec("COMMIT");
+              } catch (e) {
+                db.exec("ROLLBACK");
+                throw e;
+              }
+            }
+          }
+
+          done++;
+        } catch (e) {
+          errors++;
+          console.warn(`[events8k job] failed to process 8-K for ${symbol}:`, e);
+        }
+      }
+
+      return { ok: errors === 0, detail: `events8k: done=${done} errors=${errors} events=${eventsCount}` };
+    },
   },
 ];
 

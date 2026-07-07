@@ -480,3 +480,41 @@ model DecisionSnapshot {
   payload   String
 }
 
+model InsiderTx {
+  id               Int    @id @default(autoincrement())
+  symbol           String
+  filerName        String
+  filerRole        String
+  txDate           String
+  code             String
+  shares           Float
+  price            Float
+  value            Float
+  sharesOwnedAfter Float
+  tenPercentOwner  Int
+  tenB51           Int
+  accessionNo      String
+  txIndex          Int    @default(0)
+  filedAt          String
+
+  @@unique([accessionNo, txIndex])
+  @@index([symbol, txDate])
+}
+
+model FilingEvent {
+  id          Int    @id @default(autoincrement())
+  symbol      String
+  accessionNo String
+  form        String
+  item        String
+  kind        String
+  headline    String
+  snippet     String
+  severity    String
+  filedAt     String
+
+  @@unique([accessionNo, item])
+  @@index([symbol, filedAt])
+}
+
+

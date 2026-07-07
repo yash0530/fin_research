@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { jobCatalog, buildLiveRegistry, type JobEntry } from "./registry-live";
 import { createRequire } from "node:module";
 import { readFileSync, readdirSync, existsSync } from "node:fs";
@@ -30,6 +30,7 @@ function migratedDb(): SqlDb {
 // shape/metadata here; the `run` bodies build live fetchers lazily and are exercised
 // against real services by the CLI, never in vitest.
 describe("live registry assembly", () => {
+  process.env.EDGAR_USER_AGENT = "TestAgent email@test.com";
   const EXPECTED = [
     "prices10y",
     "fundamentals",
@@ -53,6 +54,8 @@ describe("live registry assembly", () => {
     "backtest",
     "portfolio_check",
     "screens",
+    "form4",
+    "events8k",
   ];
 
   it("jobCatalog lists every job with a describe, no DB required", () => {
@@ -136,6 +139,196 @@ describe("live registry assembly", () => {
     expect(qual).toHaveProperty("dilution");
     expect(qual).toHaveProperty("cohort");
     expect(qual).toHaveProperty("earningsTrend");
+  });
+
+  it("form4 job should fetch, parse, and check clusters", async () => {
+    const db = migratedDb();
+    const reg = buildLiveRegistry(db);
+    const form4Job = reg.find((j) => j.name === "form4");
+    expect(form4Job).toBeDefined();
+
+    // Seed mock Ticker
+    db.prepare('INSERT INTO "Ticker" ("symbol", "class", "active", "marketCap") VALUES (?, ?, ?, ?)').run("AAPL", "stock", 1, 25_000_000_000);
+    // Seed mock EdgarFiling Form 4 in last 90 days
+    const today = new Date().toISOString().slice(0, 10);
+    db.prepare(
+      'INSERT INTO "EdgarFiling" ("accessionNo", "symbol", "cik", "form", "filedAt", "primaryDoc") VALUES (?, ?, ?, ?, ?, ?)'
+    ).run("0001-form4", "AAPL", "12345", "4", today, "primary.xml");
+
+    // Stub global fetch
+    const mockXml = `<?xml version="1.0"?>
+    <ownershipDocument>
+        <issuer>
+            <issuerTradingSymbol>AAPL</issuerTradingSymbol>
+        </issuer>
+        <reportingOwner>
+            <reportingOwnerId>
+                <rptOwnerName>Cook Tim</rptOwnerName>
+            </reportingOwnerId>
+            <reportingOwnerRelationship>
+                <isDirector>true</isDirector>
+                <isOfficer>true</isOfficer>
+                <officerTitle>CEO</officerTitle>
+            </reportingOwnerRelationship>
+        </reportingOwner>
+        <nonDerivativeTable>
+            <nonDerivativeTransaction>
+                <transactionDate>
+                    <value>${today}</value>
+                </transactionDate>
+                <transactionCoding>
+                    <transactionCode>P</transactionCode>
+                </transactionCoding>
+                <transactionAmounts>
+                    <transactionShares>
+                        <value>10000</value>
+                    </transactionShares>
+                    <transactionPricePerShare>
+                        <value>100.00</value>
+                    </transactionPricePerShare>
+                </transactionAmounts>
+                <postTransactionAmounts>
+                    <sharesOwnedFollowingTransaction>
+                        <value>50000</value>
+                    </sharesOwnedFollowingTransaction>
+                </postTransactionAmounts>
+            </nonDerivativeTransaction>
+        </nonDerivativeTable>
+    </ownershipDocument>`;
+
+    const mockResponse = {
+      ok: true,
+      status: 200,
+      text: async () => mockXml,
+    };
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue(mockResponse as any);
+
+    try {
+      const outcome = await form4Job!.run(["AAPL"]);
+      expect(outcome.ok).toBe(true);
+
+      // Verify transaction inserted
+      const txs = db.prepare('SELECT * FROM "InsiderTx" WHERE "symbol"=?').all("AAPL") as any[];
+      expect(txs).toHaveLength(1);
+      expect(txs[0].filerName).toBe("Cook Tim");
+
+      // Verify no cluster was created (since there is only 1 insider)
+      let candidates = db.prepare('SELECT * FROM "Candidate" WHERE "symbol"=?').all("AAPL") as any[];
+      expect(candidates).toHaveLength(0); // no candidate created since it didn't cluster
+
+      // Now add another transaction from a different insider to trigger a cluster
+      const mockXmlCluster = `<?xml version="1.0"?>
+      <ownershipDocument>
+          <issuer>
+              <issuerTradingSymbol>AAPL</issuerTradingSymbol>
+          </issuer>
+          <reportingOwner>
+              <reportingOwnerId>
+                  <rptOwnerName>Maestri Luca</rptOwnerName>
+              </reportingOwnerId>
+              <reportingOwnerRelationship>
+                  <isOfficer>true</isOfficer>
+                  <officerTitle>CFO</officerTitle>
+              </reportingOwnerRelationship>
+          </reportingOwner>
+          <nonDerivativeTable>
+              <nonDerivativeTransaction>
+                  <transactionDate>
+                      <value>${today}</value>
+                  </transactionDate>
+                  <transactionCoding>
+                      <transactionCode>P</transactionCode>
+                  </transactionCoding>
+                  <transactionAmounts>
+                      <transactionShares>
+                          <value>10000</value>
+                      </transactionShares>
+                      <transactionPricePerShare>
+                          <value>100.00</value>
+                      </transactionPricePerShare>
+                  </transactionAmounts>
+                  <postTransactionAmounts>
+                      <sharesOwnedFollowingTransaction>
+                          <value>40000</value>
+                      </sharesOwnedFollowingTransaction>
+                  </postTransactionAmounts>
+              </nonDerivativeTransaction>
+          </nonDerivativeTable>
+      </ownershipDocument>`;
+
+      db.prepare(
+        'INSERT INTO "EdgarFiling" ("accessionNo", "symbol", "cik", "form", "filedAt", "primaryDoc") VALUES (?, ?, ?, ?, ?, ?)'
+      ).run("0002-form4", "AAPL", "12345", "4", today, "primary2.xml");
+
+      globalThis.fetch = vi.fn().mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => mockXml,
+      } as any).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => mockXmlCluster,
+      } as any);
+
+      // Run it again
+      const outcome2 = await form4Job!.run(["AAPL"]);
+      expect(outcome2.ok).toBe(true);
+
+      // Verify cluster candidate is created
+      candidates = db.prepare('SELECT * FROM "Candidate" WHERE "symbol"=?').all("AAPL") as any[];
+      expect(candidates).toHaveLength(1);
+      expect(candidates[0].triggerTags).toContain("insider-cluster");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("events8k job should fetch, classify, and insert filing events", async () => {
+    const db = migratedDb();
+    const reg = buildLiveRegistry(db);
+    const events8kJob = reg.find((j) => j.name === "events8k");
+    expect(events8kJob).toBeDefined();
+
+    // Seed mock Ticker
+    db.prepare('INSERT INTO "Ticker" ("symbol", "class", "active") VALUES (?, ?, ?)').run("MSFT", "stock", 1);
+    // Seed mock EdgarFiling 8-K in last 30 days
+    const today = new Date().toISOString().slice(0, 10);
+    db.prepare(
+      'INSERT INTO "EdgarFiling" ("accessionNo", "symbol", "cik", "form", "filedAt", "primaryDoc") VALUES (?, ?, ?, ?, ?, ?)'
+    ).run("0001-8k", "MSFT", "12345", "8-K", today, "primary.htm");
+
+    // Mock response for 8-K containing critical 4.02 and raised guidance 2.02
+    const mockHtml = `
+      <html>
+        <body>
+          We filed Item 4.02 Non-Reliance on Financials.
+          We also filed Item 2.02 and raised full year guidance.
+        </body>
+      </html>
+    `;
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => mockHtml,
+    } as any);
+
+    try {
+      const outcome = await events8kJob!.run(["MSFT"]);
+      expect(outcome.ok).toBe(true);
+
+      const events = db.prepare('SELECT * FROM "FilingEvent" WHERE "symbol"=? ORDER BY "item" ASC').all("MSFT") as any[];
+      expect(events).toHaveLength(2);
+      expect(events[0].item).toBe("2.02");
+      expect(events[0].kind).toBe("guidance-up");
+      expect(events[1].item).toBe("4.02");
+      expect(events[1].kind).toBe("non-reliance");
+      expect(events[1].severity).toBe("critical");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });
 
