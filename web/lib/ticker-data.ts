@@ -1,6 +1,14 @@
 import { despike } from "./despike";
 import { buildProductionRegistry } from "@engine/tools/factory";
 import { execute } from "@engine/tools/types";
+import { smaSeries, rsiSeries, macdSeries } from "@engine/lib/chart-math";
+import { computeValuationHistory } from "@engine/tools/valuation-history";
+import { computeFScore } from "@engine/screens/fscore";
+import { computeAccruals } from "@engine/screens/accruals";
+import { computeDilution } from "@engine/screens/dilution";
+import { computeEarningsTrend } from "@engine/screens/earnings-trend";
+import { checkInsiderCluster } from "@engine/screens/insider-cluster";
+import { TRIPWIRES } from "@engine/config/tripwires";
 
 // Server-only data loader for tickers, SQLite queries using node:sqlite.
 // Follows the digest-data.ts / dossier-data.ts patterns.
@@ -40,6 +48,14 @@ export interface QuarterInfo {
   grossMargin: number | null;
   operatingMargin: number | null;
   profitMargin: number | null;
+  cfo: number | null;
+  sga: number | null;
+  depreciation: number | null;
+  receivables: number | null;
+  currentAssets: number | null;
+  currentLiabilities: number | null;
+  retainedEarnings: number | null;
+  ppe: number | null;
 }
 
 export interface FilingInfo {
@@ -114,7 +130,18 @@ export interface TickerDetail {
   yearChange: number | null;
   statsUpdatedAt: string | null;
   sectors: TickerSectorInfo[];
-  priceSeries: { d: string; close: number; rawClose: number }[];
+  priceSeries: {
+    d: string;
+    close: number;
+    rawClose: number;
+    volume: number;
+    ma20: number | null;
+    ma50: number | null;
+    rsi: number | null;
+    macd: number | null;
+    macdSignal: number | null;
+    macdHist: number | null;
+  }[];
   quarters: QuarterInfo[];
   filings: FilingInfo[];
   news: NewsInfo[];
@@ -124,6 +151,27 @@ export interface TickerDetail {
   dcf?: any;
   qoe?: any;
   technicals?: any;
+
+  // Writable / user state extensions
+  buyUnder: number | null;
+  disconfirming: string | null;
+  thesis: string | null;
+  userState: string | null;
+  tier: number | null;
+
+  // Additional sections
+  insiderTxs: any[];
+  filingEvents: any[];
+  researchRuns: any[];
+  valuationHistory: any;
+  activeTripwires: any[];
+  screens: {
+    fscore: any;
+    accruals: any;
+    dilution: any;
+    earningsTrend: any;
+    insiderCluster: any;
+  };
 }
 
 interface SqlDb {
@@ -151,21 +199,12 @@ function closeDb(db: SqlDb): void {
   if (typeof db.close === "function") db.close();
 }
 
-function safeParseJson<T>(raw: unknown): T | null {
-  if (typeof raw !== "string") return null;
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Helper to build SEC filings URLs.
  */
 export function getFilingUrl(cik: string, accessionNo: string, primaryDoc: string | null): string {
   if (!primaryDoc) return "#";
-  const cleanCik = cik.replace(/^0+/, ""); // CIK directory on SEC can drop leading zeroes or keep them. SEC index requires padded, but archives directory supports padded. Let's keep as is.
+  const cleanCik = cik.replace(/^0+/, "");
   const cleanAccession = accessionNo.replace(/-/g, "");
   return `https://www.sec.gov/Archives/edgar/data/${cleanCik}/${cleanAccession}/${primaryDoc}`;
 }
@@ -182,7 +221,6 @@ export async function listTickers(filters: {
   if (!db) return [];
 
   try {
-    // 1. Fetch sector mappings to group in memory
     const sectorRows = db.prepare("SELECT symbol, sectorCode FROM TickerSector").all();
     const sectorsMap = new Map<string, string[]>();
     for (const r of sectorRows) {
@@ -194,8 +232,6 @@ export async function listTickers(filters: {
       sectorsMap.get(sym)!.push(sec);
     }
 
-    // 2. Base query with window functions to get latest two price points
-    // SQLite ROW_NUMBER partition makes it super fast
     let sql = `
       WITH LatestPrices AS (
         SELECT symbol, close, d,
@@ -310,43 +346,53 @@ export async function tickerDetail(
       stage: r.stage as string,
     }));
 
-    // 3. Fetch Prices + Despike
-    let limit = 260;
-    if (range === "1d") limit = 2;
-    else if (range === "5d") limit = 5;
-    else if (range === "1m") limit = 22;
-    else if (range === "3m") limit = 65;
-    else if (range === "1y") limit = 260;
-    else if (range === "3y") limit = 780;
-    else if (range === "5y") limit = 1300;
+    // 3. Fetch Prices (Fetch up to 2600 bars for the client RangeTabs: 3M, 1Y, 3Y, 10Y)
     const priceRows = db.prepare(`
-      SELECT d, close FROM Price
+      SELECT d, close, volume FROM Price
       WHERE symbol = ?
       ORDER BY d DESC
-      LIMIT ?
-    `).all(symbol, limit);
+      LIMIT 2600
+    `).all(symbol);
 
-    // Order chronologically for despike and charting
     const chronPrices = priceRows.reverse();
     const dates = chronPrices.map((r) => r.d as string);
     const rawCloses = chronPrices.map((r) => r.close as number);
+    const rawVolumes = chronPrices.map((r) => (r.volume as number) ?? 0);
     const despikedCloses = despike(rawCloses);
 
-    const priceSeries = dates.map((d, idx) => ({
+    const rawPriceSeries = dates.map((d, idx) => ({
       d,
       close: despikedCloses[idx],
       rawClose: rawCloses[idx],
+      volume: rawVolumes[idx],
     }));
 
-    // 4. Fetch Quarters (last 20 to allow deduplication)
+    // Pre-calculate indicators on the full series
+    const closes = rawPriceSeries.map((p) => p.close);
+    const ma20Vals = smaSeries(closes, 20);
+    const ma50Vals = smaSeries(closes, 50);
+    const rsi14Vals = rsiSeries(closes, 14);
+    const macdVals = macdSeries(closes, 12, 26, 9);
+
+    const priceSeries = rawPriceSeries.map((p, idx) => ({
+      ...p,
+      ma20: ma20Vals[idx],
+      ma50: ma50Vals[idx],
+      rsi: rsi14Vals[idx],
+      macd: macdVals[idx]?.macd ?? null,
+      macdSignal: macdVals[idx]?.signal ?? null,
+      macdHist: macdVals[idx]?.histogram ?? null,
+    }));
+
+    // 4. Fetch Quarters (last 60 to have enough history for 40 quarters after merging)
     const quarterRows = db.prepare(`
       SELECT * FROM FundamentalsQuarter
       WHERE symbol = ?
       ORDER BY periodEnd DESC
-      LIMIT 20
+      LIMIT 60
     `).all(symbol);
 
-    const mergedRows: typeof quarterRows = [];
+    const mergedRows: any[] = [];
     for (const r of quarterRows) {
       let mergedWithExisting = false;
       const rDate = new Date(r.periodEnd as string);
@@ -354,7 +400,6 @@ export async function tickerDetail(
         const eDate = new Date(existing.periodEnd as string);
         const diffDays = Math.abs(rDate.getTime() - eDate.getTime()) / (1000 * 60 * 60 * 24);
         if (diffDays <= 7) {
-          // Merge fields: fill null values in existing row from r
           for (const col of Object.keys(existing)) {
             if (existing[col] === null && r[col] !== null) {
               existing[col] = r[col];
@@ -369,7 +414,11 @@ export async function tickerDetail(
       }
     }
 
-    const quarters: QuarterInfo[] = mergedRows.slice(0, 6).map((r) => {
+    // Sort chronologically for screens
+    const sortedQuartersForScreens = [...mergedRows].sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
+
+    // Slice up to 40 quarters for the UI table
+    const quarters: QuarterInfo[] = mergedRows.slice(0, 40).map((r: any) => {
       const revenue = r.revenue !== null ? (r.revenue as number) : null;
       const grossProfit = r.grossProfit !== null ? (r.grossProfit as number) : null;
       const operatingIncome = r.operatingIncome !== null ? (r.operatingIncome as number) : null;
@@ -395,10 +444,18 @@ export async function tickerDetail(
         grossMargin,
         operatingMargin,
         profitMargin,
+        cfo: r.cfo !== null ? (r.cfo as number) : null,
+        sga: r.sga !== null ? (r.sga as number) : null,
+        depreciation: r.depreciation !== null ? (r.depreciation as number) : null,
+        receivables: r.receivables !== null ? (r.receivables as number) : null,
+        currentAssets: r.currentAssets !== null ? (r.currentAssets as number) : null,
+        currentLiabilities: r.currentLiabilities !== null ? (r.currentLiabilities as number) : null,
+        retainedEarnings: r.retainedEarnings !== null ? (r.retainedEarnings as number) : null,
+        ppe: r.ppe !== null ? (r.ppe as number) : null,
       };
     });
 
-    // 5. Fetch Filings (last 10, core financial forms only, excluding Form 4)
+    // 5. Fetch Filings (last 10, core financial forms only)
     const filingRows = db.prepare(`
       SELECT accessionNo, form, filedAt, primaryDoc, cik
       FROM EdgarFiling
@@ -438,7 +495,7 @@ export async function tickerDetail(
       publishedAt: (r.publishedAt as string) ?? null,
     }));
 
-    // 7. Fetch Catalysts (upcoming/all for symbol + symbol's sectors)
+    // 7. Fetch Catalysts
     const sectorCodes = sectors.map((s) => s.code);
     let catalystsQuery = `
       SELECT id, d, kind, sectorCode, symbol, title, note
@@ -454,7 +511,6 @@ export async function tickerDetail(
     catalystsQuery += " ORDER BY d ASC";
 
     const catalystRows = db.prepare(catalystsQuery).all(...paramsList);
-
     const catalysts: CatalystInfo[] = catalystRows.map((r) => ({
       id: r.id as number,
       d: (r.d as string) ?? null,
@@ -474,7 +530,6 @@ export async function tickerDetail(
     `).all(symbol);
 
     const dossiers: DossierStateInfo[] = dossierRows.map((r) => {
-      // parse json to get verdict
       let verdict: DossierStateInfo["verdict"] = null;
       if (typeof r.json === "string") {
         try {
@@ -522,7 +577,133 @@ export async function tickerDetail(
       createdAt: r.createdAt as string,
     }));
 
-    // 10. Execute DCF, QoE and Technicals tools
+    // 10. Fetch WatchlistEntry and Candidate details
+    const wlRow = db.prepare("SELECT buyUnder, disconfirming, thesis FROM WatchlistEntry WHERE symbol = ?").get(symbol) as any;
+    const candRow = db.prepare("SELECT userState, tier FROM Candidate WHERE symbol = ?").get(symbol) as any;
+
+    const buyUnder = wlRow ? (wlRow.buyUnder as number) : null;
+    const disconfirming = wlRow ? (wlRow.disconfirming as string) : null;
+    const thesis = wlRow ? (wlRow.thesis as string) : null;
+    const userState = candRow ? (candRow.userState as string) : null;
+    const tier = candRow ? (candRow.tier as number) : null;
+
+    // 11. Fetch Insider Transactions
+    const insiderTxRows = db.prepare(`
+      SELECT filerName, filerRole, txDate, code, shares, price, value, tenPercentOwner, tenB51
+      FROM InsiderTx
+      WHERE symbol = ?
+      ORDER BY txDate DESC
+      LIMIT 100
+    `).all(symbol);
+
+    const insiderTxs = insiderTxRows.map((r) => ({
+      filerName: r.filerName as string,
+      filerRole: r.filerRole as string,
+      txDate: r.txDate as string,
+      code: r.code as string,
+      shares: r.shares as number,
+      price: r.price as number,
+      value: r.value as number,
+      tenPercentOwner: (r.tenPercentOwner as number) === 1,
+      tenB51: (r.tenB51 as number) === 1,
+    }));
+
+    // 12. Fetch classified FilingEvent rows
+    const filingEventRows = db.prepare(`
+      SELECT id, accessionNo, form, item, kind, headline, snippet, severity, filedAt
+      FROM FilingEvent
+      WHERE symbol = ?
+      ORDER BY filedAt DESC
+    `).all(symbol);
+
+    const filingEvents = filingEventRows.map((r) => ({
+      id: r.id as number,
+      accessionNo: r.accessionNo as string,
+      form: r.form as string,
+      item: r.item as string,
+      kind: r.kind as string,
+      headline: r.headline as string,
+      snippet: r.snippet as string,
+      severity: r.severity as string,
+      filedAt: r.filedAt as string,
+    }));
+
+    // 13. Fetch ResearchRun history
+    const researchRunRows = db.prepare(`
+      SELECT id, runType, target, budgetSeconds, elapsedSeconds, status, profile, createdAt, completedAt, artifactPath, errorMessage
+      FROM ResearchRun
+      WHERE target = ?
+      ORDER BY createdAt DESC
+    `).all(symbol);
+
+    const researchRuns = researchRunRows.map((r) => ({
+      id: r.id as string,
+      runType: r.runType as string,
+      target: r.target as string,
+      budgetSeconds: r.budgetSeconds as number,
+      elapsedSeconds: r.elapsedSeconds as number,
+      status: r.status as string,
+      profile: r.profile as string,
+      createdAt: r.createdAt as string,
+      completedAt: r.completedAt as string | null,
+      artifactPath: r.artifactPath as string | null,
+      errorMessage: r.errorMessage as string | null,
+    }));
+
+    // 14. Fetch Fired RuleEvents (Tripwires)
+    const ruleEvents = db.prepare("SELECT ruleId, firedAt, severity, message, acked FROM RuleEvent WHERE acked = 0").all() as any[];
+    const activeTripwires = ruleEvents
+      .filter((evt) => {
+        const rule = TRIPWIRES.find((t) => t.id === evt.ruleId);
+        if (!rule) return false;
+        if ("symbol" in rule) {
+          return rule.symbol === symbol;
+        }
+        if (rule.id === "ddr5_two_down" || rule.id === "memory_exit") {
+          return sectors.some((s) => s.code === "ai_memory");
+        }
+        if (rule.id === "capex_guide_cut" || rule.id === "credit_proxy") {
+          return sectors.some((s) => s.taxonomy === "ai_infra");
+        }
+        return false;
+      })
+      .map((evt) => ({
+        ruleId: evt.ruleId,
+        firedAt: evt.firedAt,
+        severity: evt.severity,
+        message: evt.message,
+      }));
+
+    // 15. Valuation corridor ladder
+    let valuationHistory = null;
+    if (priceSeries.length > 0 && sortedQuartersForScreens.length > 0) {
+      try {
+        valuationHistory = computeValuationHistory(priceSeries, sortedQuartersForScreens);
+      } catch (err) {
+        console.error("Error computing valuation history:", err);
+      }
+    }
+
+    // 16. Screens on the fly
+    const screens = {
+      fscore: computeFScore(sortedQuartersForScreens),
+      accruals: computeAccruals(sortedQuartersForScreens),
+      dilution: computeDilution(sortedQuartersForScreens),
+      earningsTrend: computeEarningsTrend(sortedQuartersForScreens),
+      insiderCluster: checkInsiderCluster(
+        insiderTxs.map((tx) => ({
+          filerName: tx.filerName,
+          filerRole: tx.filerRole,
+          txDate: tx.txDate,
+          value: tx.value,
+          tenPercentOwner: tx.tenPercentOwner ? 1 : 0,
+          tenB51: tx.tenB51 ? 1 : 0,
+        })),
+        tRow.marketCap !== null ? (tRow.marketCap as number) : null
+      ),
+    };
+
+    // 17. Execute DCF, QoE and Technicals tools (old structure)
     const registry = buildProductionRegistry(db as any);
     const dcfTool = registry.get("dcf");
     const qoeTool = registry.get("qoe");
@@ -591,6 +772,21 @@ export async function tickerDetail(
       dcf,
       qoe,
       technicals,
+
+      // User state
+      buyUnder,
+      disconfirming,
+      thesis,
+      userState,
+      tier,
+
+      // Rich data additions
+      insiderTxs,
+      filingEvents,
+      researchRuns,
+      valuationHistory,
+      activeTripwires,
+      screens,
     };
   } catch (err) {
     console.error("Error loading tickerDetail:", err);
@@ -702,5 +898,3 @@ export async function watchlistSidebar(): Promise<WatchlistSidebarRow[]> {
     closeDb(db);
   }
 }
-
-

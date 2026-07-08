@@ -1,7 +1,18 @@
-import { tickerDetail } from "@/lib/ticker-data";
-import { StatTape } from "@/components/story/StatTape";
-import TickerPriceChart from "@/components/TickerPriceChart";
+import { tickerDetail, getFilingUrl } from "@/lib/ticker-data";
+import { Panel } from "@/components/ui/Panel";
+import { BandBar } from "@/components/ui/BandBar";
+import { ScoreChip } from "@/components/ui/ScoreChip";
+import { DenseTable, TableHead, TableBody, TableRow, TableCell } from "@/components/ui/DenseTable";
+import { Badge } from "@/components/ui/Badge";
+import { SectionNav } from "@/components/ui/SectionNav";
+import { Disclosure } from "@/components/ui/Disclosure";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { TierTag } from "@/components/ui/TierTag";
 import Link from "next/link";
+import CandleChart from "@/components/CandleChart";
+import { WatchlistButton } from "@/components/WatchlistButton";
+import { InversionChecklistForm } from "@/components/InversionChecklistForm";
+import { ResearchRunDrawer } from "@/components/ResearchRunDrawer";
 import "@/components/story/story.css";
 
 export const dynamic = "force-dynamic";
@@ -56,8 +67,8 @@ function formatDate(dateStr: string | null): string {
 export default async function TickerDetailPage({ params, searchParams }: Props) {
   const { symbol } = await params;
   const { range } = await searchParams;
-  const validRanges = ["1d", "5d", "1m", "3m", "1y", "3y", "5y"];
-  const activeRange = range && validRanges.includes(range) ? range : "1y";
+  const validRanges = ["3m", "1y", "3y", "10y"];
+  const activeRange = range && validRanges.includes(range.toLowerCase()) ? range.toLowerCase() : "1y";
 
   const detail = await tickerDetail(symbol.toUpperCase(), activeRange);
 
@@ -91,19 +102,6 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
           }}>
             npm run job -- backfill --task=prices10y --symbol={symbol.toUpperCase()}
           </pre>
-          <pre style={{
-            background: 'var(--inset)',
-            color: 'var(--ink)',
-            padding: '12px',
-            borderRadius: '6px',
-            fontFamily: 'var(--fmono)',
-            fontSize: '14px',
-            overflowX: 'auto',
-            border: '1px solid var(--line)',
-            textAlign: 'left'
-          }}>
-            npm run job -- backfill --task=fundamentals --symbol={symbol.toUpperCase()}
-          </pre>
         </div>
       </div>
     );
@@ -119,39 +117,62 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
   }
   const isPos = pctChange1d !== null && pctChange1d >= 0;
 
-  // Build StatTape statistics array
-  const stats = [
-    { label: "Market Cap", value: formatMarketCap(detail.marketCap) },
-    { label: "Trailing P/E", value: detail.trailingPE !== null ? `${detail.trailingPE.toFixed(1)}x` : "—" },
-    { label: "Forward P/E", value: detail.forwardPE !== null ? `${detail.forwardPE.toFixed(1)}x` : "—" },
-    { label: "Beta (1y)", value: detail.beta !== null ? detail.beta.toFixed(2) : "—" },
-    { label: "EPS (ttm)", value: detail.eps !== null ? `$${detail.eps.toFixed(2)}` : "—" },
-    { label: "52W Range", value: detail.fiftyTwoWeekLow && detail.fiftyTwoWeekHigh ? `$${detail.fiftyTwoWeekLow.toFixed(0)} - $${detail.fiftyTwoWeekHigh.toFixed(0)}` : "—" },
-    {
-      label: "Year Change",
-      value: detail.yearChange !== null ? `${detail.yearChange.toFixed(1)}%` : "—",
-      delta: detail.yearChange !== null ? `${detail.yearChange >= 0 ? "+" : ""}${detail.yearChange.toFixed(1)}%` : undefined,
-      deltaDirection: detail.yearChange === null ? undefined : (detail.yearChange >= 0 ? "up" as const : "down" as const),
-    },
+  // Compile event glyphs for CandleChart
+  const chartEvents = [
+    ...detail.insiderTxs.map(tx => ({
+      type: "insider" as const,
+      date: tx.txDate,
+      value: tx.value,
+      label: `${tx.filerName} (${tx.filerRole}) ${tx.code} ${tx.shares.toLocaleString()} shares @ $${tx.price.toFixed(2)} ($${(tx.value/1e3).toFixed(1)}k)`
+    })),
+    ...detail.filings.filter(f => f.form === "10-K" || f.form === "10-Q").map(f => ({
+      type: "earnings" as const,
+      date: f.filedAt,
+      label: `${f.form} Filed CIK: ${f.cik}`
+    })),
+    ...detail.recCalls.map(rc => ({
+      type: "journal" as const,
+      date: rc.createdAt.slice(0, 10),
+      label: `Rec Call: ${rc.action} (${rc.conviction}) @ $${rc.priceAtCall}`
+    }))
+  ];
+
+  // Inversion checklist frozen payload
+  const decisionPayload = {
+    symbol: detail.symbol,
+    currentPrice: latestPrice?.close ?? null,
+    buyUnder: detail.buyUnder,
+    fscore: detail.screens.fscore.score,
+    accruals: detail.screens.accruals.value,
+    dilution: detail.screens.dilution.value,
+    earningsTrend: detail.screens.earningsTrend.verdict,
+    valuationVerdict: detail.valuationHistory?.verdict ?? "suspended",
+  };
+
+  // Sections list for anchor navigation
+  const navSections = [
+    { id: "cockpit", label: "Asset Cockpit" },
+    { id: "chart", label: "Interactive Chart" },
+    { id: "valuation", label: "Valuation corridor" },
+    { id: "fundamentals", label: "Fundamentals" },
+    { id: "filings", label: "SEC Filings" },
+    { id: "consensus", label: "Research Consensus" },
+    { id: "journal", label: "Journal & Inversion" },
   ];
 
   return (
     <div className="story-page" style={{ padding: "24px 0" }}>
-      {/* Cockpit Header */}
-      <header className="hero" style={{ borderBottom: '1px solid var(--line)', paddingBottom: '1.5rem', marginBottom: '2rem' }}>
+      {/* Header Banner */}
+      <header className="hero" style={{ borderBottom: '1px solid var(--border-dim)', paddingBottom: '1.5rem', marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <span className="kicker" style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>{detail.symbol}</span>
-              {detail.watchlisted ? (
-                <span className="verdict-badge hold" style={{ margin: 0, padding: '2px 8px', textTransform: 'uppercase', fontSize: '10px', color: 'var(--warn)', background: 'rgba(168,118,27,0.1)' }}>★ Watchlisted</span>
-              ) : (
-                <span style={{ fontSize: '12px', color: 'var(--faint)' }}>☆ Not watchlisted</span>
-              )}
+              <WatchlistButton symbol={detail.symbol} initialWatchlisted={detail.watchlisted} />
+              {detail.tier && <TierTag tier={detail.tier as any} />}
             </div>
             <h1 className="story-h1" style={{ margin: '8px 0 12px 0' }}>{detail.name ?? detail.symbol}</h1>
             
-            {/* Sector / Membership Chips */}
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
               {detail.sectors.map((sec) => {
                 const isAi = sec.taxonomy === "ai_infra";
@@ -165,7 +186,7 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
                       padding: '4px 10px',
                       background: isAi ? 'var(--accent-soft)' : 'var(--surface-2)',
                       color: isAi ? 'var(--accent-deep)' : 'var(--muted)',
-                      border: `1px solid ${isAi ? 'color-mix(in srgb, var(--accent-deep) 20%, transparent)' : 'var(--line)'}`
+                      border: `1px solid ${isAi ? 'color-mix(in srgb, var(--accent-deep) 20%, transparent)' : 'var(--border-dim)'}`
                     }}
                     title={`${sec.name} (${sec.taxonomy.toUpperCase()})`}
                   >
@@ -177,16 +198,16 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
           </div>
 
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: '4px' }}>Last Close Price</div>
+            <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--fg-muted)', marginBottom: '4px' }}>Last Close Price</div>
             <div className="story-h1" style={{ margin: 0, fontFamily: 'var(--fdisp)', fontSize: '3.2rem', fontWeight: 600 }}>
               {latestPrice ? `$${latestPrice.close.toFixed(2)}` : "—"}
             </div>
             {pctChange1d !== null && (
               <div style={{
-                fontFamily: 'var(--fmono)',
+                fontFamily: 'var(--font-mono)',
                 fontSize: '15px',
                 fontWeight: 600,
-                color: isPos ? 'var(--pos)' : 'var(--neg)',
+                color: isPos ? 'var(--green-text)' : 'var(--red-text)',
                 marginTop: '4px'
               }}>
                 {isPos ? "+" : ""}
@@ -197,413 +218,580 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
         </div>
       </header>
 
-      {/* Main Grid View */}
-      <div style={{ display: 'grid', gridTemplateColumns: '3fr 1.3fr', gap: '2rem' }}>
-        {/* Left Column: Chart, Stats, Fundamentals, Dossier */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      {/* Grid Layout: 9fr Main scroll + 3fr Sticky Sidebar */}
+      <div className="ticker-grid">
+        <main className="ticker-main-scroll">
           
-          {/* Price Chart Panel */}
-          <div className="panel" style={{ border: '1px solid var(--line)', background: 'var(--surface)', borderRadius: '12px', padding: '1.5rem', margin: 0 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
-              <div>
-                <h3 className="story-h2" style={{ fontSize: '1.1rem', margin: 0 }}>Historical Price Trend</h3>
-                <span className="body dim" style={{ fontSize: '12px' }}>Despiked close series over selected timeframe</span>
-              </div>
-              <div className="presets" style={{ display: 'flex', gap: '4px', margin: 0 }}>
-                {["1d", "5d", "1m", "3m", "1y", "3y", "5y"].map((r) => (
-                  <Link
-                    key={r}
-                    href={`?range=${r}`}
-                    className={activeRange === r ? "on" : ""}
-                    style={{
-                      textDecoration: 'none',
-                      fontFamily: 'var(--fmono)',
-                      fontSize: '12px',
-                      padding: '4px 10px',
-                      borderRadius: '999px',
-                      background: activeRange === r ? 'var(--accent-soft)' : 'var(--surface)',
-                      color: activeRange === r ? 'var(--accent-deep)' : 'var(--ink)',
-                      border: `1px solid ${activeRange === r ? 'var(--accent)' : 'var(--line-2)'}`
-                    }}
-                  >
-                    {r.toUpperCase()}
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            {priceCount > 0 ? (
-              <TickerPriceChart data={detail.priceSeries} />
-            ) : (
-              <div style={{ height: '220px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: 'var(--inset)', borderRadius: '8px', border: '1px dashed var(--line)' }}>
-                <span style={{ fontSize: '13px', color: 'var(--muted)' }}>No historical price data backfilled</span>
-                <pre style={{ background: 'var(--surface)', padding: '6px 12px', borderRadius: '4px', border: '1px solid var(--line)', marginTop: '12px', fontSize: '11px', fontFamily: 'var(--fmono)' }}>
-                  npm run job -- backfill --task=prices10y --symbol={detail.symbol}
-                </pre>
-              </div>
-            )}
-          </div>
-
-          {/* Quant Analytics Grid */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <h3 className="story-h2" style={{ fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', margin: 0 }}>Quant Cockpit Analytics</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+          {/* Section 1: Cockpit */}
+          <section id="cockpit" className="flex flex-col gap-4">
+            <h2 className="story-h2" style={{ borderBottom: "1px solid var(--border-dim)", paddingBottom: "8px", margin: 0 }}>
+              Workstation Cockpit
+            </h2>
+            <div className="grid grid-cols-2 gap-4">
               
-              {/* 1. DCF Valuation Panel */}
-              <div className="panel" style={{ border: '1px solid var(--line)', background: 'var(--surface)', borderRadius: '12px', padding: '1.25rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '180px', margin: 0 }}>
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>
-                    <span style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--muted)', fontWeight: 600 }}>DCF Valuation</span>
-                    {detail.dcf && detail.dcf.upsidePctBase != null && (
-                      <span className={`verdict-badge ${detail.dcf.upsidePctBase >= 0 ? 'buy' : 'avoid'}`} style={{ fontSize: '10px', padding: '2px 8px', margin: 0 }}>
-                        {detail.dcf.upsidePctBase >= 0 ? '+' : ''}{detail.dcf.upsidePctBase.toFixed(1)}% Base Upside
-                      </span>
-                    )}
+              {/* Q1: Buy Zone */}
+              <Panel className="flex flex-col gap-3">
+                <div className="flex justify-between items-center">
+                  <span className="ui-stat-label">BUY-ZONE?</span>
+                  <Badge variant={detail.valuationHistory?.verdict === "cheap" ? "success" : detail.valuationHistory?.verdict === "rich" ? "danger" : "neutral"}>
+                    {detail.valuationHistory?.verdict?.toUpperCase() ?? "SUSPENDED"}
+                  </Badge>
+                </div>
+                {detail.valuationHistory?.bands?.pe && latestPrice ? (
+                  <div className="flex flex-col gap-2">
+                    <div style={{ fontSize: "11px", color: "var(--fg-secondary)" }}>
+                      Current P/E: <strong>{detail.valuationHistory.current?.pe?.toFixed(1) ?? "—"}x</strong>
+                    </div>
+                    <BandBar
+                      current={detail.valuationHistory.current?.pe ?? 0}
+                      low={detail.valuationHistory.bands.pe.low2}
+                      high={detail.valuationHistory.bands.pe.high2}
+                      buyUnder={detail.buyUnder}
+                    />
                   </div>
-                  {detail.dcf && detail.dcf.fairValueRange ? (
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
-                        <span style={{ fontSize: '13px', color: 'var(--muted)' }}>Fair Value (Base):</span>
-                        <span style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'var(--fdisp)' }}>
-                          {detail.dcf.fairValueRange.base != null ? `$${detail.dcf.fairValueRange.base.toFixed(2)}` : '—'}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--faint)', marginBottom: '12px' }}>
-                        <span>Bear: {detail.dcf.fairValueRange.bear != null ? `$${detail.dcf.fairValueRange.bear.toFixed(2)}` : '—'}</span>
-                        <span>Bull: {detail.dcf.fairValueRange.bull != null ? `$${detail.dcf.fairValueRange.bull.toFixed(2)}` : '—'}</span>
-                      </div>
-                      {/* Visual gauge showing current price vs bear/base/bull */}
-                      {latestPrice && detail.dcf.fairValueRange.bear != null && detail.dcf.fairValueRange.bull != null && (
-                        <div style={{ width: '100%', marginTop: '8px' }}>
-                          <div style={{ height: '4px', background: 'var(--line)', borderRadius: '2px', position: 'relative' }}>
-                            {(() => {
-                              const bear = detail.dcf.fairValueRange.bear!;
-                              const bull = detail.dcf.fairValueRange.bull!;
-                              const current = latestPrice.close;
-                              const pct = Math.max(0, Math.min(100, ((current - bear) / (bull - bear)) * 100));
-                              return (
-                                <div style={{
-                                  position: 'absolute',
-                                  left: `${pct}%`,
-                                  top: '-4px',
-                                  width: '12px',
-                                  height: '12px',
-                                  borderRadius: '50%',
-                                  background: 'var(--accent-deep)',
-                                  border: '2px solid var(--surface)',
-                                  transform: 'translateX(-50%)',
-                                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                                }} title={`Current Price: $${current.toFixed(2)} (${pct.toFixed(0)}% of range)`} />
-                              );
-                            })()}
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: 'var(--faint)', marginTop: '4px' }}>
-                            <span>Bear</span>
-                            <span style={{ color: 'var(--accent-deep)', fontWeight: 600 }}>Current Price</span>
-                            <span>Bull</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="warning">Valuation Bands Suspended</Badge>
+                    <span style={{ fontSize: "10px", color: "var(--fg-muted)" }}>Missing P/E multiple inputs</span>
+                  </div>
+                )}
+              </Panel>
+
+              {/* Q2: Quality */}
+              <Panel className="flex flex-col gap-3">
+                <div className="flex justify-between items-center">
+                  <span className="ui-stat-label">QUALITY?</span>
+                  <ScoreChip score={detail.screens.fscore.score} max={detail.screens.fscore.maxComputable} />
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {detail.screens.accruals.verdict !== "unknown" ? (
+                    <Badge variant={detail.screens.accruals.verdict === "pass" ? "success" : detail.screens.accruals.verdict === "warn" ? "warning" : "danger"}>
+                      Sloan: {detail.screens.accruals.value ? `${(detail.screens.accruals.value * 100).toFixed(1)}%` : "—"}
+                    </Badge>
                   ) : (
-                    <div style={{ fontSize: '12px', color: 'var(--muted)', padding: '1rem 0', textAlign: 'center' }}>
-                      No FCF or shares data to run DCF model.
-                    </div>
+                    <Badge variant="warning">Missing Sloan</Badge>
+                  )}
+
+                  {detail.screens.dilution.verdict !== "unknown" ? (
+                    <Badge variant={detail.screens.dilution.verdict === "pass" ? "success" : "danger"}>
+                      Dilution: {detail.screens.dilution.value ? `${detail.screens.dilution.value.toFixed(1)}%` : "—"}
+                    </Badge>
+                  ) : (
+                    <Badge variant="warning">Missing Dilution</Badge>
                   )}
                 </div>
-              </div>
+              </Panel>
 
-              {/* 2. Quality of Earnings (QoE) Panel */}
-              <div className="panel" style={{ border: '1px solid var(--line)', background: 'var(--surface)', borderRadius: '12px', padding: '1.25rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '180px', margin: 0 }}>
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>
-                    <span style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--muted)', fontWeight: 600 }}>Quality of Earnings</span>
-                    {detail.qoe && detail.qoe.altmanZone && (
-                      <span className={`verdict-badge ${
-                        detail.qoe.altmanZone === 'safe' ? 'buy' : detail.qoe.altmanZone === 'grey' ? 'hold' : 'avoid'
-                      }`} style={{ fontSize: '10px', padding: '2px 8px', margin: 0 }}>
-                        Z-Zone: {detail.qoe.altmanZone.toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-                  {detail.qoe ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '13px', color: 'var(--muted)' }}>Piotroski F-Score:</span>
-                        <span style={{ fontSize: '14px', fontWeight: 700, color: detail.qoe.piotroskiF >= 7 ? 'var(--pos)' : detail.qoe.piotroskiF <= 3 ? 'var(--neg)' : 'var(--ink)' }}>
-                          {detail.qoe.piotroskiF != null ? `${detail.qoe.piotroskiF}/9` : '—'}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '13px', color: 'var(--muted)' }}>Altman Z-Score:</span>
-                        <span style={{ fontSize: '14px', fontWeight: 700 }}>
-                          {detail.qoe.altmanZ != null ? detail.qoe.altmanZ.toFixed(2) : '—'}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '13px', color: 'var(--muted)' }}>Beneish M-Score:</span>
-                        <span style={{ fontSize: '14px', fontWeight: 700, color: detail.qoe.beneishFlag === 'likely_manipulator' ? 'var(--neg)' : 'var(--pos)' }}>
-                          {detail.qoe.beneishM != null ? detail.qoe.beneishM.toFixed(2) : '—'}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '13px', color: 'var(--muted)' }}>Sloan Accrual Ratio:</span>
-                        <span style={{ fontSize: '14px', fontWeight: 700, color: detail.qoe.accrualRatio != null && Math.abs(detail.qoe.accrualRatio) > 0.1 ? 'var(--neg)' : 'var(--ink)' }}>
-                          {detail.qoe.accrualRatio != null ? `${(detail.qoe.accrualRatio * 100).toFixed(1)}%` : '—'}
-                        </span>
-                      </div>
+              {/* Q3: Why Now */}
+              <Panel className="flex flex-col gap-3">
+                <div className="flex justify-between items-center">
+                  <span className="ui-stat-label">WHY NOW?</span>
+                  <Badge variant={detail.screens.earningsTrend.verdict.startsWith("improving") ? "success" : detail.screens.earningsTrend.verdict === "deteriorating" ? "danger" : "neutral"}>
+                    {detail.screens.earningsTrend.verdict.replace(/([A-Z])/g, ' $1').toUpperCase()}
+                  </Badge>
+                </div>
+                <div className="flex flex-col gap-1">
+                  {detail.screens.insiderCluster.clustered ? (
+                    <div style={{ fontSize: "11px", color: "var(--accent-gold)", fontWeight: 600 }}>
+                      ⚠️ INSIDER CLUSTER: {detail.screens.insiderCluster.insiders.length} buyers (${(detail.screens.insiderCluster.totalValue / 1e3).toFixed(0)}k ttm)
                     </div>
                   ) : (
-                    <div style={{ fontSize: '12px', color: 'var(--muted)', padding: '1rem 0', textAlign: 'center' }}>
-                      No fundamentals data to run QoE metrics.
+                    <div style={{ fontSize: "11px", color: "var(--fg-muted)" }}>No structural insider buying cluster</div>
+                  )}
+                  {detail.filingEvents.length > 0 ? (
+                    <div style={{ fontSize: "10px", color: "var(--fg-secondary)" }}>
+                      Latest filing: <strong>{detail.filingEvents[0].form}</strong> ({formatDate(detail.filingEvents[0].filedAt)})
                     </div>
+                  ) : (
+                    <div style={{ fontSize: "10px", color: "var(--fg-muted)" }}>No recent structural 8-K filings</div>
                   )}
                 </div>
-              </div>
+              </Panel>
 
-              {/* 3. Technical Momentum Panel */}
-              <div className="panel" style={{ border: '1px solid var(--line)', background: 'var(--surface)', borderRadius: '12px', padding: '1.25rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '180px', margin: 0 }}>
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>
-                    <span style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--muted)', fontWeight: 600 }}>Technical Momentum</span>
-                    {detail.technicals && detail.technicals.maCross && (
-                      <span className={`verdict-badge ${
-                        detail.technicals.maCross.state === 'bullish' ? 'buy' : detail.technicals.maCross.state === 'bearish' ? 'avoid' : 'hold'
-                      }`} style={{ fontSize: '10px', padding: '2px 8px', margin: 0 }}>
-                        {detail.technicals.maCross.state === 'bullish' ? 'Golden Cross' : detail.technicals.maCross.state === 'bearish' ? 'Death Cross' : 'No Regime'}
-                      </span>
-                    )}
-                  </div>
-                  {detail.technicals ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '13px', color: 'var(--muted)' }}>RSI (14d):</span>
-                        <span style={{ fontSize: '14px', fontWeight: 700, color: detail.technicals.rsi14 > 70 ? 'var(--neg)' : detail.technicals.rsi14 < 30 ? 'var(--pos)' : 'var(--ink)' }}>
-                          {detail.technicals.rsi14 != null ? detail.technicals.rsi14.toFixed(1) : '—'}
-                        </span>
+              {/* Q4: What Kills It */}
+              <div
+                className="panel flex flex-col gap-3"
+                style={{
+                  background: "var(--red-bg)",
+                  borderColor: "var(--red-border)",
+                  color: "var(--red-text)",
+                  margin: "8px 0"
+                }}
+              >
+                <span className="ui-stat-label" style={{ color: "var(--red-text)" }}>WHAT KILLS IT?</span>
+                <div className="flex flex-col gap-1" style={{ fontSize: "11px" }}>
+                  {detail.activeTripwires.length > 0 ? (
+                    detail.activeTripwires.map((trip: any, idx: number) => (
+                      <div key={idx} style={{ fontWeight: 600 }}>
+                        🚨 {trip.message}
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '13px', color: 'var(--muted)' }}>50-day SMA:</span>
-                        <span style={{ fontSize: '14px', fontWeight: 700, fontFamily: 'var(--fmono)' }}>
-                          {detail.technicals.sma50 != null ? `$${detail.technicals.sma50.toFixed(2)}` : '—'}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '13px', color: 'var(--muted)' }}>200-day SMA:</span>
-                        <span style={{ fontSize: '14px', fontWeight: 700, fontFamily: 'var(--fmono)' }}>
-                          {detail.technicals.sma200 != null ? `$${detail.technicals.sma200.toFixed(2)}` : '—'}
-                        </span>
-                      </div>
-                      {detail.technicals.macd && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '13px', color: 'var(--muted)' }}>MACD Hist:</span>
-                          <span style={{ fontSize: '14px', fontWeight: 700, color: detail.technicals.macd.histogram >= 0 ? 'var(--pos)' : 'var(--neg)' }}>
-                            {detail.technicals.macd.histogram != null ? detail.technicals.macd.histogram.toFixed(3) : '—'}
-                          </span>
-                        </div>
-                      )}
+                    ))
+                  ) : (
+                    <div style={{ color: "var(--red-text)", opacity: 0.8 }}>No active structural tripwire metrics triggered.</div>
+                  )}
+                  {detail.disconfirming ? (
+                    <div style={{ marginTop: "6px", borderTop: "1px solid var(--red-border)", paddingTop: "4px" }}>
+                      <strong>Disconfirming:</strong> {detail.disconfirming}
                     </div>
                   ) : (
-                    <div style={{ fontSize: '12px', color: 'var(--muted)', padding: '1rem 0', textAlign: 'center' }}>
-                      No price history to run technical analysis.
-                    </div>
+                    <div style={{ marginTop: "6px", opacity: 0.6, fontSize: "10px" }}>No custom invalidation checklist logged yet.</div>
                   )}
                 </div>
               </div>
 
             </div>
-          </div>
+          </section>
 
-          {/* Stat Tape (Key Metrics) */}
-          <div style={{ margin: 0 }}>
-            <h3 className="story-h2" style={{ fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', marginBottom: '0.5rem' }}>Key Metrics</h3>
-            <StatTape stats={stats} />
-          </div>
+          {/* Section 2: Interactive Chart */}
+          <section id="chart">
+            <h2 className="story-h2" style={{ borderBottom: "1px solid var(--border-dim)", paddingBottom: "8px", margin: "16px 0 0 0" }}>
+              Technical Charts & Pane Math
+            </h2>
+            <CandleChart priceSeries={detail.priceSeries} events={chartEvents} />
+          </section>
 
-          {/* Fundamentals Table */}
-          <div className="panel" style={{ border: '1px solid var(--line)', background: 'var(--surface)', borderRadius: '12px', padding: '1.5rem', margin: 0 }}>
-            <h3 className="story-h2" style={{ fontSize: '1.1rem', borderBottom: '1px solid var(--line)', paddingBottom: '0.75rem', marginBottom: '1rem' }}>Quarterly Financials</h3>
-            {detail.quarters.length > 0 ? (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '2px solid var(--line)' }}>
-                      <th style={{ padding: '0.5rem 0.75rem', fontSize: '11px', textTransform: 'uppercase', color: 'var(--muted)' }}>Quarter End</th>
-                      <th style={{ padding: '0.5rem 0.75rem', fontSize: '11px', textTransform: 'uppercase', color: 'var(--muted)', textAlign: 'right' }}>Revenue</th>
-                      <th style={{ padding: '0.5rem 0.75rem', fontSize: '11px', textTransform: 'uppercase', color: 'var(--muted)', textAlign: 'right' }}>Gross Margin</th>
-                      <th style={{ padding: '0.5rem 0.75rem', fontSize: '11px', textTransform: 'uppercase', color: 'var(--muted)', textAlign: 'right' }}>Op Margin</th>
-                      <th style={{ padding: '0.5rem 0.75rem', fontSize: '11px', textTransform: 'uppercase', color: 'var(--muted)', textAlign: 'right' }}>Net Margin</th>
-                      <th style={{ padding: '0.5rem 0.75rem', fontSize: '11px', textTransform: 'uppercase', color: 'var(--muted)', textAlign: 'right' }}>FCF</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {detail.quarters.map((q) => (
-                      <tr key={q.periodEnd} style={{ borderBottom: '1px solid var(--line)' }}>
-                        <td style={{ padding: '0.75rem', fontSize: '13px', fontWeight: 600 }}>{q.periodEnd}</td>
-                        <td style={{ padding: '0.75rem', fontSize: '13px', fontFamily: 'var(--fmono)', textAlign: 'right' }}>
-                          {formatFinancialAmount(q.revenue)}
-                        </td>
-                        <td style={{ padding: '0.75rem', fontSize: '13px', fontFamily: 'var(--fmono)', textAlign: 'right', color: q.grossMargin !== null && q.grossMargin < 0 ? 'var(--neg)' : 'var(--ink)' }}>
-                          {q.grossMargin !== null ? `${q.grossMargin.toFixed(1)}%` : "—"}
-                        </td>
-                        <td style={{ padding: '0.75rem', fontSize: '13px', fontFamily: 'var(--fmono)', textAlign: 'right', color: q.operatingMargin !== null && q.operatingMargin < 0 ? 'var(--neg)' : 'var(--ink)' }}>
-                          {q.operatingMargin !== null ? `${q.operatingMargin.toFixed(1)}%` : "—"}
-                        </td>
-                        <td style={{ padding: '0.75rem', fontSize: '13px', fontFamily: 'var(--fmono)', textAlign: 'right', color: q.profitMargin !== null && q.profitMargin < 0 ? 'var(--neg)' : 'var(--ink)' }}>
-                          {q.profitMargin !== null ? `${q.profitMargin.toFixed(1)}%` : "—"}
-                        </td>
-                        <td style={{ padding: '0.75rem', fontSize: '13px', fontFamily: 'var(--fmono)', textAlign: 'right', fontWeight: 500, color: q.fcf !== null && q.fcf < 0 ? 'var(--neg)' : 'var(--pos)' }}>
-                          {formatFinancialAmount(q.fcf)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          {/* Section 3: Valuation Corridor Ladder */}
+          <section id="valuation" className="flex flex-col gap-3">
+            <h2 className="story-h2" style={{ borderBottom: "1px solid var(--border-dim)", paddingBottom: "8px", margin: "16px 0 0 0" }}>
+              Valuation Corridor Ladder
+            </h2>
+            {detail.valuationHistory?.bands ? (
+              <div className="flex flex-col gap-2">
+                <DenseTable>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell isHeader>VALUATION MULTIPLE</TableCell>
+                      <TableCell isHeader numeric>CURRENT VALUE</TableCell>
+                      <TableCell isHeader numeric>5Y BEAR BAND (-2 MAD)</TableCell>
+                      <TableCell isHeader numeric>5Y HIST MEDIAN</TableCell>
+                      <TableCell isHeader numeric>5Y BULL BAND (+2 MAD)</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {/* PE */}
+                    {detail.valuationHistory.bands.pe && (
+                      <TableRow>
+                        <TableCell>P/E (Price-to-Earnings)</TableCell>
+                        <TableCell numeric style={{ fontWeight: 700 }}>
+                          {detail.valuationHistory.current?.pe ? `${detail.valuationHistory.current.pe.toFixed(1)}x` : "—"}
+                        </TableCell>
+                        <TableCell numeric>{detail.valuationHistory.bands.pe.low2.toFixed(1)}x</TableCell>
+                        <TableCell numeric>{detail.valuationHistory.bands.pe.median.toFixed(1)}x</TableCell>
+                        <TableCell numeric>{detail.valuationHistory.bands.pe.high2.toFixed(1)}x</TableCell>
+                      </TableRow>
+                    )}
+
+                    {/* FCF */}
+                    {detail.valuationHistory.bands.pfcf && (
+                      <TableRow>
+                        <TableCell>P/FCF (Price-to-Free Cash Flow)</TableCell>
+                        <TableCell numeric style={{ fontWeight: 700 }}>
+                          {detail.valuationHistory.current?.pfcf ? `${detail.valuationHistory.current.pfcf.toFixed(1)}x` : "—"}
+                        </TableCell>
+                        <TableCell numeric>{detail.valuationHistory.bands.pfcf.low2.toFixed(1)}x</TableCell>
+                        <TableCell numeric>{detail.valuationHistory.bands.pfcf.median.toFixed(1)}x</TableCell>
+                        <TableCell numeric>{detail.valuationHistory.bands.pfcf.high2.toFixed(1)}x</TableCell>
+                      </TableRow>
+                    )}
+
+                    {/* PS */}
+                    {detail.valuationHistory.bands.ps && (
+                      <TableRow>
+                        <TableCell>P/S (Price-to-Sales)</TableCell>
+                        <TableCell numeric style={{ fontWeight: 700 }}>
+                          {detail.valuationHistory.current?.ps ? `${detail.valuationHistory.current.ps.toFixed(1)}x` : "—"}
+                        </TableCell>
+                        <TableCell numeric>{detail.valuationHistory.bands.ps.low2.toFixed(1)}x</TableCell>
+                        <TableCell numeric>{detail.valuationHistory.bands.ps.median.toFixed(1)}x</TableCell>
+                        <TableCell numeric>{detail.valuationHistory.bands.ps.high2.toFixed(1)}x</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </DenseTable>
+                {detail.valuationHistory.verdict === "suspended" && (
+                  <div style={{ alignSelf: "flex-start", marginTop: "8px" }}>
+                    <Badge variant="warning">
+                      Notice: Valuation bands are suspended due to insufficient multiple data.
+                    </Badge>
+                  </div>
+                )}
               </div>
             ) : (
-              <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: 'var(--inset)', borderRadius: '8px', border: '1px dashed var(--line)' }}>
-                <span style={{ fontSize: '13px', color: 'var(--muted)' }}>No fundamental filings quarter data backfilled</span>
-                <pre style={{ background: 'var(--surface)', padding: '6px 12px', borderRadius: '4px', border: '1px solid var(--line)', marginTop: '12px', fontSize: '11px', fontFamily: 'var(--fmono)' }}>
-                  npm run job -- backfill --task=fundamentals --symbol={detail.symbol}
-                </pre>
-              </div>
+              <EmptyState title="Valuation Corridors" body="No valuation multiple history backfilled to compile bands." />
             )}
-          </div>
+          </section>
 
-          {/* Dossiers & RecCalls History */}
-          <div className="panel" style={{ border: '1px solid var(--line)', background: 'var(--surface)', borderRadius: '12px', padding: '1.5rem', margin: 0 }}>
-            <h3 className="story-h2" style={{ fontSize: '1.1rem', borderBottom: '1px solid var(--line)', paddingBottom: '0.75rem', marginBottom: '1rem' }}>Agentic Research History</h3>
+          {/* Section 4: Fundamentals */}
+          <section id="fundamentals" className="flex flex-col gap-3">
+            <h2 className="story-h2" style={{ borderBottom: "1px solid var(--border-dim)", paddingBottom: "8px", margin: "16px 0 0 0" }}>
+              Quarterly Financials & Accrual Quality
+            </h2>
+            {detail.quarters.length > 0 ? (
+              <div className="flex flex-col gap-4">
+                <DenseTable>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell isHeader>QUARTER END</TableCell>
+                      <TableCell isHeader numeric>REVENUE</TableCell>
+                      <TableCell isHeader numeric>GROSS MARGIN</TableCell>
+                      <TableCell isHeader numeric>OP MARGIN</TableCell>
+                      <TableCell isHeader numeric>NET INCOME</TableCell>
+                      <TableCell isHeader numeric>FCF</TableCell>
+                      <TableCell isHeader numeric>SLOAN ACCRUAL</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {detail.quarters.slice(0, 12).map((q) => {
+                      const accrual = (q.netIncome !== null && q.cfo !== null && q.totalAssets !== null && q.totalAssets > 0)
+                        ? (q.netIncome - q.cfo) / q.totalAssets
+                        : null;
+                      const isAccrualAnomalous = accrual !== null && Math.abs(accrual) > 0.1;
+                      const isFcfDivergent = q.fcf !== null && q.netIncome !== null && q.fcf < 0 && q.netIncome > 0;
+                      const isGrossAnomalous = q.grossMargin !== null && q.grossMargin < 0;
+
+                      return (
+                        <TableRow key={q.periodEnd}>
+                          <TableCell style={{ fontWeight: 600 }}>{q.periodEnd}</TableCell>
+                          <TableCell numeric>{formatFinancialAmount(q.revenue)}</TableCell>
+                          <TableCell
+                            numeric
+                            style={{
+                              background: isGrossAnomalous ? "var(--amber-bg)" : undefined,
+                              color: isGrossAnomalous ? "var(--amber-text)" : undefined,
+                              fontWeight: isGrossAnomalous ? 600 : undefined
+                            }}
+                          >
+                            {q.grossMargin !== null ? `${q.grossMargin.toFixed(1)}%` : "—"}
+                          </TableCell>
+                          <TableCell numeric>{q.operatingMargin !== null ? `${q.operatingMargin.toFixed(1)}%` : "—"}</TableCell>
+                          <TableCell numeric>{formatFinancialAmount(q.netIncome)}</TableCell>
+                          <TableCell
+                            numeric
+                            style={{
+                              background: isFcfDivergent ? "var(--amber-bg)" : undefined,
+                              color: isFcfDivergent ? "var(--amber-text)" : undefined,
+                              fontWeight: isFcfDivergent ? 600 : undefined
+                            }}
+                          >
+                            {formatFinancialAmount(q.fcf)}
+                          </TableCell>
+                          <TableCell
+                            numeric
+                            style={{
+                              background: isAccrualAnomalous ? "var(--amber-bg)" : undefined,
+                              color: isAccrualAnomalous ? "var(--amber-text)" : undefined,
+                              fontWeight: isAccrualAnomalous ? 600 : undefined
+                            }}
+                          >
+                            {accrual !== null ? `${(accrual * 100).toFixed(1)}%` : "—"}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </DenseTable>
+
+                {detail.quarters.length > 12 && (
+                  <Disclosure title={`Show Full History (${detail.quarters.length - 12} additional quarters)`}>
+                    <DenseTable>
+                      <TableBody>
+                        {detail.quarters.slice(12, 40).map((q) => {
+                          const accrual = (q.netIncome !== null && q.cfo !== null && q.totalAssets !== null && q.totalAssets > 0)
+                            ? (q.netIncome - q.cfo) / q.totalAssets
+                            : null;
+                          const isAccrualAnomalous = accrual !== null && Math.abs(accrual) > 0.1;
+                          const isFcfDivergent = q.fcf !== null && q.netIncome !== null && q.fcf < 0 && q.netIncome > 0;
+                          const isGrossAnomalous = q.grossMargin !== null && q.grossMargin < 0;
+
+                          return (
+                            <TableRow key={q.periodEnd}>
+                              <TableCell style={{ fontWeight: 600 }}>{q.periodEnd}</TableCell>
+                              <TableCell numeric>{formatFinancialAmount(q.revenue)}</TableCell>
+                              <TableCell
+                                numeric
+                                style={{
+                                  background: isGrossAnomalous ? "var(--amber-bg)" : undefined,
+                                  color: isGrossAnomalous ? "var(--amber-text)" : undefined,
+                                  fontWeight: isGrossAnomalous ? 600 : undefined
+                                }}
+                              >
+                                {q.grossMargin !== null ? `${q.grossMargin.toFixed(1)}%` : "—"}
+                              </TableCell>
+                              <TableCell numeric>{q.operatingMargin !== null ? `${q.operatingMargin.toFixed(1)}%` : "—"}</TableCell>
+                              <TableCell numeric>{formatFinancialAmount(q.netIncome)}</TableCell>
+                              <TableCell
+                                numeric
+                                style={{
+                                  background: isFcfDivergent ? "var(--amber-bg)" : undefined,
+                                  color: isFcfDivergent ? "var(--amber-text)" : undefined,
+                                  fontWeight: isFcfDivergent ? 600 : undefined
+                                }}
+                              >
+                                {formatFinancialAmount(q.fcf)}
+                              </TableCell>
+                              <TableCell
+                                numeric
+                                style={{
+                                  background: isAccrualAnomalous ? "var(--amber-bg)" : undefined,
+                                  color: isAccrualAnomalous ? "var(--amber-text)" : undefined,
+                                  fontWeight: isAccrualAnomalous ? 600 : undefined
+                                }}
+                              >
+                                {accrual !== null ? `${(accrual * 100).toFixed(1)}%` : "—"}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </DenseTable>
+                  </Disclosure>
+                )}
+              </div>
+            ) : (
+              <EmptyState title="Fundamental Quarters" body="No fundamental records populated. Run backfill fundamentals script." />
+            )}
+          </section>
+
+          {/* Section 5: SEC Filings */}
+          <section id="filings" className="flex flex-col gap-4">
+            <h2 className="story-h2" style={{ borderBottom: "1px solid var(--border-dim)", paddingBottom: "8px", margin: "16px 0 0 0" }}>
+              Classified SEC Filings & Severity
+            </h2>
             
-            {detail.dossiers.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {detail.dossiers.map((dos) => {
-                  let badgeClass = "hold";
-                  if (dos.verdict?.recommendation === "BUY") badgeClass = "buy";
-                  else if (dos.verdict?.recommendation === "AVOID") badgeClass = "avoid";
-                  else if (dos.verdict?.recommendation === "TRIM") badgeClass = "avoid";
+            {detail.filingEvents.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                {detail.filingEvents.map((evt) => {
+                  const isCritical = evt.item === "4.02" || evt.severity === "critical";
+                  const badgeVariant = isCritical
+                    ? "critical"
+                    : evt.severity === "high"
+                    ? "danger"
+                    : evt.severity === "medium"
+                    ? "warning"
+                    : "neutral";
 
                   return (
-                    <div key={dos.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '12px', background: 'var(--inset)', borderRadius: '8px', border: '1px solid var(--line)' }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <Link href={`/dossiers/${dos.id}`} style={{ fontWeight: 600, color: 'var(--accent-deep)', textDecoration: 'none', fontSize: '14px' }}>
-                            Dossier: {dos.id}
-                          </Link>
-                          <span style={{ fontSize: '11px', color: 'var(--faint)' }}>({new Date(dos.updatedAt).toLocaleDateString()})</span>
+                    <div className="panel" key={evt.id} style={{ border: "1px solid var(--border-dim)", padding: "12px", background: "var(--bg-surface)", margin: "8px 0" }}>
+                      <div className="flex justify-between items-start gap-4">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={badgeVariant}>
+                              {evt.form} - Item {evt.item}
+                            </Badge>
+                            <span style={{ fontSize: "11px", color: "var(--fg-muted)" }}>{formatDate(evt.filedAt)}</span>
+                          </div>
+                          <h4 style={{ fontSize: "13px", fontWeight: 600, marginTop: "6px", color: "var(--fg-primary)" }}>{evt.headline}</h4>
+                          <p style={{ fontSize: "11px", color: "var(--fg-secondary)", margin: "4px 0 0 0" }}>{evt.snippet}</p>
                         </div>
-                        {dos.verdict ? (
-                          <div style={{ fontSize: '13px', marginTop: '6px', color: 'var(--ink)' }}>
-                            <strong>Verdict:</strong> {dos.verdict.summary}
-                          </div>
-                        ) : (
-                          <div style={{ fontSize: '13px', marginTop: '4px', color: 'var(--muted)' }}>
-                            Status: <span style={{ textTransform: 'uppercase', fontSize: '11px', fontWeight: 600 }}>{dos.status}</span>
-                          </div>
-                        )}
+                        <a
+                          href={getFilingUrl(detail.cik || "", evt.accessionNo, "doc.html")}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ fontSize: "11px", color: "var(--accent-blue)" }}
+                        >
+                          View SEC Document ↗
+                        </a>
                       </div>
-                      {dos.verdict && (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                          <span className={`verdict-badge ${badgeClass}`} style={{ margin: 0, padding: '2px 8px', fontSize: '10px' }}>
-                            {dos.verdict.recommendation} ({dos.verdict.conviction})
-                          </span>
-                        </div>
-                      )}
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: 'var(--inset)', borderRadius: '8px', border: '1px dashed var(--line)' }}>
-                <span style={{ fontSize: '13px', color: 'var(--muted)', textAlign: 'center' }}>No deep research dossiers compiled yet. Trigger a live, multi-agent debate to synthesize a research consensus.</span>
-                <pre style={{ background: 'var(--surface)', padding: '6px 12px', borderRadius: '4px', border: '1px solid var(--line)', marginTop: '12px', fontSize: '11px', fontFamily: 'var(--fmono)' }}>
-                  npm run job -- dossier --symbols={detail.symbol}
-                </pre>
+              <EmptyState title="SEC Filings Monitor" body="No structural 8-K / filing events logged for this ticker." />
+            )}
+
+            {/* 10-K/Q Diff monitor */}
+            <div style={{ marginTop: "8px" }}>
+              <EmptyState title="10-K/Q Diff Monitor" body="Diff monitor lands in P8" />
+            </div>
+          </section>
+
+          {/* Section 6: Research Consensus */}
+          <section id="consensus" className="flex flex-col gap-4">
+            <h2 className="story-h2" style={{ borderBottom: "1px solid var(--border-dim)", paddingBottom: "8px", margin: "16px 0 0 0" }}>
+              Research Consensus Dossiers
+            </h2>
+
+            {/* Verdict consensus card */}
+            {detail.dossiers.length > 0 && detail.dossiers[0].verdict ? (
+              <div className="panel" style={{ border: "1px solid var(--border-muted)", background: "var(--bg-surface)", padding: "16px", margin: "8px 0" }}>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="story-h1" style={{ margin: 0 }}>consensus dossier recommendation</h3>
+                    <div style={{ fontSize: "11px", color: "var(--fg-muted)", marginTop: "4px" }}>
+                      Updated: {new Date(detail.dossiers[0].updatedAt).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <Badge variant={detail.dossiers[0].verdict.recommendation === "BUY" ? "success" : detail.dossiers[0].verdict.recommendation === "AVOID" ? "danger" : "warning"}>
+                    {detail.dossiers[0].verdict.recommendation} ({detail.dossiers[0].verdict.conviction})
+                  </Badge>
+                </div>
+                <p style={{ fontSize: "13px", marginTop: "12px", color: "var(--fg-primary)", lineHeight: 1.5 }}>
+                  {detail.dossiers[0].verdict.summary}
+                </p>
+
+                {/* Transcript Disclosure */}
+                <div style={{ marginTop: "12px" }}>
+                  <Disclosure title="Inspect Full Dossier Transcript">
+                    <div
+                      style={{
+                        background: "var(--bg-app)",
+                        padding: "12px",
+                        border: "1px solid var(--border-dim)",
+                        borderRadius: "var(--panel-radius)",
+                        whiteSpace: "pre-wrap",
+                        fontSize: "11px",
+                        fontFamily: "var(--font-mono)",
+                        maxHeight: "350px",
+                        overflowY: "auto",
+                      }}
+                    >
+                      {detail.dossiers[0].verdict.summary}
+                      {"\n\n[Debate transcript available via agy cli deep-dives]"}
+                    </div>
+                  </Disclosure>
+                </div>
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Column: Catalysts, Filings, News */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          
-          {/* Catalysts */}
-          <div className="panel" style={{ border: '1px solid var(--line)', background: 'var(--surface)', borderRadius: '12px', padding: '1.25rem', margin: 0 }}>
-            <h3 className="story-h2" style={{ fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', borderBottom: '1px solid var(--line)', paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>Upcoming Catalysts</h3>
-            {detail.catalysts.length > 0 ? (
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {detail.catalysts.map((c) => (
-                  <li key={c.id} style={{ borderBottom: '1px solid var(--line)', paddingBottom: '8px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                      <span className="num" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent-deep)' }}>{c.d ? formatDate(c.d) : "TBD"}</span>
-                      <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--muted)', background: 'var(--surface-2)', padding: '1px 5px', borderRadius: '3px' }}>{c.kind}</span>
-                    </div>
-                    <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--ink)', marginTop: '3px' }}>{c.title}</div>
-                    {c.note && <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>{c.note}</div>}
-                  </li>
-                ))}
-              </ul>
             ) : (
-              <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '0.5rem 0' }}>No catalysts cataloged for this asset or sector.</p>
+              <EmptyState title="Consensus Verdict" body="No agentic consensus verdict created yet. Trigger a background research run." />
             )}
+
+            {/* Research run logs */}
+            <div className="flex flex-col gap-2">
+              <h3 className="story-h2" style={{ fontSize: "0.85rem", textTransform: "uppercase" }}>Research Run History</h3>
+              {detail.researchRuns.length > 0 ? (
+                <DenseTable>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell isHeader>RUN ID</TableCell>
+                      <TableCell isHeader>TYPE</TableCell>
+                      <TableCell isHeader>STATUS</TableCell>
+                      <TableCell isHeader numeric>DURATION</TableCell>
+                      <TableCell isHeader>ARTIFACT</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {detail.researchRuns.map((run) => (
+                      <TableRow key={run.id}>
+                        <TableCell style={{ fontFamily: "var(--font-mono)", fontSize: "11px" }}>{run.id}</TableCell>
+                        <TableCell>{run.runType}</TableCell>
+                        <TableCell>
+                          <Badge variant={run.status === "COMPLETED" ? "success" : run.status === "FAILED" ? "danger" : "warning"}>
+                            {run.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell numeric>{run.elapsedSeconds}s / {run.budgetSeconds}s</TableCell>
+                        <TableCell style={{ fontSize: "11px" }}>
+                          {run.artifactPath ? (
+                            <a href={`file://${run.artifactPath}`} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-blue)" }}>
+                              inspect artifact ↗
+                            </a>
+                          ) : (
+                            <span style={{ color: "var(--fg-dim)" }}>none</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </DenseTable>
+              ) : (
+                <div style={{ fontStyle: "italic", fontSize: "11px", color: "var(--fg-muted)" }}>No background runs recorded.</div>
+              )}
+            </div>
+          </section>
+
+          {/* Section 7: Inversion checklist form */}
+          <section id="journal">
+            <h2 className="story-h2" style={{ borderBottom: "1px solid var(--border-dim)", paddingBottom: "8px", margin: "16px 0 0 0" }}>
+              Timeline & Checklist Inversion
+            </h2>
+            
+            <InversionChecklistForm symbol={detail.symbol} payload={decisionPayload} />
+
+            {/* Rec Call history / timeline */}
+            <div style={{ marginTop: "16px" }} className="flex flex-col gap-2">
+              <h3 className="story-h2" style={{ fontSize: "0.85rem", textTransform: "uppercase" }}>Recommendation Timeline Log</h3>
+              {detail.recCalls.length > 0 ? (
+                <div className="flex flex-col gap-2">
+                  {detail.recCalls.map((rc) => (
+                    <div className="panel" key={rc.id} style={{ padding: "10px 12px", border: "1px solid var(--border-dim)", background: "var(--bg-surface)", margin: "8px 0" }}>
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <Badge variant={rc.action === "BUY" ? "success" : rc.action === "AVOID" ? "danger" : "warning"}>
+                            {rc.action} ({rc.conviction})
+                          </Badge>
+                          <span style={{ fontSize: "11px", color: "var(--fg-muted)" }}>{formatDate(rc.createdAt)}</span>
+                        </div>
+                        <div style={{ fontSize: "11px", fontWeight: 600 }}>
+                          Price: ${rc.priceAtCall.toFixed(2)}
+                        </div>
+                      </div>
+                      {rc.governorReason && (
+                        <div style={{ fontSize: "11px", color: "var(--fg-secondary)", marginTop: "4px" }}>
+                          <strong>Reason:</strong> {rc.governorReason}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontStyle: "italic", fontSize: "11px", color: "var(--fg-muted)" }}>No structural recommendation calls logged.</div>
+              )}
+            </div>
+          </section>
+
+        </main>
+
+        {/* Sidebar: 3fr */}
+        <aside className="ticker-sticky-sidebar">
+          {/* User state status panel */}
+          <div className="panel flex flex-col gap-2" style={{ border: "1px solid var(--border-muted)", margin: "8px 0" }}>
+            <span className="ui-stat-label">Asset State Status</span>
+            <div className="flex justify-between items-center" style={{ marginTop: "4px" }}>
+              <span className="ui-stat-value" style={{ fontSize: "1.1rem" }}>
+                {detail.userState ?? "UNIVERSE"}
+              </span>
+              <Badge variant={detail.userState === "WATCHLIST" ? "success" : "neutral"}>
+                {detail.userState === "WATCHLIST" ? "Active Monitoring" : "Inbox Candidate"}
+              </Badge>
+            </div>
           </div>
 
-          {/* SEC Filings */}
-          <div className="panel" style={{ border: '1px solid var(--line)', background: 'var(--surface)', borderRadius: '12px', padding: '1.25rem', margin: 0 }}>
-            <h3 className="story-h2" style={{ fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', borderBottom: '1px solid var(--line)', paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>Recent SEC Filings</h3>
-            {detail.filings.length > 0 ? (
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {detail.filings.slice(0, 5).map((f) => (
-                  <li key={f.accessionNo} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', borderBottom: '1px solid var(--line)', paddingBottom: '6px' }}>
-                    <div>
-                      <a href={f.url} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600, color: 'var(--accent-deep)', textDecoration: 'none' }}>
-                        {f.form}
-                      </a>
-                      <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{formatDate(f.filedAt)}</div>
-                    </div>
-                    <span style={{ fontSize: '10px', color: 'var(--faint)', fontFamily: 'var(--fmono)' }} title="Accession Number">{f.accessionNo.slice(-6)}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div>
-                <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '0.5rem 0' }}>No Edgar filings found in cache.</p>
-                <pre style={{ background: 'var(--inset)', padding: '6px', borderRadius: '4px', fontSize: '10px', fontFamily: 'var(--fmono)', whiteSpace: 'pre-wrap', border: '1px solid var(--line)' }}>
-                  npm run job -- backfill --task=edgar_index --symbol={detail.symbol}
-                </pre>
-              </div>
-            )}
-          </div>
+          {/* Navigation links rail */}
+          <Panel className="flex flex-col gap-2">
+            <span className="ui-stat-label" style={{ marginBottom: "6px" }}>Cockpit Navigation</span>
+            <SectionNav sections={navSections} />
+          </Panel>
 
-          {/* News Feed */}
-          <div className="panel" style={{ border: '1px solid var(--line)', background: 'var(--surface)', borderRadius: '12px', padding: '1.25rem', margin: 0 }}>
-            <h3 className="story-h2" style={{ fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', borderBottom: '1px solid var(--line)', paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>Recent News</h3>
-            {detail.news.length > 0 ? (
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {detail.news.map((n, idx) => (
-                  <li key={idx} style={{ borderBottom: '1px solid var(--line)', paddingBottom: '8px' }}>
-                    <a href={n.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)', textDecoration: 'none', display: 'block', lineHeight: 1.4 }}>
-                      {n.title}
-                    </a>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: 'var(--muted)', marginTop: '4px' }}>
-                      <span>{n.source ?? "Web"}</span>
-                      <span>{n.publishedAt ? formatDate(n.publishedAt) : "—"}</span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '0.5rem 0' }}>No recent news articles logged for this symbol.</p>
-            )}
+          {/* Quick Checklist Shortcut stub */}
+          <Panel className="flex flex-col gap-2">
+            <span className="ui-stat-label">Inversion Quick Check</span>
+            <p style={{ fontSize: "11px", color: "var(--fg-secondary)", margin: 0 }}>
+              Use the timeline checklist below to invalidate thesis drivers before making a transaction.
+            </p>
+            <a href="#journal" style={{ fontSize: "11px", color: "var(--accent-blue)", fontWeight: 600, marginTop: "4px" }}>
+              Jump to Checklist Inversion ↓
+            </a>
+          </Panel>
+
+          {/* Launch background run client drawer */}
+          <Panel className="flex flex-col gap-2">
+            <span className="ui-stat-label">Agent Automation</span>
+            <p style={{ fontSize: "11px", color: "var(--fg-secondary)", margin: 0, marginBottom: "8px" }}>
+              Boot a new multi-agent consensus run and save a fresh thesis consensus report.
+            </p>
+            <ResearchRunDrawer symbol={detail.symbol} />
+          </Panel>
+
+          {/* Return to universe */}
+          <div style={{ padding: "0 8px" }}>
+            <Link href="/tickers" style={{ color: "var(--fg-muted)", fontSize: "11.5px", textDecoration: "none" }}>
+              ← Return to Universe Index
+            </Link>
           </div>
-        </div>
+        </aside>
       </div>
 
-      {/* Return to universe */}
-      <div style={{ marginTop: '3rem', borderTop: '1px solid var(--line)', paddingTop: '1.5rem' }}>
-        <Link href="/tickers" style={{ color: 'var(--accent-deep)', textDecoration: 'none', fontWeight: 600, fontSize: '14px' }}>
-          ← Back to Ticker Universe Index
-        </Link>
-      </div>
     </div>
   );
 }

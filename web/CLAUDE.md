@@ -37,14 +37,14 @@ completion. A filesystem run-lock (`@engine/jobs/run-lock`) prevents concurrent 
 
 ## Layout
 
-- `app/` — App Router routes (server components by default; client islands where needed). Added `/tickers` (universe index), `/tickers/[symbol]` (asset cockpit), `/screener` (real engine screener), `/discovery` (candidate queue), `/signals` (RuleEvent history), and `/journal` (JournalEntry log).
-- `components/` — shared UI (`InsightList`, `ScenarioEstimator`, `TickerPriceChart`, `story/*`).
+- `app/` — App Router routes (server components by default; client islands where needed). Added `/tickers` (universe index), `/tickers/[symbol]` (asset cockpit and server actions), `/screener` (real engine screener), `/discovery` (candidate queue), `/signals` (RuleEvent history), and `/journal` (JournalEntry log).
+- `components/` — shared UI (`InsightList`, `ScenarioEstimator`, `TickerPriceChart`, `CandleChart`, `WatchlistButton`, `InversionChecklistForm`, `ResearchRunDrawer`, `story/*`).
 - `lib/` — `demo.ts` engine fixtures, `live.ts` live digest reader,
   `digest-types.ts`/`digest-data.ts` live digest SQLite reader,
   `dossier-types.ts`/`dossier-data.ts` live dossier SQLite reader,
   `story-types.ts` mirrored StoryPageData types + `demoStory()`,
   `story-data.ts` SQLite reader for StoryPage rows,
-  `ticker-data.ts` SQLite reader for the 563-ticker universe and cockpits,
+  `ticker-data.ts` SQLite reader for the 563-ticker universe, cockpits, and on-the-fly screener calculations,
   `screener-data.ts` SQLite data assembler for screener rows (RSI via `@engine/tools/technicals`, despike via `@engine/lib/metrics`); scoring delegated to `@engine/screener/engine.runScreen()`,
   `discovery-data.ts` SQLite reader for discovery queue candidates,
   `signals-data.ts` SQLite reader for RuleEvent rows,

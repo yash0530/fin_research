@@ -12,6 +12,11 @@
 - `RunStatusBar.tsx` — **client**; home-page control bar: **Refresh digest** (boots model
   for narration) + **Refresh data** (no model) buttons, disabled while a run is in progress,
   with the live status pill. Calls the `app/actions.ts` server actions.
+- `CandleChart.tsx` — **client** component; pure SVG interactive multi-pane candle chart (price, volume, RSI, MACD, and event glyphs) with crosshair HUD and client-side RangeTabs.
+- `CandleChart.fixtures.ts` — synthetic OHLCV fixtures and events for development.
+- `WatchlistButton.tsx` — **client** component; updates candidate/watchlist state in DB.
+- `InversionChecklistForm.tsx` — **client** component; records inversion checklist thesis and freezes computed payload JSON.
+- `ResearchRunDrawer.tsx` — **client** component; triggers background research runs asynchronously.
 
 ## story/ — editorial story-page components
 
