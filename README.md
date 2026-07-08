@@ -66,6 +66,14 @@ To run all checks and verify the codebase is green (runs the full suite, TypeScr
 npm run verify
 ```
 
+To additionally smoke-test the web UI's 5 live routes in a real Chromium browser (builds
+the Next.js app, then runs Playwright against a temp fixture SQLite DB — never
+`data/engine.db`; requires `npx playwright install chromium` once). Kept separate from
+`npm run verify` so that gate never grows a browser dependency:
+```bash
+npm run verify:ui
+```
+
 ## Project Documentation
 - **Architecture & System Flows:** [docs/architecture.md](file:///Users/yash/Desktop/Programming/fin_research/docs/architecture.md) (system context diagram, pipeline stages)
 - **User Guides:** [docs/user/](file:///Users/yash/Desktop/Programming/fin_research/docs/user/) (daily workflow, buylist ritual, capture guides)

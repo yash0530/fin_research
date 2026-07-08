@@ -13,6 +13,7 @@
     "smoke": "tsx scripts/smoke.ts",
     "seed": "tsx scripts/seed.ts",
     "verify": "npm run typecheck && npm run test && npm run check:claude",
+    "verify:ui": "cd web && npm run build && npx playwright test",
     "job": "tsx scripts/job.ts"
   },
   "dependencies": {

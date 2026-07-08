@@ -45,6 +45,9 @@ and returns immediately — the heavy work runs OUT of the Next request, and
 - `npm run build` — `next build`: compiles + **type-checks** the app against the engine
   (this is the UI's verification gate).
 - `npm run dev` / `npm start` — dev / production server.
+- `npx playwright test` (or root `npm run verify:ui`) — the chromium-only Playwright
+  smoke suite over the 5 routes against a temp fixture DB. See `e2e/CLAUDE.md`. Not part
+  of `npm run build`/the engine's `npm run verify` — opt-in, browser-dependent.
 
 ## Layout
 
@@ -55,5 +58,10 @@ and returns immediately — the heavy work runs OUT of the Next request, and
   `components/ui/*` primitives, `components/story/story.css`).
 - `lib/` — server-only data readers/writers (`*-data.ts` + `engine-write.ts` +
   `run-trigger.ts`/`run-status.ts`).
+- `e2e/` — the Playwright smoke suite (P9a): fixture-DB builder, global setup,
+  console-error guard, one spec per route. See its CLAUDE.md.
+- `playwright.config.ts` — chromium-only project + `webServer` (`next start` against the
+  fixture DB on a spare port); report/artifact dirs live under `os.tmpdir()`, never in
+  the repo.
 
 Build artifacts (`.next/`), `node_modules/`, and `next-env.d.ts` are gitignored.

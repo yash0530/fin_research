@@ -84,6 +84,15 @@ Use these verified commands during setup, development, and testing. Do not inven
   npm run check:claude
   ```
 
+- **Run the Playwright web smoke suite** (chromium-only, 5 live routes against a temp
+  fixture SQLite DB — never `data/engine.db`; NOT part of `npm run verify`, kept
+  separate so that gate never grows a browser dependency):
+  ```bash
+  npx playwright install chromium   # once
+  npm run verify:ui                 # web build + playwright test
+  ```
+  See `web/e2e/CLAUDE.md` for how the fixture DB is built and what each spec asserts.
+
 ### Background Jobs & Dossiers
 - **EDGAR Index Backfill:**
   ```bash
