@@ -4,7 +4,7 @@
 // router.refresh() so server components (digest, dossier list) pull fresh rows.
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getRunStatusAction } from "@/app/dossiers/actions";
+import { getRunStatusAction } from "@/app/actions";
 import type { RunStatus } from "@/lib/run-status";
 
 export function useRunStatus(pollMs = 3000): RunStatus | null {

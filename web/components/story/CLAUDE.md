@@ -1,20 +1,16 @@
-# web/components/story/ — flagship editorial story components
+# web/components/story/ — shared layout stylesheet
 
-The Micron-page design system as React components (reference:
-`docs/reference-micron.html` — edit with it open). All figures use
-`tabular-nums`; palette + dark mode live in `story.css` custom properties
-(`prefers-color-scheme`), mirroring the reference exactly.
+Only `story.css` remains after the P7 route deletions: a full custom-property
+palette (light + dark via `prefers-color-scheme`), typography scale, layout
+grid, and component classes (`.story-page`, `.hero`, `.kicker`, `.story-h1`/
+`.story-h2`, `.lead`, `.verdict-badge`, `.panel`, `.tape`/`.cell`, `.callout`,
+etc.). It is imported by exactly one surviving page —
+`app/tickers/[symbol]/page.tsx` — which still uses these classes for its hero
+header and section framing. **Do not delete this file**: it is not orphaned.
 
-- `StoryHero` — kicker / eyebrow / display headline / lead + verdict badge (conviction-colored).
-- `StatTape` — responsive KPI grid tape; delta up/down coloring.
-- `CycleStrip` — 4 colored bands + positioned marker (position 0..1) + tick labels.
-- `EvidenceChart` — recharts bar/line over FROZEN series from StoryPageData;
-  value labels; negatives in the danger color. (recharts, never Chart.js.)
-- `StoryEstimator` — client island; impliedPrice = revenue × margin × P/E ÷ sharesOut,
-  bear/base/bull presets, recomputed client-side. (The legacy
-  `components/ScenarioEstimator` remains for the old demo page only.)
-- `Callout` — accent-left callout, optional title.
-- `Footnotes` — the honest-footnotes block.
-
-Data contract: `web/lib/story-types.ts` (mirror of root `src/story/schema.ts` — keep
-in sync manually; web never imports root src). Pages render fully without narration.
+The editorial story-page React components that used to live alongside it
+(`StoryHero.tsx`, `StatTape.tsx`, `CycleStrip.tsx`, `EvidenceChart.tsx`,
+`StoryEstimator.tsx`, `Callout.tsx`, `Footnotes.tsx`) were deleted in P7 along
+with the `/story` and `/story/[id]` routes they served — grep confirmed zero
+other importers. `web/lib/story-types.ts`/`story-data.ts` were deleted with
+them; `src/story/*` (the engine module) stays.

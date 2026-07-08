@@ -12,6 +12,26 @@ interface PositionFormProps {
   onCancel?: () => void;
 }
 
+const FIELD_LABEL: React.CSSProperties = {
+  fontSize: "11px",
+  textTransform: "uppercase",
+  letterSpacing: "0.05em",
+  color: "var(--fg-muted)",
+  fontWeight: 600,
+};
+
+const FIELD_INPUT: React.CSSProperties = {
+  padding: "8px 12px",
+  borderRadius: "var(--panel-radius)",
+  border: "1px solid var(--border-dim)",
+  background: "var(--bg-app)",
+  color: "var(--fg-primary)",
+  fontSize: "13px",
+  width: "100%",
+  outline: "none",
+  fontFamily: "var(--font-sans)",
+};
+
 export default function PositionForm({
   initialSymbol = "",
   initialQty,
@@ -24,11 +44,10 @@ export default function PositionForm({
   const [qty, setQty] = useState(initialQty !== undefined ? String(initialQty) : "");
   const [avgCost, setAvgCost] = useState(initialAvgCost !== undefined ? String(initialAvgCost) : "");
   const [openedAt, setOpenedAt] = useState(initialOpenedAt || new Date().toISOString().slice(0, 10));
-  
+
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // Sync state if initial props change (e.g. when selecting a different row to edit)
   useEffect(() => {
     setSymbol(initialSymbol);
     setQty(initialQty !== undefined ? String(initialQty) : "");
@@ -59,17 +78,11 @@ export default function PositionForm({
     setError("");
 
     try {
-      const res = await addOrUpdatePositionAction(
-        symbol.trim().toUpperCase(),
-        parsedQty,
-        parsedCost,
-        openedAt || null
-      );
+      const res = await addOrUpdatePositionAction(symbol.trim().toUpperCase(), parsedQty, parsedCost, openedAt || null);
       if (!res.ok) {
         setError(res.error || "Failed to save position");
       } else {
         if (onSuccess) onSuccess();
-        // Reset if we are adding a new position
         if (!initialSymbol) {
           setSymbol("");
           setQty("");
@@ -87,142 +100,46 @@ export default function PositionForm({
   const isEdit = !!initialSymbol;
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "flex-end" }}>
-      <div style={{ flex: "1", minWidth: "120px", display: "flex", flexDirection: "column", gap: "4px" }}>
-        <label style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", fontWeight: 600 }}>Symbol</label>
+    <form onSubmit={handleSubmit} className="flex gap-3" style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
+      <div style={{ flex: "1", minWidth: "100px" }} className="flex flex-col gap-1">
+        <label style={FIELD_LABEL}>Symbol</label>
         <input
           type="text"
           value={symbol}
           onChange={(e) => setSymbol(e.target.value)}
           placeholder="e.g. MU"
           disabled={busy || isEdit}
-          style={{
-            padding: "10px 14px",
-            borderRadius: "8px",
-            border: "1px solid var(--line)",
-            background: "var(--inset)",
-            color: "var(--ink)",
-            fontSize: "14px",
-            width: "100%",
-            outline: "none",
-            fontFamily: "var(--fbody)",
-            opacity: isEdit ? 0.6 : 1,
-          }}
+          style={{ ...FIELD_INPUT, opacity: isEdit ? 0.6 : 1 }}
         />
       </div>
 
-      <div style={{ flex: "1", minWidth: "100px", display: "flex", flexDirection: "column", gap: "4px" }}>
-        <label style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", fontWeight: 600 }}>Quantity</label>
-        <input
-          type="number"
-          step="any"
-          value={qty}
-          onChange={(e) => setQty(e.target.value)}
-          placeholder="e.g. 50"
-          disabled={busy}
-          style={{
-            padding: "10px 14px",
-            borderRadius: "8px",
-            border: "1px solid var(--line)",
-            background: "var(--inset)",
-            color: "var(--ink)",
-            fontSize: "14px",
-            width: "100%",
-            outline: "none",
-            fontFamily: "var(--fbody)",
-          }}
-        />
+      <div style={{ flex: "1", minWidth: "90px" }} className="flex flex-col gap-1">
+        <label style={FIELD_LABEL}>Quantity</label>
+        <input type="number" step="any" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="e.g. 50" disabled={busy} style={FIELD_INPUT} />
       </div>
 
-      <div style={{ flex: "1", minWidth: "100px", display: "flex", flexDirection: "column", gap: "4px" }}>
-        <label style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", fontWeight: 600 }}>Avg Cost ($)</label>
-        <input
-          type="number"
-          step="any"
-          value={avgCost}
-          onChange={(e) => setAvgCost(e.target.value)}
-          placeholder="e.g. 85.50"
-          disabled={busy}
-          style={{
-            padding: "10px 14px",
-            borderRadius: "8px",
-            border: "1px solid var(--line)",
-            background: "var(--inset)",
-            color: "var(--ink)",
-            fontSize: "14px",
-            width: "100%",
-            outline: "none",
-            fontFamily: "var(--fbody)",
-          }}
-        />
+      <div style={{ flex: "1", minWidth: "90px" }} className="flex flex-col gap-1">
+        <label style={FIELD_LABEL}>Avg Cost ($)</label>
+        <input type="number" step="any" value={avgCost} onChange={(e) => setAvgCost(e.target.value)} placeholder="e.g. 85.50" disabled={busy} style={FIELD_INPUT} />
       </div>
 
-      <div style={{ flex: "1", minWidth: "120px", display: "flex", flexDirection: "column", gap: "4px" }}>
-        <label style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", fontWeight: 600 }}>Opened At</label>
-        <input
-          type="date"
-          value={openedAt}
-          onChange={(e) => setOpenedAt(e.target.value)}
-          disabled={busy}
-          style={{
-            padding: "10px 14px",
-            borderRadius: "8px",
-            border: "1px solid var(--line)",
-            background: "var(--inset)",
-            color: "var(--ink)",
-            fontSize: "14px",
-            width: "100%",
-            outline: "none",
-            fontFamily: "var(--fbody)",
-          }}
-        />
+      <div style={{ flex: "1", minWidth: "110px" }} className="flex flex-col gap-1">
+        <label style={FIELD_LABEL}>Opened At</label>
+        <input type="date" value={openedAt} onChange={(e) => setOpenedAt(e.target.value)} disabled={busy} style={FIELD_INPUT} />
       </div>
 
-      <div style={{ display: "flex", gap: "0.5rem" }}>
-        <button
-          type="submit"
-          className="verdict-badge buy"
-          disabled={busy}
-          style={{
-            border: "none",
-            cursor: "pointer",
-            padding: "10px 20px",
-            borderRadius: "8px",
-            fontSize: "13px",
-            fontWeight: 600,
-            marginTop: 0,
-            boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-          }}
-        >
-          {busy ? "Saving..." : isEdit ? "Update" : "Add Position"}
+      <div className="flex gap-2">
+        <button type="submit" disabled={busy} className="ui-runstatusbar-btn">
+          {busy ? "Saving…" : isEdit ? "Update" : "Add Position"}
         </button>
         {onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={busy}
-            className="verdict-badge avoid"
-            style={{
-              border: "none",
-              cursor: "pointer",
-              padding: "10px 20px",
-              borderRadius: "8px",
-              fontSize: "13px",
-              fontWeight: 600,
-              marginTop: 0,
-              boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-            }}
-          >
+          <button type="button" onClick={onCancel} disabled={busy} className="ui-runstatusbar-btn">
             Cancel
           </button>
         )}
       </div>
 
-      {error && (
-        <div style={{ width: "100%", color: "var(--neg)", fontSize: "13px", marginTop: "0.5rem", fontWeight: 500 }}>
-          {error}
-        </div>
-      )}
+      {error && <div className="ui-runstatusbar-err" style={{ width: "100%" }}>{error}</div>}
     </form>
   );
 }

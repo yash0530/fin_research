@@ -1,4 +1,4 @@
-import { despike } from "./despike";
+import { despike } from "@engine/lib/metrics";
 import { buildProductionRegistry } from "@engine/tools/factory";
 import { execute } from "@engine/tools/types";
 import { smaSeries, rsiSeries, macdSeries } from "@engine/lib/chart-math";

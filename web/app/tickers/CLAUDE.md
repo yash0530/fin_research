@@ -1,3 +1,5 @@
-# web/app/tickers/ — Tickers list route
+# web/app/tickers/ — ticker cockpit route
 
-`page.tsx` renders a cockpit list of tickers, letting you search and filter by query, sector, and watchlist status.
+No index page (P7) — the sidebar `/`-key ticker-jump search and the sidebar
+watchlist replace the old universe-index table. `[symbol]/` is the only route
+here; see its CLAUDE.md for the cockpit page itself.

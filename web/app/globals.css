@@ -1272,3 +1272,66 @@ input[type="range"] {
 }
 
 .themes-compare-title { margin-bottom: 8px; }
+
+/* --- Dashboard (P7) --- */
+.dashboard-welcome-banner {
+  border-color: var(--accent-blue);
+  background: color-mix(in srgb, var(--accent-blue) 8%, var(--bg-surface));
+}
+
+.dashboard-inbox-row,
+.dashboard-band-row,
+.dashboard-alert-row,
+.dashboard-insight-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--border-dim);
+}
+
+.dashboard-insight-row {
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.dashboard-alert-row {
+  justify-content: flex-start;
+}
+
+.dashboard-inbox-symbol {
+  font-weight: 700;
+  color: var(--fg-primary);
+}
+
+/* --- Portfolio: buy-ceremony wizard overlay (P7) --- */
+.buy-ceremony-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.buy-ceremony-modal {
+  width: min(880px, 92vw);
+  max-height: 86vh;
+  overflow-y: auto;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--panel-radius);
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* --- Journal (P7) --- */
+.journal-entry-row,
+.journal-outcome-card {
+  padding: 10px 12px;
+  border: 1px solid var(--border-dim);
+  border-radius: var(--panel-radius);
+  background: var(--bg-app);
+}

@@ -1,181 +1,258 @@
-import { latestDigest, listDigests } from "@/lib/digest-data";
 import Link from "next/link";
-import "@/components/story/story.css";
-import RunStatusBar from "@/components/RunStatusBar";
+import { loadDashboard } from "@/lib/dashboard-data";
+import { Panel } from "@/components/ui/Panel";
+import { Stat } from "@/components/ui/Stat";
+import { StatStrip } from "@/components/ui/StatStrip";
+import { Badge } from "@/components/ui/Badge";
+import { TrendNumber } from "@/components/ui/TrendNumber";
+import { DenseTable, TableHead, TableBody, TableRow, TableCell } from "@/components/ui/DenseTable";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { SourcingInbox } from "@/components/SourcingInbox";
+import { WelcomeBackBanner } from "@/components/WelcomeBackBanner";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const FAMILY_TITLES: Record<string, string> = {
-  breadth: "Market Breadth",
-  movers: "Top Movers & Decliners",
-  gics_pulse: "GICS Sector Pulse",
-  ai_pulse: "AI Infrastructure Pulse",
-  tripwire: "System Tripwires & Rule Alerts",
-  divergence: "Hyperscaler Sector Divergence",
-  credit: "Credit & Financing Stress Proxy",
-  catalysts: "Near-Term Catalysts (7d)",
-  data_health: "System Data Quality & Health",
-};
+function severityVariant(sev: string): "success" | "danger" | "warning" | "critical" | "neutral" {
+  if (sev === "critical") return "critical";
+  if (sev === "warn") return "warning";
+  return "neutral";
+}
 
 export default async function Home() {
-  const digest = await latestDigest();
-  const history = await listDigests(7);
+  const data = await loadDashboard();
+  const { governor, alerts, watchlistBand, catalysts, inbox, killedByQuality, digest } = data;
 
-  if (!digest) {
-    return (
-      <div className="story-page" style={{ padding: "40px 24px" }}>
-        <header className="hero" style={{ textAlign: "center", marginBottom: "40px" }}>
-          <div className="eyebrow" style={{ justifyContent: "center" }}>Workstation Empty State</div>
-          <h1 className="story-h1">No Digest Available</h1>
-          <p className="lead" style={{ margin: "0 auto 24px", maxWidth: "600px" }}>
-            The local database has not been populated with morning digest insights yet.
-          </p>
-        </header>
-
-        <div className="panel" style={{ border: '1px solid var(--line)', background: 'var(--surface)', borderRadius: '12px', padding: '2rem', maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
-          <h2 className="story-h2">How to populate this page</h2>
-          <p className="body" style={{ margin: '1rem 0' }}>
-            Run the overnight job to fetch market data, run tripwires, calculate sector momentum, and synthesize the latest digest insights:
-          </p>
-          <pre style={{
-            background: 'var(--inset)',
-            color: 'var(--ink)',
-            padding: '12px',
-            borderRadius: '6px',
-            fontFamily: 'var(--fmono)',
-            fontSize: '14px',
-            overflowX: 'auto',
-            border: '1px solid var(--line)'
-          }}>
-            npm run job -- overnight
-          </pre>
-          <p className="body" style={{ color: 'var(--muted)', fontSize: '14px', marginTop: '1.5rem' }}>
-            This process reads current asset prices, scans watchlist rule triggers, evaluates hyperscaler credit indicators, and writes the synthesized results directly to the local SQLite store.
-          </p>
-          <p className="body" style={{ marginTop: '1.5rem', fontWeight: 600 }}>…or just click below:</p>
-          <RunStatusBar />
-        </div>
-      </div>
-    );
-  }
-
-  // Group insights by family
-  const groupedInsights = digest.data.insights.reduce((acc, insight) => {
-    const family = insight.family || "general";
-    if (!acc[family]) {
-      acc[family] = [];
-    }
-    acc[family].push(insight);
-    return acc;
-  }, {} as Record<string, typeof digest.data.insights>);
+  const pnl = governor.portfolioCostBasis > 0 ? governor.portfolioMarketValue - governor.portfolioCostBasis : 0;
+  const pnlPct = governor.portfolioCostBasis > 0 ? (pnl / governor.portfolioCostBasis) * 100 : null;
 
   return (
-    <div className="story-page" style={{ padding: "24px 0" }}>
-      <header className="hero" style={{ marginBottom: "2rem" }}>
-        <div className="eyebrow">Morning read · {digest.d}</div>
-        <h1 className="story-h1">{digest.headline || "Daily Morning Digest"}</h1>
-        <p className="lead">
-          Latest deterministic market insights synthesized as of {digest.data.asOf || digest.d}.
+    <div className="flex flex-col gap-4">
+      <header>
+        <h1>Action Center</h1>
+        <p className="muted" style={{ marginTop: "4px" }}>
+          Daily alerts and the weekly Sourcing Inbox — clear both before moving to Themes.
         </p>
       </header>
 
-      {/* Navigation Strip */}
-      <div className="nav-strip" style={{ display: 'flex', gap: '0.75rem', margin: '1.5rem 0', flexWrap: 'wrap' }}>
-        <Link href="/tickers" className="verdict-badge buy" style={{ textDecoration: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', marginTop: 0 }}>
-          Tickers
-        </Link>
-        <Link href="/portfolio" className="verdict-badge buy" style={{ textDecoration: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', marginTop: 0 }}>
-          Portfolio
-        </Link>
-        <Link href="/dossiers" className="verdict-badge buy" style={{ textDecoration: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', marginTop: 0 }}>
-          Dossiers
-        </Link>
-        <Link href="/calibration" className="verdict-badge buy" style={{ textDecoration: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', marginTop: 0 }}>
-          Calibration
-        </Link>
-        <Link href="/screener" className="verdict-badge buy" style={{ textDecoration: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', marginTop: 0 }}>
-          Screener
-        </Link>
-        <Link href="/discovery" className="verdict-badge buy" style={{ textDecoration: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', marginTop: 0 }}>
-          Discovery
-        </Link>
-        <Link href="/signals" className="verdict-badge buy" style={{ textDecoration: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', marginTop: 0 }}>
-          Signals
-        </Link>
-        <Link href="/journal" className="verdict-badge buy" style={{ textDecoration: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', marginTop: 0 }}>
-          Journal
-        </Link>
-        <Link href="/buylist" className="verdict-badge buy" style={{ textDecoration: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', marginTop: 0 }}>
-          Buy List
-        </Link>
-        <Link href="/story/mu" className="verdict-badge buy" style={{ textDecoration: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', marginTop: 0 }}>
-          Story
-        </Link>
-        <Link href="/capture" className="verdict-badge buy" style={{ textDecoration: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', marginTop: 0 }}>
-          Capture
-        </Link>
-      </div>
+      {data.staleDays !== null && data.staleDays >= 10 && <WelcomeBackBanner staleDays={data.staleDays} />}
 
-      {/* On-demand run controls */}
-      <RunStatusBar />
+      {/* Header micro-strip: portfolio size vs governor cap */}
+      <Panel>
+        <StatStrip>
+          <Stat
+            label="Portfolio value"
+            value={`$${governor.portfolioMarketValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+            subValue={`${governor.positionsCount} position${governor.positionsCount === 1 ? "" : "s"}`}
+          />
+          <Stat
+            label="Unrealized P&L"
+            value={<TrendNumber value={pnlPct} />}
+            subValue={`$${pnl.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+          />
+          <Stat
+            label="This month's capital"
+            value={governor.monthCapitalUsd !== null ? `$${governor.monthCapitalUsd.toLocaleString()}` : "no buy list yet"}
+            subValue={
+              governor.monthDeployedUsd !== null
+                ? `$${governor.monthDeployedUsd.toLocaleString()} deployed · $${(governor.monthCashUsd ?? 0).toLocaleString()} cash (${governor.monthStatus})`
+                : "buy ceremony not run this month"
+            }
+          />
+          {governor.tiers.map((t) => (
+            <Stat
+              key={t.tier}
+              label={`${t.tier} governor`}
+              value={t.capLifted ? "cap lifted" : "capped 2%"}
+              subValue={t.statusLine}
+            />
+          ))}
+        </StatStrip>
+      </Panel>
 
-      {/* Insights Content */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginTop: '1.5rem' }}>
-        {Object.keys(groupedInsights).length === 0 ? (
-          <p className="body muted">No insights found in this digest.</p>
-        ) : (
-          Object.entries(groupedInsights).map(([family, items]) => (
-            <div key={family} className="panel" style={{ border: '1px solid var(--line)', background: 'var(--surface)', borderRadius: '12px', padding: '1.5rem', margin: 0 }}>
-              <h2 className="story-h2" style={{ borderBottom: '1px solid var(--line)', paddingBottom: '0.5rem', marginBottom: '1rem', fontSize: '1.15rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                {FAMILY_TITLES[family] ?? family.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
-              </h2>
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                {items.map((i, idx) => {
-                  let badgeClass = "buy";
-                  let badgeLabel = "Info";
-                  if (i.severity === "critical") {
-                    badgeClass = "avoid";
-                    badgeLabel = "Critical";
-                  } else if (i.severity === "warn") {
-                    badgeClass = "hold";
-                    badgeLabel = "Warn";
-                  }
-                  return (
-                    <li key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
-                        <span className={`verdict-badge ${badgeClass}`} style={{ marginTop: '2px', padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase', fontSize: '10px', fontWeight: 600, flexShrink: 0 }}>
-                          {badgeLabel}
-                        </span>
-                        <span className="body" style={{ fontWeight: 500, fontSize: '15px', color: 'var(--ink)' }}>{i.text}</span>
-                      </div>
-                      <div className="evidence" style={{ marginLeft: '0px', padding: '4px 8px', background: 'var(--inset)', borderRadius: '4px', fontFamily: 'var(--fmono)', fontSize: '11px', color: 'var(--muted)', wordBreak: 'break-all' }}>
-                        {i.evidence}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Digest History Strip */}
-      {history.length > 0 && (
-        <div className="tape" style={{ margin: '3rem 0 1.5rem' }}>
-          <div className="cell" style={{ gridColumn: 'span 7' }}>
-            <div className="k" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '11px', color: 'var(--muted)', marginBottom: '0.75rem' }}>Digest History</div>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              {history.map((h) => (
-                <Link key={h.d} href={`/digest/${h.d}`} className={`verdict-badge ${h.d === digest.d ? 'buy' : 'hold'}`} style={{ textDecoration: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', marginTop: 0 }}>
-                  {h.d} {h.d === digest.d ? ' (Current)' : ''}
-                </Link>
-              ))}
-            </div>
-          </div>
+      <div className="dashboard-grid">
+        <div className="dashboard-ideas-inbox">
+          <Panel>
+            <h2>Sourcing Inbox</h2>
+            <p className="meta-dim" style={{ marginBottom: "8px" }}>
+              Deduped Candidate rows sourced this week — tier 1 (multi-trigger) and tier 2 (qualified).
+            </p>
+            <SourcingInbox rows={inbox} killedByQuality={killedByQuality} />
+          </Panel>
         </div>
-      )}
+
+        <div className="dashboard-action-queue">
+          <Panel>
+            <h2>Action Queue</h2>
+            <p className="meta-dim" style={{ marginBottom: "8px" }}>Watchlist names in or near the buy band.</p>
+            {watchlistBand.length === 0 ? (
+              <EmptyState
+                title="No Watchlist Bands"
+                body="Add a name to the watchlist and set a buy-under price from its ticker page to populate this queue."
+              />
+            ) : (
+              <div className="flex flex-col gap-1">
+                {watchlistBand.slice(0, 8).map((row) => (
+                  <div key={row.symbol} className="dashboard-band-row">
+                    <Link href={`/tickers/${row.symbol}`} className="font-mono dashboard-inbox-symbol">
+                      {row.symbol}
+                    </Link>
+                    <span className="meta-dim">
+                      {row.close !== null ? `$${row.close.toFixed(2)}` : "—"}
+                      {row.buyUnder !== null ? ` / $${row.buyUnder.toFixed(2)}` : ""}
+                    </span>
+                    {row.distancePct !== null ? (
+                      <Badge variant={row.inBand ? "success" : "neutral"}>
+                        {row.inBand ? "in band" : `${row.distancePct > 0 ? "+" : ""}${row.distancePct}%`}
+                      </Badge>
+                    ) : (
+                      <Badge variant="neutral">no buy-under</Badge>
+                    )}
+                  </div>
+                ))}
+                {watchlistBand.length > 0 && !watchlistBand.some((r) => r.inBand) && (
+                  <p className="meta-dim" style={{ marginTop: "4px" }}>
+                    Closest to trigger: {watchlistBand[0].symbol}{" "}
+                    {watchlistBand[0].distancePct !== null ? `+${watchlistBand[0].distancePct}%` : ""}
+                  </p>
+                )}
+              </div>
+            )}
+          </Panel>
+        </div>
+
+        <div className="dashboard-tripwire-decay">
+          <Panel>
+            <h2>Tripwire &amp; Decay Alerts</h2>
+            {alerts.length === 0 ? (
+              <EmptyState title="No Active Alerts" body="No thesis-decay or tripwire rules have fired recently." />
+            ) : (
+              <div className="flex flex-col gap-1">
+                {alerts.map((a, idx) => (
+                  <div key={idx} className="dashboard-alert-row">
+                    <Badge variant={severityVariant(a.severity)}>{a.severity.toUpperCase()}</Badge>
+                    <span style={{ fontSize: "0.8125rem" }}>
+                      {a.symbol && (
+                        <Link href={`/tickers/${a.symbol}`} className="font-mono">
+                          {a.symbol}
+                        </Link>
+                      )}{" "}
+                      {a.message}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <h3 style={{ marginTop: "16px" }}>Catalysts (7d)</h3>
+            {catalysts.length === 0 ? (
+              <p className="meta-dim">Quiet — no dated catalysts in the next 7 days.</p>
+            ) : (
+              <ul className="themes-catalyst-list">
+                {catalysts.map((c, idx) => (
+                  <li key={idx} className="meta-dim">
+                    {c.d ?? "—"} · {c.symbol ?? "market"} · {c.title}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
+        </div>
+
+        <div className="dashboard-digest-insights">
+          <Panel>
+            <h2>Digest Insights</h2>
+            {!digest ? (
+              <EmptyState
+                title="No Digest Available"
+                body="Run the overnight job (or click Refresh digest in the sidebar) to synthesize the latest market read."
+              />
+            ) : (
+              <div className="flex flex-col gap-2">
+                <p className="meta-dim">
+                  {digest.d} · {digest.headline}
+                </p>
+                {digest.data.insights.slice(0, 8).map((i, idx) => (
+                  <div key={idx} className="dashboard-insight-row">
+                    <Badge variant={severityVariant(i.severity)}>{i.severity.toUpperCase()}</Badge>
+                    <div>
+                      <div style={{ fontSize: "0.8125rem" }}>{i.text}</div>
+                      <div className="evidence">{i.evidence}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Panel>
+        </div>
+
+        <div className="dashboard-calibration">
+          <Panel>
+            <h2>Calibration</h2>
+            {governor.tiers.every((t) => t.total === 0) ? (
+              <EmptyState title="No Recommendation Calls Yet" body="Governor tiers populate once dossiers log RecCall verdicts." />
+            ) : (
+              <div className="flex flex-col gap-2">
+                {governor.tiers.map((t) => (
+                  <div key={t.tier} className="flex items-center justify-between">
+                    <span className="font-sans" style={{ fontSize: "0.8125rem" }}>{t.tier}</span>
+                    <Badge variant={t.capLifted ? "success" : "neutral"}>{t.statusLine}</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+            <Link href="/journal" className="meta-dim" style={{ display: "inline-block", marginTop: "12px" }}>
+              Full governor console →
+            </Link>
+          </Panel>
+        </div>
+
+        <div className="dashboard-portfolio-snap">
+          <Panel>
+            <h2>Portfolio Snapshot</h2>
+            {governor.positionsCount === 0 ? (
+              <EmptyState
+                title="No Held Positions"
+                body="Add a position from the Portfolio page to start tracking thesis-decay and P&L here."
+                actions={[{ label: "Go to Portfolio", href: "/portfolio" }]}
+              />
+            ) : (
+              <DenseTable>
+                <TableHead>
+                  <TableRow>
+                    <TableCell isHeader>Symbol</TableCell>
+                    <TableCell isHeader numeric>Market value</TableCell>
+                    <TableCell isHeader numeric>P&amp;L %</TableCell>
+                    <TableCell isHeader>Alerts</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {data.positions.map((p) => (
+                    <TableRow key={p.symbol}>
+                      <TableCell>
+                        <Link href={`/tickers/${p.symbol}`} className="font-mono">
+                          {p.symbol}
+                        </Link>
+                      </TableCell>
+                      <TableCell numeric>
+                        {p.marketValue !== null ? `$${p.marketValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}
+                      </TableCell>
+                      <TableCell numeric>
+                        <TrendNumber value={p.pnlPct} />
+                      </TableCell>
+                      <TableCell>
+                        {p.alertCount > 0 ? <Badge variant="warning">{p.alertCount}</Badge> : <span className="muted">clean</span>}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </DenseTable>
+            )}
+            <Link href="/portfolio" className="meta-dim" style={{ display: "inline-block", marginTop: "12px" }}>
+              Full portfolio →
+            </Link>
+          </Panel>
+        </div>
+      </div>
     </div>
   );
 }

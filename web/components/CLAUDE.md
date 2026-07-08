@@ -1,41 +1,39 @@
 # web/components/ — shared UI
 
-- `InsightList.tsx` — renders digest insights with severity styling + the evidence
-  provenance line (server component).
-- `ScenarioEstimator.tsx` — **client** component; recomputes `impliedPrice` (from
-  `@engine/story/build`) as sliders/presets change, so the estimator matches the frozen
-  scenario math exactly.
+- `Sidebar.tsx` / `SidebarWatchlist.tsx` / `TickerJump.tsx` — the persistent
+  240px shell nav (5 items), watchlist sparkline list, and `/`-key ticker jump.
+- `CaptureToggle.tsx` / `CaptureDrawer.tsx` — the global paste-capture drawer
+  (P4) mounted in `app/layout.tsx`; calls `parseAndSaveAction` from
+  `app/capture-actions.ts`. This is the only surviving capture entry point —
+  the old `/capture` page route is deleted.
 - `run-ui.tsx` — **client**; shared on-demand-run bits: the `useRunStatus()` polling hook
-  (polls `getRunStatusAction` every 3s; calls `router.refresh()` when a run finishes so
-  server components pull fresh rows) + the `RunStatusPill` (idle/booting/running) + button
-  style. `import type`-only from the server-only status lib (no runtime server import).
-- `RunStatusBar.tsx` — **client**; home-page control bar: **Refresh digest** (boots model
-  for narration) + **Refresh data** (no model) buttons, disabled while a run is in progress,
-  with the live status pill. Calls the `app/actions.ts` server actions.
+  (polls `getRunStatusAction` from `app/actions.ts` every 3s; calls `router.refresh()`
+  when a run finishes so server components pull fresh rows) + the `RunStatusPill`
+  (idle/booting/running) + button style.
+- `RunStatusBar.tsx` — **client**; sidebar-footer control bar: **Refresh digest** (boots
+  model for narration) + **Refresh data** (no model) buttons, disabled while a run is in
+  progress, with the live status pill. Calls `app/actions.ts` server actions.
+- `SourcingInbox.tsx` — **client**; the `/` dashboard's Sourcing Inbox list
+  (`Candidate` tier 1-2 rows with `+Watch`/`Archive` server actions) + a
+  collapsed "killed by quality" tier-3 `Disclosure` log.
+- `WelcomeBackBanner.tsx` — **client**; the `/` dashboard's 10+-idle-day banner,
+  one click into `refreshDigestAction`.
 - `CandleChart.tsx` — **client** component; pure SVG interactive multi-pane candle chart (price, volume, RSI, MACD, and event glyphs) with crosshair HUD and client-side RangeTabs.
 - `CandleChart.fixtures.ts` — synthetic OHLCV fixtures and events for development.
 - `WatchlistButton.tsx` — **client** component; updates candidate/watchlist state in DB.
-- `InversionChecklistForm.tsx` — **client** component; records inversion checklist thesis and freezes computed payload JSON.
-- `ResearchRunDrawer.tsx` — **client** component; triggers background research runs asynchronously.
+- `InversionChecklistForm.tsx` — **client** component; records inversion checklist thesis and freezes computed payload JSON (ticker cockpit page).
+- `ResearchRunDrawer.tsx` — **client** component; triggers background research runs asynchronously (ticker cockpit page).
+- `ui/` — the design-system primitives (`Panel`, `Stat`/`StatStrip`, `DenseTable`,
+  `TrendNumber`, `Badge`, `ScoreChip`, `BandBar`, `Sparkline`, `SectionNav`,
+  `Disclosure`, `EmptyState`, `RangeTabs`, `TierTag`) — see its CLAUDE.md.
+- `story/` — only `story.css` remains (see its CLAUDE.md); the editorial story
+  components (`StoryHero`, `StatTape`, `CycleStrip`, `EvidenceChart`,
+  `StoryEstimator`, `Callout`, `Footnotes`) were deleted with the `/story` route
+  in P7.
 
-## story/ — editorial story-page components
+## P7 removals
 
-All components are scoped by the `.story-page` wrapper class in `story.css`.
-
-- `story.css` — full custom-property palette (light + dark via `prefers-color-scheme`),
-  typography scale, layout grid, and component styles matching the reference design.
-- `StoryHero.tsx` — kicker / eyebrow / h1 / lead paragraph + verdict badge with
-  conviction level (server component).
-- `StatTape.tsx` — responsive KPI grid tape with big values and delta up/down coloring
-  (server component).
-- `CycleStrip.tsx` — 4 colored bands with a positioned marker (0..1) + tick labels
-  (server component).
-- `EvidenceChart.tsx` — **client** component; recharts bar/line from frozen series data
-  with value labels and negative-value danger coloring.
-- `StoryEstimator.tsx` — **client** component; interactive scenario sandbox with
-  revenue/margin/P/E sliders, preset buttons, live cycle strip, and callout. Uses the
-  engine's `impliedPrice` formula (mirrored locally in `story-types.ts`).
-- `Callout.tsx` — accent-soft background block with left accent border and optional
-  bold title (server component).
-- `Footnotes.tsx` — footer "How to read this" section with disclaimer lines
-  (server component).
+`InsightList.tsx` and `ScenarioEstimator.tsx` — both were single-purpose
+components for the deleted `/` (old digest render) and `/story` pages and had
+no remaining importers once those pages were rebuilt/removed.
+`TickerPriceChart.tsx` — superseded by `CandleChart.tsx`, had zero importers.

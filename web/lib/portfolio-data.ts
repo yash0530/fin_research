@@ -1,3 +1,4 @@
+import { despike } from "@engine/lib/metrics";
 import { positionView, decaySignals } from "@engine/portfolio/decay";
 import type { DecayFinding } from "@engine/portfolio/decay";
 
@@ -186,6 +187,68 @@ export async function loadPortfolio(): Promise<PortfolioPosition[]> {
     return results;
   } catch (err) {
     console.error("Error loading portfolio:", err);
+    return [];
+  } finally {
+    closeDb(db);
+  }
+}
+
+export interface WatchlistBandGridRow {
+  symbol: string;
+  name: string | null;
+  close: number | null;
+  buyUnder: number | null;
+  distancePct: number | null; // negative/zero = already inside the buy band
+  tier: number | null; // Candidate.tier — 1 (multi-trigger) best .. 3 (sourced) worst; null = no screen yet
+  inBand: boolean;
+}
+
+/**
+ * Watchlist valuation-band grid for /portfolio: every WatchlistEntry, decorated with
+ * the latest despiked close, buy-under distance, and quality tier — sorted by
+ * distance-to-buy-under first, tier (quality) as the tiebreaker.
+ */
+export async function loadWatchlistBandGrid(): Promise<WatchlistBandGridRow[]> {
+  const db = await openDb();
+  if (!db) return [];
+  try {
+    const rows = db
+      .prepare(
+        'SELECT w."symbol" AS symbol, w."buyUnder" AS buyUnder, t."name" AS name, c."tier" AS tier ' +
+          'FROM "WatchlistEntry" w LEFT JOIN "Ticker" t ON t."symbol"=w."symbol" ' +
+          'LEFT JOIN "Candidate" c ON c."symbol"=w."symbol"',
+      )
+      .all() as { symbol: string; buyUnder: number | null; name: string | null; tier: number | null }[];
+
+    const out: WatchlistBandGridRow[] = rows.map((r) => {
+      const priceRows = db
+        .prepare('SELECT "close" FROM "Price" WHERE "symbol"=? ORDER BY "d" DESC LIMIT 30')
+        .all(r.symbol) as { close: number }[];
+      const closes = despike(priceRows.map((p) => p.close).reverse());
+      const close = closes.length > 0 ? closes[closes.length - 1] : null;
+      const distancePct =
+        close !== null && r.buyUnder !== null && r.buyUnder > 0
+          ? Math.round(((close - r.buyUnder) / r.buyUnder) * 1000) / 10
+          : null;
+      return {
+        symbol: r.symbol,
+        name: r.name,
+        close,
+        buyUnder: r.buyUnder,
+        distancePct,
+        tier: r.tier,
+        inBand: distancePct !== null && distancePct <= 0,
+      };
+    });
+
+    out.sort((a, b) => {
+      const aKey = (a.distancePct ?? 999) + (a.tier ?? 4) * 5;
+      const bKey = (b.distancePct ?? 999) + (b.tier ?? 4) * 5;
+      return aKey - bKey;
+    });
+    return out;
+  } catch (err) {
+    console.error("Error loading watchlist band grid:", err);
     return [];
   } finally {
     closeDb(db);

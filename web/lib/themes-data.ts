@@ -1,4 +1,4 @@
-import { despike } from "./despike";
+import { despike } from "@engine/lib/metrics";
 import { getTheme, THEMES, type Theme, type Subtheme } from "@engine/themes/taxonomy";
 import {
   rankTheme,
