@@ -45,6 +45,7 @@ completion. A filesystem run-lock (`@engine/jobs/run-lock`) prevents concurrent 
   `story-types.ts` mirrored StoryPageData types + `demoStory()`,
   `story-data.ts` SQLite reader for StoryPage rows,
   `ticker-data.ts` SQLite reader for the 563-ticker universe, cockpits, and on-the-fly screener calculations,
+  `themes-data.ts` SQLite reader for /themes (delegates ranking to @engine/themes),
   `screener-data.ts` SQLite data assembler for screener rows (RSI via `@engine/tools/technicals`, despike via `@engine/lib/metrics`); scoring delegated to `@engine/screener/engine.runScreen()`,
   `discovery-data.ts` SQLite reader for discovery queue candidates,
   `signals-data.ts` SQLite reader for RuleEvent rows,

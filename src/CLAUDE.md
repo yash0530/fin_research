@@ -12,8 +12,9 @@ and unit-tested with vitest — no live network or LLM required to run the suite
 | `config/` | provider profiles, per-role model routing, dual sector taxonomy |
 | `tools/` | evidence ledger, budget, cache, registry, and the ported quant tools |
 | `screener/` | full-universe screening engine |
-| `screens/` | individual stock screen modules (fscore, accruals, dilution, cohort, earnings-trend) |
+| `screens/` | individual stock screen modules (fscore, accruals, dilution, cohort, earnings-trend, insider-cluster, eightk-classify) |
 | `runs/` | on-demand research runs (budget, safety, reconcile, create, runner) |
+| `themes/` | theme taxonomy (config) + transparent 3-segment ranking with honest ties and a low-data silo |
 | `dossier/` | multi-agent debate engine (resumable, single-flight) |
 | `research/` | deterministic digest synthesis |
 | `rules/` | tripwire evaluators (injectable ctx, cooloff) → RuleEvents |
