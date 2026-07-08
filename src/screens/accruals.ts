@@ -1,4 +1,5 @@
 import { FundamentalsQuarter } from "./types";
+import { quartersWith } from "./merge-quarters";
 
 export type AccrualsVerdict = "pass" | "warn" | "fail" | "unknown";
 
@@ -16,62 +17,32 @@ export function screenApplicability(sectorCodes: string[]): { applicable: boolea
 }
 
 export function computeAccruals(quarters: FundamentalsQuarter[]): AccrualsResult {
-  const sorted = [...quarters].sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
   const warnings: string[] = [];
 
-  if (sorted.length < 4) {
+  // Freshest 4 quarters that actually report all three inputs (see quartersWith):
+  // a strict last-4 window is voided by the newest quarter's un-filed cash flow.
+  const complete = quartersWith(quarters, ["netIncome", "cfo", "totalAssets"]);
+  if (complete.length < 4) {
     return {
       value: null,
       verdict: "unknown",
-      warnings: [`Insufficient quarters for TTM period (need 4, have ${sorted.length})`],
+      warnings: [`Insufficient quarters reporting Net Income + CFO + Total Assets for a TTM period (need 4, have ${complete.length})`],
     };
   }
 
-  const ttmQuarters = sorted.slice(-4);
+  const ttmQuarters = complete.slice(-4);
+  const newest = quarters.reduce((m, q) => (q.periodEnd > m ? q.periodEnd : m), "");
+  if (ttmQuarters[ttmQuarters.length - 1].periodEnd < newest) {
+    warnings.push(`Sloan: TTM window ends ${ttmQuarters[ttmQuarters.length - 1].periodEnd} (latest quarter ${newest} has not yet reported cash flow)`);
+  }
 
   let netIncomeSum = 0;
   let cfoSum = 0;
   let assetsSum = 0;
-  let missingNetIncome = false;
-  let missingCfo = false;
-  let missingAssets = false;
-
   for (const q of ttmQuarters) {
-    if (q.netIncome === null || q.netIncome === undefined) {
-      missingNetIncome = true;
-    } else {
-      netIncomeSum += q.netIncome;
-    }
-
-    if (q.cfo === null || q.cfo === undefined) {
-      missingCfo = true;
-    } else {
-      cfoSum += q.cfo;
-    }
-
-    if (q.totalAssets === null || q.totalAssets === undefined) {
-      missingAssets = true;
-    } else {
-      assetsSum += q.totalAssets;
-    }
-  }
-
-  if (missingNetIncome) {
-    warnings.push("Sloan: TTM Net Income has missing quarters");
-  }
-  if (missingCfo) {
-    warnings.push("Sloan: TTM CFO has missing quarters");
-  }
-  if (missingAssets) {
-    warnings.push("Sloan: TTM Total Assets has missing quarters");
-  }
-
-  if (missingNetIncome || missingCfo || missingAssets) {
-    return {
-      value: null,
-      verdict: "unknown",
-      warnings,
-    };
+    netIncomeSum += q.netIncome as number;
+    cfoSum += q.cfo as number;
+    assetsSum += q.totalAssets as number;
   }
 
   const avgAssets = assetsSum / 4;

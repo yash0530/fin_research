@@ -1,4 +1,5 @@
 import { FundamentalsQuarter } from "./types";
+import { quartersWith } from "./merge-quarters";
 
 export type DilutionVerdict = "pass" | "fail" | "unknown";
 
@@ -16,31 +17,25 @@ export function screenApplicability(sectorCodes: string[]): { applicable: boolea
 }
 
 export function computeDilution(quarters: FundamentalsQuarter[]): DilutionResult {
-  const sorted = [...quarters].sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
   const warnings: string[] = [];
 
-  // To compute a 12-quarter change, we need at least 13 quarters of data
-  // so we can compare index n-1 with index n-13 (which is n - 1 - 12)
-  if (sorted.length < 13) {
+  // Freshest quarters that actually report a share count — the newest calendar
+  // quarter often lacks sharesOut until its 10-Q lands, which would otherwise void
+  // the whole 3-year comparison (see quartersWith / ev.ts freshest-window logic).
+  const withShares = quartersWith(quarters, ["sharesOut"]);
+  if (withShares.length < 13) {
     return {
       value: null,
       verdict: "unknown",
-      warnings: [`Insufficient quarters for 3-year dilution calculation (need 13, have ${sorted.length})`],
+      warnings: [`Insufficient quarters reporting share count for a 3-year dilution comparison (need 13, have ${withShares.length})`],
     };
   }
 
-  const latest = sorted[sorted.length - 1];
-  const prior = sorted[sorted.length - 13];
+  const latest = withShares[withShares.length - 1];
+  const prior = withShares[withShares.length - 13];
 
   const latestShares = latest.sharesOut;
   const priorShares = prior.sharesOut;
-
-  if (latestShares === null || latestShares === undefined) {
-    warnings.push(`Dilution: sharesOut is missing for latest period ${latest.periodEnd}`);
-  }
-  if (priorShares === null || priorShares === undefined) {
-    warnings.push(`Dilution: sharesOut is missing for prior period ${prior.periodEnd}`);
-  }
 
   if (latestShares === null || latestShares === undefined || priorShares === null || priorShares === undefined) {
     return {

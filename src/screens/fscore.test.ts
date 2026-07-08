@@ -96,16 +96,39 @@ describe("fscore screen", () => {
     expect(result.score).toBe(8);
   });
 
-  it("should handle null inputs and mark them unknown", () => {
-    // Quarters with null values in current TTM
+  it("tolerates an un-filed cash-flow in the newest quarter by using the freshest complete quarters", () => {
+    // 9 quarters, newest lacks cfo (10-Q cash flow not yet filed). The freshest
+    // 8 CFO-reporting quarters still form the TTM/prior windows → score computes,
+    // rather than the whole screen collapsing to unknown.
+    const overrides: Partial<FundamentalsQuarter>[] = Array(9).fill({});
+    overrides[8] = { cfo: null };
+    const quarters = createMockQuarters(9, overrides);
+    const result = computeFScore(quarters);
+
+    const roaTest = result.tests.find((t) => t.name === "roa");
+    expect(roaTest?.result).not.toBe("unknown");
+    expect(result.maxComputable).toBeGreaterThanOrEqual(8);
+  });
+
+  it("marks a per-test metric unknown when it is missing across the window, without failing the whole score", () => {
+    // grossProfit null in a window quarter → only gross_margin is unknown.
     const overrides: Partial<FundamentalsQuarter>[] = Array(8).fill({});
-    overrides[7] = { netIncome: null, cfo: null }; // will make roa, cfo, roa_trend, accrual unknown
+    overrides[7] = { grossProfit: null };
     const quarters = createMockQuarters(8, overrides);
     const result = computeFScore(quarters);
 
     expect(result.warnings.length).toBeGreaterThan(0);
-    const roaTest = result.tests.find(t => t.name === "roa");
-    expect(roaTest?.result).toBe("unknown");
+    const gm = result.tests.find((t) => t.name === "gross_margin");
+    expect(gm?.result).toBe("unknown");
     expect(result.maxComputable).toBeLessThan(9);
+  });
+
+  it("is unknown when fewer than 4 quarters report Net Income + CFO", () => {
+    const overrides: Partial<FundamentalsQuarter>[] = Array(8).fill({});
+    // Only 3 quarters carry cfo → cannot form a TTM window.
+    for (let i = 0; i < 5; i++) overrides[i] = { cfo: null };
+    const quarters = createMockQuarters(8, overrides);
+    const result = computeFScore(quarters);
+    expect(result.warnings.some((w) => w.includes("Insufficient quarters reporting"))).toBe(true);
   });
 });

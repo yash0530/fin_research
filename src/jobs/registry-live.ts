@@ -67,6 +67,8 @@ import { computeFScore, screenApplicability } from "../screens/fscore";
 import { computeAccruals } from "../screens/accruals";
 import { computeDilution } from "../screens/dilution";
 import { computeCohortCheapness } from "../screens/cohort";
+import { computeEvToEbit as evToEbit } from "../screens/ev";
+import { mergeQuarters } from "../screens/merge-quarters";
 import { computeEarningsTrend } from "../screens/earnings-trend";
 import { fetchForm4 } from "../net/edgar-form4";
 import { checkInsiderCluster } from "../screens/insider-cluster";
@@ -74,20 +76,7 @@ import { classify8k } from "../screens/eightk-classify";
 
 
 function computeEvToEbit(quarters: any[], marketCap: number | null): number | null {
-  if (quarters.length < 4 || marketCap === null || marketCap <= 0) return null;
-  const ttmQuarters = quarters.slice(-4);
-  let ebitSum = 0;
-  for (const q of ttmQuarters) {
-    if (q.operatingIncome === null || q.operatingIncome === undefined) return null;
-    ebitSum += q.operatingIncome;
-  }
-  if (ebitSum <= 0) return null;
-
-  const latest = ttmQuarters[3];
-  const debt = latest.totalDebt ?? 0;
-  const cash = latest.cash ?? 0;
-  const ev = marketCap + debt - cash;
-  return ev / ebitSum;
+  return evToEbit(quarters, marketCap).evToEbit;
 }
 
 // ── env + DB open (mirrors scripts/seed.ts) ──────────────────────────────────
@@ -466,7 +455,7 @@ const JOB_DEFS: JobDef[] = [
           const sectorCode = gicsRow?.sectorCode;
           if (!sectorCode) continue;
 
-          const quarters = db.prepare('SELECT * FROM "FundamentalsQuarter" WHERE "symbol"=? ORDER BY "periodEnd" ASC').all(symbol) as any[];
+          const quarters = mergeQuarters(db.prepare('SELECT * FROM "FundamentalsQuarter" WHERE "symbol"=? ORDER BY "periodEnd" ASC').all(symbol) as any[]);
           const tickerRow = db.prepare('SELECT "marketCap" FROM "Ticker" WHERE "symbol"=?').get(symbol) as { marketCap: number | null } | undefined;
           const marketCap = tickerRow?.marketCap ?? null;
 
@@ -488,7 +477,7 @@ const JOB_DEFS: JobDef[] = [
           const gicsRow = db.prepare('SELECT "sectorCode" FROM "TickerSector" WHERE "symbol"=? AND "sectorCode" LIKE \'g_%\' LIMIT 1').get(symbol) as { sectorCode: string } | undefined;
           const sectorCode = gicsRow?.sectorCode;
 
-          const quarters = db.prepare('SELECT * FROM "FundamentalsQuarter" WHERE "symbol"=? ORDER BY "periodEnd" ASC').all(symbol) as any[];
+          const quarters = mergeQuarters(db.prepare('SELECT * FROM "FundamentalsQuarter" WHERE "symbol"=? ORDER BY "periodEnd" ASC').all(symbol) as any[]);
           const tickerRow = db.prepare('SELECT "marketCap" FROM "Ticker" WHERE "symbol"=?').get(symbol) as { marketCap: number | null } | undefined;
           const marketCap = tickerRow?.marketCap ?? null;
 

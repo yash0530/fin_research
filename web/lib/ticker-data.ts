@@ -8,6 +8,7 @@ import { computeAccruals } from "@engine/screens/accruals";
 import { computeDilution } from "@engine/screens/dilution";
 import { computeEarningsTrend } from "@engine/screens/earnings-trend";
 import { checkInsiderCluster } from "@engine/screens/insider-cluster";
+import { mergeQuarters } from "@engine/screens/merge-quarters";
 import { TRIPWIRES } from "@engine/config/tripwires";
 import { alertsForSymbol, type FilingEventRow } from "@engine/monitor/tripwires";
 
@@ -395,32 +396,14 @@ export async function tickerDetail(
       LIMIT 60
     `).all(symbol);
 
-    const mergedRows: any[] = [];
-    for (const r of quarterRows) {
-      let mergedWithExisting = false;
-      const rDate = new Date(r.periodEnd as string);
-      for (const existing of mergedRows) {
-        const eDate = new Date(existing.periodEnd as string);
-        const diffDays = Math.abs(rDate.getTime() - eDate.getTime()) / (1000 * 60 * 60 * 24);
-        if (diffDays <= 7) {
-          for (const col of Object.keys(existing)) {
-            if (existing[col] === null && r[col] !== null) {
-              existing[col] = r[col];
-            }
-          }
-          mergedWithExisting = true;
-          break;
-        }
-      }
-      if (!mergedWithExisting) {
-        mergedRows.push({ ...r });
-      }
-    }
+    // Canonical field-wise merge of near-duplicate quarters (Yahoo vs EDGAR
+    // period-end dates carry complementary fields) — one source of truth.
+    const sortedQuartersForScreens = mergeQuarters(quarterRows as any[]);
+    const mergedRows = [...sortedQuartersForScreens].sort((a, b) =>
+      b.periodEnd.localeCompare(a.periodEnd),
+    );
 
-    // Sort chronologically for screens
-    const sortedQuartersForScreens = [...mergedRows].sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
-
-    // Slice up to 40 quarters for the UI table
+    // Slice up to 40 quarters for the UI table (newest-first)
     const quarters: QuarterInfo[] = mergedRows.slice(0, 40).map((r: any) => {
       const revenue = r.revenue !== null ? (r.revenue as number) : null;
       const grossProfit = r.grossProfit !== null ? (r.grossProfit as number) : null;

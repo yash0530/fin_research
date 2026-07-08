@@ -1,4 +1,5 @@
 import { FundamentalsQuarter } from "./types";
+import { quartersWith } from "./merge-quarters";
 
 export type TestResult = "pass" | "fail" | "unknown";
 
@@ -44,18 +45,23 @@ export function computeFScore(quarters: FundamentalsQuarter[]): FScoreResult {
   const warnings: string[] = [];
   const tests: FScoreTest[] = [];
 
-  const hasTtm = sorted.length >= 4;
-  const hasPrior = sorted.length >= 8;
+  // Build the TTM / prior-TTM windows from the freshest quarters that actually
+  // report cash flow (the scarce flow field) — a strict last-8 slice is voided by
+  // the newest quarter's un-filed 10-Q cash-flow statement even when years of
+  // complete history exist. Balance-sheet-only stubs are already dropped upstream.
+  const flowQuarters = quartersWith(sorted, ["netIncome", "cfo"]);
+  const hasTtm = flowQuarters.length >= 4;
+  const hasPrior = flowQuarters.length >= 8;
 
   if (!hasTtm) {
-    warnings.push(`Insufficient quarters for TTM period (need 4, have ${sorted.length})`);
+    warnings.push(`Insufficient quarters reporting Net Income + CFO for a TTM period (need 4, have ${flowQuarters.length})`);
   }
   if (hasTtm && !hasPrior) {
-    warnings.push(`Insufficient quarters for prior TTM period (need 8, have ${sorted.length})`);
+    warnings.push(`Insufficient quarters reporting Net Income + CFO for a prior TTM period (need 8, have ${flowQuarters.length})`);
   }
 
-  const ttmQuarters = hasTtm ? sorted.slice(-4) : [];
-  const priorQuarters = hasPrior ? sorted.slice(-8, -4) : [];
+  const ttmQuarters = hasTtm ? flowQuarters.slice(-4) : [];
+  const priorQuarters = hasPrior ? flowQuarters.slice(-8, -4) : [];
 
   // TTM metrics
   const T_NI = sumFlowMetric(ttmQuarters, "netIncome");

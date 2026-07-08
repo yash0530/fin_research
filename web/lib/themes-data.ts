@@ -8,6 +8,8 @@ import {
   type ThemeIntelligence,
 } from "@engine/themes/rank";
 import type { FundamentalsQuarter } from "@engine/screens/types";
+import { computeEvToEbit as evToEbit } from "@engine/screens/ev";
+import { mergeQuarters } from "@engine/screens/merge-quarters";
 import {
   computeCapexScorecard,
   HYPERSCALERS,
@@ -81,17 +83,7 @@ export interface ThemeView {
 }
 
 function computeEvToEbit(quarters: FundamentalsQuarter[], marketCap: number | null): number | null {
-  if (quarters.length < 4 || marketCap === null || marketCap <= 0) return null;
-  const ttm = quarters.slice(-4);
-  let ebit = 0;
-  for (const q of ttm) {
-    if (q.operatingIncome === null || q.operatingIncome === undefined) return null;
-    ebit += q.operatingIncome;
-  }
-  if (ebit <= 0) return null;
-  const latest = ttm[ttm.length - 1];
-  const ev = marketCap + (latest.totalDebt ?? 0) - (latest.cash ?? 0);
-  return ev / ebit;
+  return evToEbit(quarters, marketCap).evToEbit;
 }
 
 /** Symbols linked to any of the sector codes (deduped). */
@@ -116,9 +108,11 @@ function loadRankInputs(db: SqlDb, symbols: string[]): RankInput[] {
       const gics = db
         .prepare('SELECT "sectorCode" FROM "TickerSector" WHERE "symbol"=? AND "sectorCode" LIKE \'g_%\' LIMIT 1')
         .get(symbol) as { sectorCode: string } | undefined;
-      const quarters = db
-        .prepare('SELECT * FROM "FundamentalsQuarter" WHERE "symbol"=? ORDER BY "periodEnd" ASC')
-        .all(symbol) as unknown as FundamentalsQuarter[];
+      const quarters = mergeQuarters(
+        db
+          .prepare('SELECT * FROM "FundamentalsQuarter" WHERE "symbol"=? ORDER BY "periodEnd" ASC')
+          .all(symbol) as unknown as FundamentalsQuarter[],
+      );
       const ticker = db
         .prepare('SELECT "marketCap" FROM "Ticker" WHERE "symbol"=?')
         .get(symbol) as { marketCap: number | null } | undefined;
@@ -236,7 +230,11 @@ export async function loadCapexScorecard(): Promise<CapexScorecard | null> {
             'SELECT "periodEnd", "capex" FROM "FundamentalsQuarter" WHERE "symbol"=? ORDER BY "periodEnd" ASC',
           )
           .all(symbol) as { periodEnd: string; capex: number | null }[];
-        quartersBySymbol[symbol] = rows.map((r) => ({
+        // Merge near-duplicate quarters so capex isn't double-counted in the TTM sum.
+        const merged = mergeQuarters(
+          rows.map((r) => ({ symbol, periodEnd: r.periodEnd, capex: r.capex ?? null })),
+        );
+        quartersBySymbol[symbol] = merged.map((r) => ({
           periodEnd: r.periodEnd,
           capex: r.capex ?? null,
         }));

@@ -14,27 +14,16 @@ import { computeAccruals } from "../screens/accruals";
 import { computeDilution } from "../screens/dilution";
 import { computeEarningsTrend } from "../screens/earnings-trend";
 import { computeCohortCheapness } from "../screens/cohort";
+import { computeEvToEbit as evToEbit } from "../screens/ev";
+import { mergeQuarters } from "../screens/merge-quarters";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { type LlamaProfile } from "../config/llama";
 import { type AgentRole } from "../config/settings";
 
-// EV/EBIT computation helper copied from registry-live.ts
+// Shared stale-tolerant EV/EBIT (freshest available TTM EBIT window).
 function computeEvToEbit(quarters: any[], marketCap: number | null): number | null {
-  if (quarters.length < 4 || marketCap === null || marketCap <= 0) return null;
-  const ttmQuarters = quarters.slice(-4);
-  let ebitSum = 0;
-  for (const q of ttmQuarters) {
-    if (q.operatingIncome === null || q.operatingIncome === undefined) return null;
-    ebitSum += q.operatingIncome;
-  }
-  if (ebitSum <= 0) return null;
-
-  const latest = ttmQuarters[3];
-  const debt = latest.totalDebt ?? 0;
-  const cash = latest.cash ?? 0;
-  const ev = marketCap + debt - cash;
-  return ev / ebitSum;
+  return evToEbit(quarters, marketCap).evToEbit;
 }
 
 export type StepInfo = {
@@ -510,7 +499,7 @@ export class OnDemandResearchRunner {
         const sectorCode = gicsRow?.sectorCode;
         if (!sectorCode) continue;
 
-        const quarters = this.db.prepare('SELECT * FROM "FundamentalsQuarter" WHERE "symbol"=? ORDER BY "periodEnd" ASC').all(sym) as any[];
+        const quarters = mergeQuarters(this.db.prepare('SELECT * FROM "FundamentalsQuarter" WHERE "symbol"=? ORDER BY "periodEnd" ASC').all(sym) as any[]);
         const tickerRow = this.db.prepare('SELECT "marketCap" FROM "Ticker" WHERE "symbol"=?').get(sym) as { marketCap: number | null } | undefined;
         const marketCap = tickerRow?.marketCap ?? null;
         const evToEbit = computeEvToEbit(quarters, marketCap);
@@ -523,7 +512,7 @@ export class OnDemandResearchRunner {
 
     for (const sym of targetSyms) {
       try {
-        const quarters = this.db.prepare('SELECT * FROM "FundamentalsQuarter" WHERE "symbol"=? ORDER BY "periodEnd" ASC').all(sym) as any[];
+        const quarters = mergeQuarters(this.db.prepare('SELECT * FROM "FundamentalsQuarter" WHERE "symbol"=? ORDER BY "periodEnd" ASC').all(sym) as any[]);
         const fscore = computeFScore(quarters).score;
         const accruals = computeAccruals(quarters).verdict;
         const dilution = computeDilution(quarters).verdict;
