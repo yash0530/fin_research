@@ -15,6 +15,7 @@ import {
   LLAMA_BOOT_TIMEOUT_MS,
   LLAMA_STOP_GRACE_MS,
   llamaLaunchArgv,
+  type LlamaProfile,
 } from "../config/llama";
 
 type HealthResponse = { ok: boolean };
@@ -77,6 +78,7 @@ function defaultSpawn(logFile?: string): SpawnLike {
 }
 
 export type StartOpts = {
+  profile?: LlamaProfile;
   healthUrl?: string;
   bootTimeoutMs?: number;
   argv?: string[];
@@ -106,7 +108,7 @@ export async function startLlamaServer(opts: StartOpts = {}): Promise<LlamaHandl
     return handle;
   }
 
-  const argv = opts.argv ?? llamaLaunchArgv();
+  const argv = opts.argv ?? llamaLaunchArgv(opts.profile);
   const [cmd, ...args] = argv;
   log(`booting llama-server: ${cmd} ${args.join(" ")}`);
   const child = (opts.spawnImpl ?? defaultSpawn(opts.logFile))(cmd, args);

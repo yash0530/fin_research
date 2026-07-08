@@ -7,16 +7,15 @@ budgets, or add a sector.
 
 - `llama.ts` — **single source of truth for the local llama-server**: the endpoint
   (`LLAMA_BASE_URL`/`LLAMA_HEALTH_URL`, dialed as `localhost`, bound as `127.0.0.1`) AND
-  the on-demand launch command (`llamaLaunchArgv()` — the exact MTP/flash-attn/64K argv
-  ported from the retired launchd plist) + boot/stop timeouts. `providers.ts` imports
-  `LLAMA_BASE_URL` from here so the URL is defined once. All values env-overridable.
+  the on-demand launch command (`llamaLaunchArgv(profile)` — supports "fast" or "deep" profiles,
+  the exact MTP/flash-attn/64K argv ported from the retired launchd plist) + boot/stop timeouts.
+  All values env-overridable (LLAMA_MODEL_FAST, etc.).
 - `providers.ts` — `PROVIDER_PROFILES`. Each profile declares `protocol`, `baseUrl`,
   `model`, `maxTokens`, and — new vs. the old ENGINE — **`contextWindow`** and
-  **`thinkingMode`**. `qwen_local` is primary; `gemma4_local` is the documented
-  future "small model" seam (unused until a role override points at it);
-  `gemini_compat` is the connectivity-only fallback.
+  **`thinkingMode`**. `qwen_local` (deep 27B) and `qwen_fast` (fast 35B) are primary local profiles;
+  `gemma4_local` is the documented future "small model" seam; `gemini_compat` is the connectivity-only fallback.
 - `settings.ts` — the tuning surface:
-  - `models = { default: "qwen_local", overrides: {} }` — **per-role routing**.
+  - `models = { default: "qwen_local", overrides: { narrator/nightly/monthly/event/classify: "qwen_fast" } }` — **per-role routing**.
     Every `AgentRole` inherits `default`; repoint one via `overrides` (one line).
   - `resolveProfile(role)` / `resolveProfileName(role)` / `thinkingForRole(role)`
     (thinking ON for reasoning roles, OFF for narration/synthesis).

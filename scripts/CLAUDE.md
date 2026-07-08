@@ -45,14 +45,11 @@ Standalone `tsx` scripts (not part of the library build).
   EDGAR/HttpProvider wiring now live in the shared `src/jobs/registry-live` (so the
   scheduler runs the same code path); `--list` uses `jobCatalog()` (no DB). Registered:
   `prices10y`, `fundamentals`, `edgar_index`, `stats`, `news`, `earnings`, `rules`,
-  `digest`, `overnight`, `dossier`, `backup`. The `dossier` job
+  `digest`, `overnight`, `dossier`, `backup`, `research_run`, `research_create`. The `dossier` job
   (`npm run job -- dossier --symbols=MU[,NVDA]`) enqueues (deduped) then runs the live
-  multi-agent deep dive one at a time — HttpProvider from `resolveProfile(role)` + real
-  yahoo2 fetchers (quotes/ownership) for the live tools; the flow itself lives in the
-  testable `src/dossier/job.runDossierJob`. With no `--symbols` it drains the existing
-  queue only.
+  multi-agent deep dive one at a time.
   **`--manage-llama`**: wrap the run in the single-run lock (`src/jobs/run-lock`) +
   `withLlamaServer` (`src/analyst/llama-lifecycle`) — boot llama-server, run the job, then
-  KILL it (free RAM) and release the lock. A second `--manage-llama` run while one holds
-  the lock aborts with `[BUSY]` (exit 3). This is the entrypoint the web on-demand buttons
-  spawn (data-only jobs like `refresh_data` omit the flag → no model boot).
+  KILL it (free RAM) and release the lock. Supports **`--llama-profile=fast|deep`** to choose the model.
+  **`research_run`**: Runs a budgeted, checkpointed research run via **`--run-id=id`** under run-lock and its profile-specific llama-server.
+  **`research_create`**: Creates a new research run row via **`--type=type`**, **`--target=target`**, and **`--budget-min=mins`**.

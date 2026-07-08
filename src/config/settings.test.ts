@@ -14,21 +14,33 @@ const ALL_ROLES: AgentRole[] = [
 
 describe("model routing", () => {
   afterEach(() => {
-    settings.models.overrides = {};
+    settings.models.overrides = {
+      narrator: "qwen_fast",
+      nightly: "qwen_fast",
+      monthly: "qwen_fast",
+      event: "qwen_fast",
+      classify: "qwen_fast",
+    };
   });
 
-  it("routes every role to the default (qwen_local) with no overrides", () => {
+  it("routes every role to the default out-of-the-box profile", () => {
+    const fastRoles = new Set(["narrator", "nightly", "monthly", "event", "classify"]);
     for (const role of ALL_ROLES) {
-      expect(resolveProfileName(role)).toBe("qwen_local");
-      expect(resolveProfile(role).model).toBe("qwen3.6-27b");
+      if (fastRoles.has(role)) {
+        expect(resolveProfileName(role)).toBe("qwen_fast");
+        expect(resolveProfile(role).model).toBe("qwen3.6-35b-a3b");
+      } else {
+        expect(resolveProfileName(role)).toBe("qwen_local");
+        expect(resolveProfile(role).model).toBe("qwen3.6-27b");
+      }
     }
   });
 
   it("repoints a single role via a sparse override (one-line config change)", () => {
-    settings.models.overrides = { narrator: "gemma4_local" };
+    settings.models.overrides = { ...settings.models.overrides, narrator: "gemma4_local" };
     expect(resolveProfileName("narrator")).toBe("gemma4_local");
     expect(resolveProfile("narrator").baseUrl).toContain("8001");
-    // Everything else still Qwen.
+    // Everything else still Qwen local or fast.
     expect(resolveProfileName("judge")).toBe("qwen_local");
   });
 

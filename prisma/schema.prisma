@@ -517,4 +517,37 @@ model FilingEvent {
   @@index([symbol, filedAt])
 }
 
+model ResearchRun {
+  id             String            @id
+  runType        String
+  target         String
+  budgetSeconds  Int
+  elapsedSeconds Int               @default(0)
+  status         String
+  profile        String
+  pid            Int?
+  createdAt      String
+  startedAt      String?
+  updatedAt      String?
+  completedAt    String?
+  artifactPath   String?
+  errorMessage   String?
+  steps          ResearchRunStep[]
+}
+
+model ResearchRunStep {
+  id               String      @id
+  runId            String
+  run              ResearchRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  stepIndex        Int
+  stepName         String
+  status           String
+  payload          String?
+  resultCheckpoint String?
+  startedAt        String?
+  completedAt      String?
+
+  @@index([runId])
+}
+
 

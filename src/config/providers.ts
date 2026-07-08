@@ -52,6 +52,19 @@ export const PROVIDER_PROFILES: Record<string, ProviderProfile> = {
     timeoutMs: 900_000,
   },
 
+  qwen_fast: {
+    protocol: "openai_compat",
+    baseUrl: LLAMA_BASE_URL,
+    model: "qwen3.6-35b-a3b",
+    apiKeyEnv: null,
+    maxTokens: 8192,
+    contextWindow: 64_000,
+    thinkingMode: "configurable",
+    supportsThinkingToggle: true,
+    jsonMode: true,
+    timeoutMs: 900_000,
+  },
+
   // ── FUTURE: a second local model for cheap/structured work. Documented and
   // wired, but unused until you point a role's override at it (config/settings.ts).
   // NOTE: 64 GB can't hold two Q8 models resident — run this at a smaller quant

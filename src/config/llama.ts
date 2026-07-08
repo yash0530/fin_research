@@ -22,10 +22,18 @@ export const LLAMA_BASE_URL = `http://${URL_HOST}:${PORT}/v1`;
 /** llama.cpp health endpoint — returns 200 once the model is loaded and serving. */
 export const LLAMA_HEALTH_URL = `http://${URL_HOST}:${PORT}/health`;
 
+/** Llama profile options */
+export type LlamaProfile = "fast" | "deep";
+
 /** llama-server binary + model GGUF, overridable for a different box/model. */
 const LLAMA_BIN = process.env.LLAMA_BIN ?? "/opt/homebrew/bin/llama-server";
-const LLAMA_MODEL =
-  process.env.LLAMA_MODEL ?? "/Users/yash/Models/qwen3.6-27b-mtp-q8/Qwen3.6-27B-Q8_0.gguf";
+const LLAMA_MODEL_DEEP =
+  process.env.LLAMA_MODEL_DEEP ??
+  process.env.LLAMA_MODEL ??
+  "/Users/yash/Models/qwen3.6-27b-mtp-q8/Qwen3.6-27B-Q8_0.gguf";
+const LLAMA_MODEL_FAST =
+  process.env.LLAMA_MODEL_FAST ??
+  "/Users/yash/Models/qwen3.6-35b-a3b-mtp-q8/Qwen3.6-35B-A3B-Q8_0.gguf";
 
 /**
  * The exact argv to boot the model, ported verbatim from the retired
@@ -33,10 +41,14 @@ const LLAMA_MODEL =
  * context, ONE in-flight request (`-np 1`, matches the single-flight lock), thinking
  * template ON. Host/port come from the env-tunable constants above.
  */
-export function llamaLaunchArgv(): string[] {
+export function llamaLaunchArgv(profile: LlamaProfile = "deep"): string[] {
+  const model = profile === "deep" ? LLAMA_MODEL_DEEP : LLAMA_MODEL_FAST;
+  const specDraftNMax = profile === "deep" ? "2" : "1";
+  const alias = profile === "deep" ? "qwen3.6-27b" : "qwen3.6-35b-a3b";
+
   return [
     LLAMA_BIN,
-    "-m", LLAMA_MODEL,
+    "-m", model,
     "--host", BIND_HOST,
     "--port", String(PORT),
     "-ngl", "99",
@@ -44,9 +56,9 @@ export function llamaLaunchArgv(): string[] {
     "-fa", "on",
     "-np", "1",
     "--spec-type", "draft-mtp",
-    "--spec-draft-n-max", "6",
+    "--spec-draft-n-max", specDraftNMax,
     "--metrics",
-    "--alias", "qwen3.6-27b",
+    "--alias", alias,
     "--jinja",
     "--chat-template-kwargs", '{"enable_thinking": true}',
   ];

@@ -17,6 +17,7 @@ ENGINE convention — we do NOT run `prisma migrate dev` against the live SQLite
 - `0006_fundamentals_qoe_fields.sql` — add canonical QoE fields to FundamentalsQuarter.
 - `0007_screens_funnel.sql` — create Candidate, WatchlistEntry, and DecisionSnapshot tables.
 - `0008_edgar_events.sql` — create InsiderTx and FilingEvent tables with required unique constraints and indexes to support the Form 4 cluster screen and 8-K regex classifier.
+- `0010_research_runs.sql` — create ResearchRun and ResearchRunStep tables to support checkpointed, budgeted research execution loops. (Note: 0009 is intentionally reserved).
 
 
 New migrations are numbered and additive (ALTER/CREATE only); never destructive without

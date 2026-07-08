@@ -13,6 +13,7 @@ and unit-tested with vitest — no live network or LLM required to run the suite
 | `tools/` | evidence ledger, budget, cache, registry, and the ported quant tools |
 | `screener/` | full-universe screening engine |
 | `screens/` | individual stock screen modules (fscore, accruals, dilution, cohort, earnings-trend) |
+| `runs/` | on-demand research runs (budget, safety, reconcile, create, runner) |
 | `dossier/` | multi-agent debate engine (resumable, single-flight) |
 | `research/` | deterministic digest synthesis |
 | `rules/` | tripwire evaluators (injectable ctx, cooloff) → RuleEvents |

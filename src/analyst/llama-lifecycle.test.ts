@@ -67,6 +67,24 @@ describe("startLlamaServer", () => {
     expect(handle.adopted).toBe(false);
     expect(handle.pid).toBe(4242);
   });
+
+  it("passes profile to llamaLaunchArgv", async () => {
+    let capturedArgs: string[] = [];
+    const spawnImpl: SpawnLike = (_cmd, args) => {
+      capturedArgs = args;
+      return { pid: 4242, unref: () => {} };
+    };
+    const { fetchImpl } = healthAfter(2);
+    await startLlamaServer({
+      profile: "fast",
+      fetchImpl,
+      spawnImpl,
+      healthUrl: "http://x/health",
+      bootTimeoutMs: 5_000,
+    });
+    expect(capturedArgs.join(" ")).toContain("qwen3.6-35b-a3b");
+    expect(capturedArgs.join(" ")).toContain("--spec-draft-n-max 1");
+  });
 });
 
 describe("stopLlamaServer", () => {

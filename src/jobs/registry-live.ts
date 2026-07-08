@@ -58,6 +58,10 @@ import { runDossierJob, runStoryBackfillJob } from "../dossier/job";
 import { recoverStale } from "../dossier/queue";
 import { seedCampaign } from "../dossier/campaign";
 import { SqliteDossierStore } from "../db/sqlite-store";
+import { reconcileRuns } from "../runs/reconcile";
+import { OnDemandResearchRunner } from "../runs/runner";
+import { createResearchRun } from "../runs/create";
+import { getBudgetConfig } from "../runs/budget";
 import type { LiveFetchers } from "../tools/factory";
 import { computeFScore, screenApplicability } from "../screens/fscore";
 import { computeAccruals } from "../screens/accruals";
@@ -201,7 +205,14 @@ function liveFetchers(): LiveFetchers {
 export type JobOutcome = { ok: boolean; detail: string };
 /** Optional per-invocation args beyond the symbol set (e.g. the story backfill's
  *  target dossier id). Kept optional so existing callers (the scheduler) are unchanged. */
-export type JobRunOpts = { dossierId?: string; force?: boolean };
+export type JobRunOpts = {
+  dossierId?: string;
+  force?: boolean;
+  runId?: string;
+  runType?: string;
+  runTarget?: string;
+  budgetMin?: number;
+};
 /** A runnable job: db is bound in at build time; symbols + opts are per-call. */
 export type JobEntry = { name: string; describe: string; run: (symbols?: string[], opts?: JobRunOpts) => Promise<JobOutcome> };
 
@@ -748,6 +759,38 @@ const JOB_DEFS: JobDef[] = [
       }
 
       return { ok: errors === 0, detail: `events8k: done=${done} errors=${errors} events=${eventsCount}` };
+    },
+  },
+  {
+    name: "research_run",
+    describe: "Execute a research run under budget constraints.",
+    run: async (db, symbols, opts) => {
+      if (!opts?.runId) {
+        return { ok: false, detail: "Missing runId parameter." };
+      }
+      reconcileRuns(db);
+      db.prepare('UPDATE "ResearchRun" SET "pid" = ? WHERE "id" = ?').run(process.pid, opts.runId);
+      const runner = new OnDemandResearchRunner(db, opts.runId, liveProviderFor);
+      await runner.execute();
+      return { ok: true, detail: `Research run ${opts.runId} completed.` };
+    },
+  },
+  {
+    name: "research_create",
+    describe: "Create a new research run row.",
+    run: async (db, symbols, opts) => {
+      if (!opts?.runType || !opts?.runTarget || opts?.budgetMin === undefined) {
+        return { ok: false, detail: "Missing --type, --target, or --budget-min." };
+      }
+      const budgetSeconds = opts.budgetMin * 60;
+      const config = getBudgetConfig(opts.runType, budgetSeconds);
+      const runId = createResearchRun(db, {
+        runType: opts.runType,
+        target: opts.runTarget,
+        budgetSeconds,
+        profile: config.modelProfile,
+      });
+      return { ok: true, detail: `Created research run: ${runId}` };
     },
   },
 ];

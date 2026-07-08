@@ -33,7 +33,13 @@ export const settings = {
   // Model routing — the extensibility seam. All → Qwen for now.
   models: {
     default: "qwen_local" as string,
-    overrides: {} as Partial<Record<AgentRole, string>>,
+    overrides: {
+      narrator: "qwen_fast",
+      nightly: "qwen_fast",
+      monthly: "qwen_fast",
+      event: "qwen_fast",
+      classify: "qwen_fast",
+    } as Partial<Record<AgentRole, string>>,
   },
 
   // Dossier engine caps (USD removed — local model, wall-clock + call-count only).
