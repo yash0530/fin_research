@@ -626,3 +626,81 @@ export async function listSectors(): Promise<SectorListRow[]> {
   }
 }
 
+export interface WatchlistSidebarRow {
+  symbol: string;
+  name: string | null;
+  close: number | null;
+  change1d: number | null;
+  closes: number[];
+}
+
+/**
+ * List watchlisted tickers with their latest 30 despiked closes for sparklines.
+ */
+export async function watchlistSidebar(): Promise<WatchlistSidebarRow[]> {
+  const db = await openDb();
+  if (!db) return [];
+
+  try {
+    const tickers = db.prepare("SELECT symbol, name FROM Ticker WHERE watchlisted = 1 ORDER BY symbol ASC").all();
+    if (tickers.length === 0) return [];
+
+    const symbols = tickers.map(t => t.symbol as string);
+    const placeholders = symbols.map(() => "?").join(",");
+
+    const priceRows = db.prepare(`
+      WITH RankedPrices AS (
+        SELECT symbol, close, d,
+               ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY d DESC) as rn
+        FROM Price
+        WHERE symbol IN (${placeholders})
+      )
+      SELECT symbol, close, d
+      FROM RankedPrices
+      WHERE rn <= 30
+      ORDER BY symbol ASC, d ASC
+    `).all(...symbols);
+
+    const pricesBySymbol = new Map<string, { close: number; d: string }[]>();
+    for (const r of priceRows) {
+      const sym = r.symbol as string;
+      if (!pricesBySymbol.has(sym)) {
+        pricesBySymbol.set(sym, []);
+      }
+      pricesBySymbol.get(sym)!.push({
+        close: r.close as number,
+        d: r.d as string,
+      });
+    }
+
+    return tickers.map((t) => {
+      const sym = t.symbol as string;
+      const symPrices = pricesBySymbol.get(sym) ?? [];
+      const rawCloses = symPrices.map((p) => p.close);
+      const despikedCloses = despike(rawCloses);
+
+      const latestClose = despikedCloses.length > 0 ? despikedCloses[despikedCloses.length - 1] : null;
+      const prevClose = despikedCloses.length > 1 ? despikedCloses[despikedCloses.length - 2] : null;
+
+      let change1d: number | null = null;
+      if (latestClose !== null && prevClose !== null && prevClose > 0) {
+        change1d = ((latestClose - prevClose) / prevClose) * 100;
+      }
+
+      return {
+        symbol: sym,
+        name: (t.name as string) ?? null,
+        close: latestClose,
+        change1d,
+        closes: despikedCloses,
+      };
+    });
+  } catch (err) {
+    console.error("Error in watchlistSidebar:", err);
+    return [];
+  } finally {
+    closeDb(db);
+  }
+}
+
+

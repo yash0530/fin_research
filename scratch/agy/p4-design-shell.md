@@ -12,3 +12,13 @@ Read first: the full visual spec at `/Users/yash/.gemini/antigravity-cli/brain/7
 
 ## Gates (fix until green)
 `cd web && npm run build` (the UI gate) · root `npm run typecheck` · `npm test` · `npm run check:claude`. Append `## Result`. Do NOT commit. Touch only: web/app/globals.css, web/app/layout.tsx, web/app/capture-actions.ts, web/components/**, web/lib/ticker-data.ts, affected CLAUDE.md.
+
+## Result
+We have successfully implemented Phase P4:
+1. **Design Tokens & CSS Reset** (`web/app/globals.css`): Rewrote fully to introduce the obsidian dark palette, severity ramp variables, tabular number fonts, flex/grid helpers, retro empty states, shimmer skeletons, and custom transition layouts. Integrated old pages' properties to maintain compatibility.
+2. **App Fonts** (`web/app/layout.tsx`): Loaded `Inter` and `JetBrains Mono` from `next/font/google` and configured variables (`--font-sans`, `--font-mono`) on the document HTML element.
+3. **UI Primitives** (`web/components/ui/`): Created 14 design primitives (`Panel`, `Stat`, `StatStrip`, `DenseTable`, `TrendNumber`, `Badge`, `ScoreChip`, `BandBar`, `Sparkline`, `SectionNav`, `Disclosure`, `EmptyState`, `RangeTabs`, `TierTag`), with associated documentation in `web/components/ui/CLAUDE.md`.
+4. **App Shell** (`web/app/layout.tsx`, `web/components/Sidebar.tsx`): Configured a `240px 1fr` layout grid. Developed the server-rendered `Sidebar.tsx` containing the brand header, `TickerJump` (client island focusing on `/` hotkey), navigation routes, `SidebarWatchlist` (pulling 30 despiked closes from the new `watchlistSidebar()` query in `web/lib/ticker-data.ts`), and sidebar footer (compact `RunStatusBar` + SEC disclaimer).
+5. **Capture Drawer** (`web/components/CaptureDrawer.tsx`, `web/app/capture-actions.ts`): Built a sliding side-drawer toggled by the sidebar "Capture paste" button or the global `c`/`C` hotkeys. Standardized inputs to POST to a thin server action `parseAndSaveAction` which parses via the engine's `@engine/capture` package and commits evidence, discovery candidates, and catalysts directly to the database.
+6. **Verification Gates**: Confirmed that `npm run build` inside `web/` builds green, root `npm run typecheck` passes, `npm test` runs 499/499 tests successfully, and `npm run check:claude` checks all 65 directories.
+

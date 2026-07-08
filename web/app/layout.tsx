@@ -1,48 +1,35 @@
 import "./globals.css";
 import type { ReactNode } from "react";
+import { Inter, JetBrains_Mono } from "next/font/google";
+import Sidebar from "../components/Sidebar";
+import CaptureDrawer from "../components/CaptureDrawer";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-sans",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+});
 
 export const metadata = {
   title: "ENGINE — research workstation",
   description: "Local-first investment research. Research, not advice.",
 };
 
-const NAV = [
-  { href: "/", label: "Digest" },
-  { href: "/live", label: "Live" },
-  { href: "/tickers", label: "Tickers" },
-  { href: "/portfolio", label: "Portfolio" },
-  { href: "/screener", label: "Screener" },
-  { href: "/discovery", label: "Discovery" },
-  { href: "/signals", label: "Signals" },
-  { href: "/journal", label: "Journal" },
-  { href: "/dossiers", label: "Dossiers" },
-  { href: "/memos", label: "Memos" },
-  { href: "/calibration", label: "Calibration" },
-  { href: "/buylist", label: "Buy list" },
-  { href: "/story/mu", label: "Story" },
-  { href: "/capture", label: "Capture" },
-];
-
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body>
-        <nav className="shell">
-          <span className="brand">ENGINE</span>
-          {NAV.map((n) => (
-            <a key={n.href} href={n.href}>
-              {n.label}
-            </a>
-          ))}
-        </nav>
-        <main>
-          {children}
-          <p className="disclaimer">
-            ENGINE produces <strong>research, not advice</strong>. No broker APIs, no order
-            placement, no execution — ever. Demo pages render fixture data through the real,
-            tested engine functions; live-data wiring is tracked in TASKS.md.
-          </p>
-        </main>
+        <div className="app-shell">
+          <Sidebar />
+          <main className="main-content">
+            {children}
+          </main>
+          <CaptureDrawer />
+        </div>
       </body>
     </html>
   );

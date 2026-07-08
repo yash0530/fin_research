@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { refreshDigestAction, refreshDataAction } from "@/app/actions";
 import type { RunResult } from "@/app/actions";
-import { useRunStatus, RunStatusPill, runButtonStyle } from "@/components/run-ui";
+import { useRunStatus, RunStatusPill } from "@/components/run-ui";
 
 export default function RunStatusBar(): React.JSX.Element {
   const status = useRunStatus();
@@ -26,28 +26,29 @@ export default function RunStatusBar(): React.JSX.Element {
   }
 
   return (
-    <div
-      className="panel"
-      style={{
-        border: "1px solid var(--line)",
-        background: "var(--surface)",
-        borderRadius: 12,
-        padding: "1rem 1.25rem",
-        margin: "1.25rem 0",
-      }}
-    >
-      <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
-        <button disabled={busy} onClick={() => run(refreshDigestAction)} style={runButtonStyle(busy)}>
+    <div className="ui-runstatusbar">
+      <div className="ui-runstatusbar-actions">
+        <button
+          disabled={busy}
+          onClick={() => run(refreshDigestAction)}
+          className="ui-runstatusbar-btn"
+        >
           Refresh digest
         </button>
-        <button disabled={busy} onClick={() => run(refreshDataAction)} style={runButtonStyle(busy)}>
+        <button
+          disabled={busy}
+          onClick={() => run(refreshDataAction)}
+          className="ui-runstatusbar-btn"
+        >
           Refresh data
         </button>
+      </div>
+      <div className="flex items-center justify-between">
         <RunStatusPill status={status} />
       </div>
-      {err && <p style={{ color: "var(--avoid, #c00)", fontSize: 13, margin: "0.5rem 0 0" }}>{err}</p>}
-      <p className="body muted" style={{ fontSize: 12, margin: "0.5rem 0 0" }}>
-        Refresh digest boots the local model (~1–2 min) for narration, then frees the RAM. Refresh data uses no model.
+      {err && <p className="ui-runstatusbar-err">{err}</p>}
+      <p className="ui-runstatusbar-desc">
+        Digest boots local model (~1-2m) for narration, then frees RAM. Data uses no model.
       </p>
     </div>
   );
