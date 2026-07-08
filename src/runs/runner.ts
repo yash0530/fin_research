@@ -749,9 +749,12 @@ export class OnDemandResearchRunner {
 
     writeFileSync(reportPath, md, "utf8");
 
-    // Update database row
+    // Update database row. Persist the final elapsed here too: the loop's
+    // per-iteration updateElapsed() runs BEFORE a step, so a run whose time is
+    // spent inside the last step (e.g. the LLM call) would otherwise record 0s
+    // on the COMPLETED path (the graceful paths already pass their own elapsed).
     this.db.prepare(
-      'UPDATE "ResearchRun" SET "status" = ?, "artifactPath" = ?, "completedAt" = datetime(\'now\', \'utc\'), "updatedAt" = datetime(\'now\', \'utc\') WHERE "id" = ?'
-    ).run(status, reportPath, this.runId);
+      'UPDATE "ResearchRun" SET "status" = ?, "artifactPath" = ?, "elapsedSeconds" = ?, "completedAt" = datetime(\'now\', \'utc\'), "updatedAt" = datetime(\'now\', \'utc\') WHERE "id" = ?'
+    ).run(status, reportPath, elapsed, this.runId);
   }
 }
