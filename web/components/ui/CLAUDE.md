@@ -9,7 +9,7 @@ This directory contains lightweight, server-safe, className-driven UI primitives
 - `StatStrip.tsx` — Grid/flex strip for multiple stats.
 - `DenseTable.tsx` — High-density financial table with header/body helpers, right-aligned numeric cells, and row hovers.
 - `TrendNumber.tsx` — Green/red signed numeric percentage for 1d change or daily returns (with tabular-nums).
-- `Badge.tsx` — Severity-ramped text tag (neutral, success, warning, danger, critical).
+- `Badge.tsx` — Severity-ramped text tag (neutral, success, warning, danger, critical) with an optional `title` tooltip — `variant="warning"` + `title="Missing: …"` is the data-quality chip pattern.
 - `ScoreChip.tsx` — Piotroski or other scores (`n/9`), color-coded by performance thresholds (Green >= 7, Amber 5-6, Red < 5).
 - `BandBar.tsx` — Price position visualization across `[low..high]` range with buy-under ticks.
 - `Sparkline.tsx` — Pure SVG lightweight polyline for recent closes, colored by direction.

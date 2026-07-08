@@ -122,7 +122,13 @@ export default function PortfolioClient({ positions, watchlist, harvest, ceremon
                           </Link>
                         </TableCell>
                         <TableCell numeric>${row.avgCost.toFixed(2)}</TableCell>
-                        <TableCell numeric>{row.currentPrice !== null ? `$${row.currentPrice.toFixed(2)}` : "—"}</TableCell>
+                        <TableCell numeric>
+                          {row.currentPrice !== null ? (
+                            `$${row.currentPrice.toFixed(2)}`
+                          ) : (
+                            <Badge variant="warning" title="Missing: latest close price">no price</Badge>
+                          )}
+                        </TableCell>
                         <TableCell numeric>
                           <TrendNumber value={row.pnlPct} />
                         </TableCell>
@@ -248,7 +254,13 @@ export default function PortfolioClient({ positions, watchlist, harvest, ceremon
                           {row.symbol}
                         </Link>
                       </TableCell>
-                      <TableCell numeric>{row.close !== null ? `$${row.close.toFixed(2)}` : "—"}</TableCell>
+                      <TableCell numeric>
+                        {row.close !== null ? (
+                          `$${row.close.toFixed(2)}`
+                        ) : (
+                          <Badge variant="warning" title="Missing: latest close price">no price</Badge>
+                        )}
+                      </TableCell>
                       <TableCell numeric>{row.buyUnder !== null ? `$${row.buyUnder.toFixed(2)}` : "—"}</TableCell>
                       <TableCell numeric>
                         {row.distancePct !== null ? (
@@ -256,7 +268,12 @@ export default function PortfolioClient({ positions, watchlist, harvest, ceremon
                             {row.inBand ? "in band" : `${row.distancePct > 0 ? "+" : ""}${row.distancePct}%`}
                           </Badge>
                         ) : (
-                          <span className="muted">—</span>
+                          <Badge
+                            variant="warning"
+                            title={`Missing: ${[row.close === null ? "close price" : null, row.buyUnder === null ? "buy-under" : null].filter(Boolean).join(", ") || "distance inputs"}`}
+                          >
+                            n/a
+                          </Badge>
                         )}
                       </TableCell>
                       <TableCell>{row.tier !== null ? <TierTag tier={String(row.tier)} /> : <span className="muted">—</span>}</TableCell>

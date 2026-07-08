@@ -6,7 +6,15 @@
 // never throws; missing tables/DB degrade to empty results.
 
 import { despike } from "@engine/lib/metrics";
+import { TRIPWIRES } from "@engine/config/tripwires";
+import {
+  surfaceAlerts,
+  type FilingEventRow,
+  type RuleEventRow,
+  type SectorMembership,
+} from "@engine/monitor/tripwires";
 import { loadPortfolio } from "./portfolio-data";
+import { loadCapexScorecard, type CapexScorecard } from "./themes-data";
 import { tierSummary, type TierSummary } from "./calibration-data";
 import { getLatestBuyList } from "./buylist-data";
 import { latestDigest } from "./digest-data";
@@ -42,7 +50,7 @@ export interface AlertRow {
   kind: string;
   severity: "info" | "warn" | "critical";
   message: string;
-  source: "decay" | "rule";
+  source: "decay" | "rule" | "filing";
 }
 
 export interface WatchlistBandRow {
@@ -99,6 +107,8 @@ export interface DashboardData {
   digest: DigestRow | null;
   positions: PortfolioSnapshotRow[];
   staleDays: number | null; // days since the latest JobRun/Digest; null if never run
+  /** Hyperscaler capex compact — non-null only when an AI-subtheme name is held/watchlisted. */
+  capex: CapexScorecard | null;
 }
 
 const EMPTY: DashboardData = {
@@ -120,27 +130,98 @@ const EMPTY: DashboardData = {
   killedByQuality: [],
   digest: null,
   staleDays: null,
+  capex: null,
 };
 
-/** Rule-engine alerts (RuleEvent rows fired in the last 14 days). Never throws. */
-async function ruleAlerts(db: SqlDb): Promise<AlertRow[]> {
+/** Held + watchlist symbols with their sector memberships. Never throws. */
+function monitorScope(db: SqlDb): { symbols: string[]; sectorsBySymbol: Record<string, SectorMembership[]> } {
+  const symbols = new Set<string>();
+  try {
+    for (const r of db.prepare('SELECT "symbol" FROM "Ticker" WHERE "watchlisted"=1').all()) {
+      symbols.add(r.symbol as string);
+    }
+  } catch {
+    /* Ticker table missing */
+  }
+  try {
+    for (const r of db.prepare('SELECT "symbol" FROM "Position"').all()) {
+      symbols.add(r.symbol as string);
+    }
+  } catch {
+    /* Position table missing */
+  }
+  const sectorsBySymbol: Record<string, SectorMembership[]> = {};
+  for (const sym of symbols) {
+    try {
+      sectorsBySymbol[sym] = db
+        .prepare(
+          'SELECT ts."sectorCode" AS code, s."taxonomy" AS taxonomy FROM "TickerSector" ts ' +
+            'JOIN "Sector" s ON s."code"=ts."sectorCode" WHERE ts."symbol"=?',
+        )
+        .all(sym) as unknown as SectorMembership[];
+    } catch {
+      sectorsBySymbol[sym] = [];
+    }
+  }
+  return { symbols: Array.from(symbols), sectorsBySymbol };
+}
+
+/**
+ * Tripwire/rule + filing alerts for held+watchlist names via the tested
+ * @engine/monitor/tripwires surfacing (8-K item 4.02 always critical; non-routine
+ * filing-diff events included). Never throws.
+ */
+async function monitorAlerts(
+  db: SqlDb,
+  scope: { symbols: string[]; sectorsBySymbol: Record<string, SectorMembership[]> },
+): Promise<AlertRow[]> {
   try {
     const cutoff = new Date(Date.now() - 14 * 86_400_000).toISOString();
-    const rows = db
+    const ruleEvents = db
       .prepare(
         'SELECT "ruleId","severity","message","firedAt" FROM "RuleEvent" WHERE "firedAt">=? AND "acked"=0 ORDER BY "firedAt" DESC LIMIT 20',
       )
-      .all(cutoff) as { ruleId: string; severity: string; message: string; firedAt: string }[];
-    return rows.map((r) => ({
-      symbol: null,
-      kind: r.ruleId,
-      severity: (r.severity as AlertRow["severity"]) ?? "info",
-      message: r.message,
-      source: "rule" as const,
+      .all(cutoff) as unknown as RuleEventRow[];
+    let filingEvents: FilingEventRow[] = [];
+    try {
+      const filingCutoff = new Date(Date.now() - 90 * 86_400_000).toISOString().slice(0, 10);
+      filingEvents = db
+        .prepare(
+          'SELECT "symbol","accessionNo","form","item","kind","headline","snippet","severity","filedAt" ' +
+            'FROM "FilingEvent" WHERE "filedAt">=? AND ("item"=\'4.02\' OR "kind"=\'filing-diff\') ' +
+            'ORDER BY "filedAt" DESC LIMIT 50',
+        )
+        .all(filingCutoff) as unknown as FilingEventRow[];
+    } catch {
+      /* FilingEvent table missing */
+    }
+    return surfaceAlerts({
+      symbols: scope.symbols,
+      sectorsBySymbol: scope.sectorsBySymbol,
+      ruleEvents,
+      filingEvents,
+      rules: TRIPWIRES,
+    }).map((a) => ({
+      symbol: a.symbol,
+      kind: a.id,
+      severity: a.severity,
+      message: a.message,
+      source: a.source === "filing" ? ("filing" as const) : ("rule" as const),
     }));
   } catch {
     return [];
   }
+}
+
+/** Compact capex scorecard — only when an AI-subtheme name is held/watchlisted. */
+async function capexIfAiExposed(scope: {
+  sectorsBySymbol: Record<string, SectorMembership[]>;
+}): Promise<CapexScorecard | null> {
+  const exposed = Object.values(scope.sectorsBySymbol).some((sectors) =>
+    sectors.some((s) => s.code.startsWith("ai_")),
+  );
+  if (!exposed) return null;
+  return loadCapexScorecard();
 }
 
 /** Watchlist proximity-to-buy-under grid, closest first. */
@@ -276,17 +357,20 @@ export async function loadDashboard(): Promise<DashboardData> {
   if (!db) return EMPTY;
 
   try {
-    const [positions, tiers, buyList, digest, alertsFromRules, band, catalysts, inbox, stale] = await Promise.all([
-      loadPortfolio(),
-      tierSummary(),
-      getLatestBuyList(),
-      latestDigest(),
-      ruleAlerts(db),
-      watchlistBand(db),
-      upcomingCatalysts(db, 7),
-      sourcingInbox(db),
-      staleDays(db),
-    ]);
+    const scope = monitorScope(db);
+    const [positions, tiers, buyList, digest, alertsFromRules, band, catalysts, inbox, stale, capex] =
+      await Promise.all([
+        loadPortfolio(),
+        tierSummary(),
+        getLatestBuyList(),
+        latestDigest(),
+        monitorAlerts(db, scope),
+        watchlistBand(db),
+        upcomingCatalysts(db, 7),
+        sourcingInbox(db),
+        staleDays(db),
+        capexIfAiExposed(scope),
+      ]);
 
     let portfolioMarketValue = 0;
     let portfolioCostBasis = 0;
@@ -337,6 +421,7 @@ export async function loadDashboard(): Promise<DashboardData> {
       digest,
       positions: snapshotRows,
       staleDays: stale,
+      capex,
     };
   } catch (err) {
     console.error("Error loading dashboard:", err);

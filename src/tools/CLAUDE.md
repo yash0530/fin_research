@@ -38,6 +38,10 @@ that agents cite from.
 - `sentiment.ts` — composite 0–10 score (Reddit mentions/polarity + news volume + RSS);
   deterministic scoring, tested. `news-tape.ts` — merge local + fetched news (dedup by
   id + normalized title, newest-first, capped).
+- `capex-scorecard.ts` — hyperscaler capex scorecard (MSFT/AMZN/GOOGL/META): TTM capex +
+  YoY growth per name and combined (signs normalized to positive spend), 12-quarter
+  sparkline series, null-quarter warnings (never silent zeros); combined YoY only when
+  every name has both windows — no mixed-basis percentages.
 - `macro.ts` — macro regime classifier (VIX / yield-curve inversion / HYG-IEF credit).
   `peer-compare.ts` — percentile position within a sector cohort. `catalysts.ts` —
   upcoming-events window filter.

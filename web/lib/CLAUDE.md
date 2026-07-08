@@ -5,7 +5,11 @@ opener. Every reader degrades gracefully (`null`/`[]`) when the DB or a table is
 missing — a fresh install must never crash a page.
 
 - `dashboard-data.ts` — `loadDashboard()` for `/`: merges `loadPortfolio()` decay
-  findings with `RuleEvent` fires (14d) into `alerts`; watchlist buy-band distance
+  findings with `@engine/monitor/tripwires` `surfaceAlerts` (unacked `RuleEvent`
+  fires scoped onto held+watchlist symbols, plus `FilingEvent` alerts — 8-K item
+  4.02 always critical, non-routine filing-diffs by LLM verdict) into `alerts`;
+  a compact hyperscaler `capex` scorecard when an AI-subtheme name is
+  held/watchlisted; watchlist buy-band distance
   (`watchlistBand`); 7d `Catalyst` rows; the Sourcing Inbox (`Candidate`
   `userState=INBOX`, tier 1-2 → `inbox`, tier 3 → `killedByQuality`); the header
   micro-strip (`governor`: portfolio value/cost basis, this month's `BuyList`
@@ -34,9 +38,14 @@ missing — a fresh install must never crash a page.
   `buy-ceremony-data.ts`'s harvest step).
 - `ticker-data.ts` — SQLite reader for ticker details, OHLCV, technical
   indicators, and on-the-fly screener scoring (despike now imported from
-  `@engine/lib/metrics`, not a local mirror).
+  `@engine/lib/metrics`, not a local mirror). The cockpit's `activeTripwires`
+  come from `@engine/monitor/tripwires` `alertsForSymbol` (rule scoping +
+  always-critical 4.02 + filing-diff events), and `screenWarnings` aggregates
+  the screen modules' data-quality warnings for the amber chip.
 - `themes-data.ts` — SQLite reader for `/themes` (delegates ranking to
-  `@engine/themes`; despike likewise from `@engine/lib/metrics`).
+  `@engine/themes`; despike likewise from `@engine/lib/metrics`). Also
+  `loadCapexScorecard()` — MSFT/AMZN/GOOGL/META quarterly capex →
+  `@engine/tools/capex-scorecard` (AI-theme widget + the `/` compact strip).
 - `digest-types.ts` / `digest-data.ts` — mirrored Digest types + SQLite reader
   (`latestDigest`, `digestByDate`, `listDigests`).
 - `run-trigger.ts` — **server-only**: spawn an engine job as a DETACHED child

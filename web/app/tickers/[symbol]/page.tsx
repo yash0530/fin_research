@@ -279,6 +279,12 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
                   ) : (
                     <Badge variant="warning">Missing Dilution</Badge>
                   )}
+
+                  {detail.screenWarnings.length > 0 && (
+                    <Badge variant="warning" title={detail.screenWarnings.join("; ")}>
+                      {detail.screenWarnings.length} data gap{detail.screenWarnings.length > 1 ? "s" : ""}
+                    </Badge>
+                  )}
                 </div>
               </Panel>
 
@@ -323,7 +329,7 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
                   {detail.activeTripwires.length > 0 ? (
                     detail.activeTripwires.map((trip: any, idx: number) => (
                       <div key={idx} style={{ fontWeight: 600 }}>
-                        🚨 {trip.message}
+                        🚨 [{String(trip.severity ?? "warn").toUpperCase()}] {trip.message}
                       </div>
                     ))
                   ) : (
@@ -558,9 +564,9 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
               Classified SEC Filings & Severity
             </h2>
             
-            {detail.filingEvents.length > 0 ? (
+            {detail.filingEvents.filter((e: any) => e.kind !== "filing-diff").length > 0 ? (
               <div className="flex flex-col gap-2">
-                {detail.filingEvents.map((evt) => {
+                {detail.filingEvents.filter((e: any) => e.kind !== "filing-diff").map((evt) => {
                   const isCritical = evt.item === "4.02" || evt.severity === "critical";
                   const badgeVariant = isCritical
                     ? "critical"
@@ -600,9 +606,32 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
               <EmptyState title="SEC Filings Monitor" body="No structural 8-K / filing events logged for this ticker." />
             )}
 
-            {/* 10-K/Q Diff monitor */}
-            <div style={{ marginTop: "8px" }}>
-              <EmptyState title="10-K/Q Diff Monitor" body="Diff monitor lands in P8" />
+            {/* 10-K/Q Diff monitor — FilingEvent rows kind "filing-diff" written by the filing_diff research run */}
+            <div style={{ marginTop: "8px" }} className="flex flex-col gap-2">
+              <h3 className="story-h2" style={{ fontSize: "0.85rem", textTransform: "uppercase" }}>10-K/Q Diff Monitor</h3>
+              {detail.filingEvents.filter((e: any) => e.kind === "filing-diff").length > 0 ? (
+                detail.filingEvents
+                  .filter((e: any) => e.kind === "filing-diff")
+                  .map((evt: any) => {
+                    const diffVariant =
+                      evt.severity === "thesis-relevant" ? "critical" : evt.severity === "notable" ? "warning" : "neutral";
+                    return (
+                      <div className="panel" key={evt.id} style={{ border: "1px solid var(--border-dim)", padding: "12px", background: "var(--bg-surface)", margin: "4px 0" }}>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={diffVariant}>{evt.severity.toUpperCase()}</Badge>
+                          <span style={{ fontSize: "11px", color: "var(--fg-muted)" }}>{formatDate(evt.filedAt)} · {evt.accessionNo}</span>
+                        </div>
+                        <h4 style={{ fontSize: "13px", fontWeight: 600, marginTop: "6px", color: "var(--fg-primary)" }}>{evt.headline}</h4>
+                        <p style={{ fontSize: "11px", color: "var(--fg-secondary)", margin: "4px 0 0 0" }}>{evt.snippet}</p>
+                      </div>
+                    );
+                  })
+              ) : (
+                <EmptyState
+                  title="10-K/Q Diff Monitor"
+                  body="No filing diffs yet — launch a filing-diff research run to compare this name's two most recent 10-K/10-Q filings."
+                />
+              )}
             </div>
           </section>
 

@@ -10,8 +10,12 @@ routes (P7 target IA) plus the ticker cockpit's dynamic segment:
   status), then `.dashboard-grid`: **Sourcing Inbox** (deduped `Candidate`
   `userState=INBOX` tier-1/2 rows with `+Watch`/`Archive` actions + a collapsed
   "killed by quality" tier-3 log), **Action Queue** (watchlist buy-band
-  proximity), **Tripwire & Decay Alerts** + **Catalysts (7d)**, **Digest
-  Insights**, **Calibration** tier strip, **Portfolio Snapshot**. Data via
+  proximity), **Tripwire & Decay Alerts** (symbol-scoped via
+  `@engine/monitor/tripwires`; 8-K 4.02 always critical) + **Catalysts (7d)** +
+  a compact **Hyperscaler capex** strip (only when an AI-subtheme name is
+  held/watchlisted), **Digest Insights**, **Calibration** tier strip,
+  **Portfolio Snapshot**. Missing metrics render amber data-quality chips
+  (`Badge variant="warning"` with a which-fields-missing tooltip). Data via
   `@/lib/dashboard-data`.
 - `actions.ts` — **`"use server"`**: `refreshDigestAction()`/`refreshDataAction()`
   (on-demand jobs, unchanged) + `getRunStatusAction()` (the shared poll endpoint

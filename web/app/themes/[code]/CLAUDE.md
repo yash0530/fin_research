@@ -1,8 +1,10 @@
 # web/app/themes/[code]/ — theme page
 
 Server component (`force-dynamic`). Layout: `.themes-grid` — left rail
-(subtheme tree with member sparklines + 72h catalyst feed + AI-only capex
-scorecard slot, EmptyState until P8) and main ranked table.
+(subtheme tree with member sparklines + 72h catalyst feed + AI-only hyperscaler
+capex scorecard: combined TTM + YoY badge, per-name TTM/YoY/sparkline rows via
+`loadCapexScorecard()`, amber data-note chips when quarters are missing) and
+main ranked table.
 
 - Ranked table: rank with honest ties (`#4 (Tied)`), ticker link, 3-segment
   breakdown bar (quality/valuation/momentum with provenance `title` tooltips),

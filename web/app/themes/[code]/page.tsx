@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { themeView, type RankedDisplayRow } from "@/lib/themes-data";
+import { themeView, loadCapexScorecard, type CapexScorecard, type RankedDisplayRow } from "@/lib/themes-data";
 import { Panel } from "@/components/ui/Panel";
 import { Stat } from "@/components/ui/Stat";
 import { StatStrip } from "@/components/ui/StatStrip";
@@ -51,6 +51,75 @@ function BreakdownBar({ row }: { row: RankedDisplayRow }) {
 function fscoreFromProvenance(row: RankedDisplayRow): number | null {
   const m = row.subScores.quality.match(/F-Score (\d)\/9/);
   return m ? Number(m[1]) : null;
+}
+
+function formatCapex(val: number | null): string {
+  if (val === null) return "—";
+  if (val >= 1e12) return `$${(val / 1e12).toFixed(2)}T`;
+  if (val >= 1e9) return `$${(val / 1e9).toFixed(1)}B`;
+  if (val >= 1e6) return `$${(val / 1e6).toFixed(1)}M`;
+  return `$${val.toLocaleString()}`;
+}
+
+function CapexScorecardPanel({ capex }: { capex: CapexScorecard | null }) {
+  if (!capex || capex.combinedTtm === null) {
+    return (
+      <EmptyState
+        title="No capex data"
+        body="Run Refresh Data to backfill MSFT/AMZN/GOOGL/META fundamentals quarters."
+      />
+    );
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <span className="ui-stat-value">{formatCapex(capex.combinedTtm)}</span>
+        {capex.combinedYoyPct !== null ? (
+          <Badge variant={capex.combinedYoyPct >= 0 ? "success" : "danger"}>
+            {capex.combinedYoyPct >= 0 ? "+" : ""}
+            {capex.combinedYoyPct}% YoY
+          </Badge>
+        ) : (
+          <Badge variant="warning" title={capex.warnings.join("; ")}>YoY unavailable</Badge>
+        )}
+      </div>
+      <div className="meta-dim">TTM capex, MSFT+AMZN+GOOGL+META</div>
+      <DenseTable>
+        <TableBody>
+          {capex.names.map((n) => (
+            <TableRow key={n.symbol}>
+              <TableCell>
+                <Link href={`/tickers/${n.symbol}`} className="font-mono">{n.symbol}</Link>
+              </TableCell>
+              <TableCell numeric>{formatCapex(n.ttmCapex)}</TableCell>
+              <TableCell numeric>
+                {n.yoyGrowthPct !== null ? (
+                  <span className={n.yoyGrowthPct >= 0 ? "sev-ok" : "sev-warn"}>
+                    {n.yoyGrowthPct >= 0 ? "+" : ""}
+                    {n.yoyGrowthPct}%
+                  </span>
+                ) : (
+                  <Badge variant="warning" title={n.warnings.join("; ") || "YoY growth unavailable"}>—</Badge>
+                )}
+              </TableCell>
+              <TableCell>
+                <Sparkline
+                  data={n.quarterly.map((q) => q.capex).filter((c): c is number => c !== null)}
+                  width={44}
+                  height={14}
+                />
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </DenseTable>
+      {capex.warnings.length > 0 && (
+        <Badge variant="warning" title={capex.warnings.join("; ")}>
+          {capex.warnings.length} data note{capex.warnings.length > 1 ? "s" : ""}
+        </Badge>
+      )}
+    </div>
+  );
 }
 
 function RankedTable({ rows, title }: { rows: RankedDisplayRow[]; title?: string }) {
@@ -147,6 +216,8 @@ export default async function ThemePage({ params, searchParams }: Props) {
   });
   if (!view) notFound();
 
+  const capex = code === "ai" ? await loadCapexScorecard() : null;
+
   const { theme, subthemes, intelligence, ranked, silo, warnings, catalysts } = view;
 
   return (
@@ -215,7 +286,7 @@ export default async function ThemePage({ params, searchParams }: Props) {
           {theme.code === "ai" && (
             <Panel>
               <div className="text-table-header">Hyperscaler capex</div>
-              <EmptyState title="Capex scorecard lands in P8" body="MSFT/AMZN/GOOGL/META capex YoY from filed quarters." />
+              <CapexScorecardPanel capex={capex} />
             </Panel>
           )}
         </aside>

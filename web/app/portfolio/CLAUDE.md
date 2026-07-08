@@ -14,7 +14,9 @@
   thesis-health badge derived from decay-finding severity, decay-finding chips,
   journal link to `/journal?symbol=`), a latest-verdict detail panel on row
   select, the add/edit position form; `.portfolio-watchlist-grid` (5-col
-  DenseTable sorted by distance-to-buy-under × tier); `.portfolio-governor-ctrl`
+  DenseTable sorted by distance-to-buy-under × tier). Null closes/distances
+  render amber data-quality chips (`Badge variant="warning"` + missing-fields
+  tooltip), never bare dashes; `.portfolio-governor-ctrl`
   (buy-ceremony trigger — always a link, a `DUE` `Badge` only when due).
 - `PositionForm.tsx` — client add/edit form for `Position` rows (new design
   tokens only — no story.css).

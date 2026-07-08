@@ -106,7 +106,12 @@ export default async function Home() {
                         {row.inBand ? "in band" : `${row.distancePct > 0 ? "+" : ""}${row.distancePct}%`}
                       </Badge>
                     ) : (
-                      <Badge variant="neutral">no buy-under</Badge>
+                      <Badge
+                        variant="warning"
+                        title={`Missing: ${[row.close === null ? "close price" : null, row.buyUnder === null ? "buy-under" : null].filter(Boolean).join(", ")}`}
+                      >
+                        {row.close === null ? "no price data" : "no buy-under"}
+                      </Badge>
                     )}
                   </div>
                 ))}
@@ -154,6 +159,36 @@ export default async function Home() {
                   </li>
                 ))}
               </ul>
+            )}
+            {data.capex && (
+              <>
+                <h3 style={{ marginTop: "16px" }}>Hyperscaler capex</h3>
+                <div className="flex items-center gap-2" style={{ flexWrap: "wrap" }}>
+                  <span className="font-mono" style={{ fontSize: "0.8125rem", fontWeight: 600 }}>
+                    {data.capex.combinedTtm !== null
+                      ? `$${(data.capex.combinedTtm / 1e9).toFixed(0)}B TTM`
+                      : "TTM —"}
+                  </span>
+                  {data.capex.combinedYoyPct !== null ? (
+                    <Badge variant={data.capex.combinedYoyPct >= 0 ? "success" : "danger"}>
+                      {data.capex.combinedYoyPct >= 0 ? "+" : ""}
+                      {data.capex.combinedYoyPct}% YoY
+                    </Badge>
+                  ) : (
+                    <Badge variant="warning" title={data.capex.warnings.join("; ")}>YoY unavailable</Badge>
+                  )}
+                  {data.capex.names.map((n) => (
+                    <span key={n.symbol} className="meta-dim" style={{ fontSize: "0.75rem" }}>
+                      {n.symbol}{" "}
+                      {n.yoyGrowthPct !== null ? `${n.yoyGrowthPct >= 0 ? "+" : ""}${n.yoyGrowthPct}%` : "—"}
+                    </span>
+                  ))}
+                </div>
+                <p className="meta-dim" style={{ marginTop: "4px" }}>
+                  Shown because an AI-subtheme name is held or watchlisted.{" "}
+                  <Link href="/themes/ai">Full scorecard →</Link>
+                </p>
+              </>
             )}
           </Panel>
         </div>
@@ -234,7 +269,11 @@ export default async function Home() {
                         </Link>
                       </TableCell>
                       <TableCell numeric>
-                        {p.marketValue !== null ? `$${p.marketValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}
+                        {p.marketValue !== null ? (
+                          `$${p.marketValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+                        ) : (
+                          <Badge variant="warning" title="Missing: latest close price">no price</Badge>
+                        )}
                       </TableCell>
                       <TableCell numeric>
                         <TrendNumber value={p.pnlPct} />

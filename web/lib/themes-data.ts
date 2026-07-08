@@ -8,6 +8,12 @@ import {
   type ThemeIntelligence,
 } from "@engine/themes/rank";
 import type { FundamentalsQuarter } from "@engine/screens/types";
+import {
+  computeCapexScorecard,
+  HYPERSCALERS,
+  type CapexQuarterRow,
+  type CapexScorecard,
+} from "@engine/tools/capex-scorecard";
 
 // Server-only data loader for /themes: loads universe rows for a theme's sector
 // codes and delegates ranking to the tested @engine/themes engine.
@@ -209,6 +215,41 @@ function subthemeNav(db: SqlDb, theme: Theme): SubthemeNav[] {
 
 export function listThemes(): Theme[] {
   return THEMES;
+}
+
+export type { CapexScorecard };
+
+/**
+ * Hyperscaler capex scorecard (v1 signal #9, AI theme only): loads MSFT/AMZN/
+ * GOOGL/META quarterly capex and delegates all math to the tested
+ * @engine/tools/capex-scorecard module. Never throws.
+ */
+export async function loadCapexScorecard(): Promise<CapexScorecard | null> {
+  const db = await openDb();
+  if (!db) return null;
+  try {
+    const quartersBySymbol: Record<string, CapexQuarterRow[]> = {};
+    for (const symbol of HYPERSCALERS) {
+      try {
+        const rows = db
+          .prepare(
+            'SELECT "periodEnd", "capex" FROM "FundamentalsQuarter" WHERE "symbol"=? ORDER BY "periodEnd" ASC',
+          )
+          .all(symbol) as { periodEnd: string; capex: number | null }[];
+        quartersBySymbol[symbol] = rows.map((r) => ({
+          periodEnd: r.periodEnd,
+          capex: r.capex ?? null,
+        }));
+      } catch {
+        quartersBySymbol[symbol] = [];
+      }
+    }
+    return computeCapexScorecard(quartersBySymbol);
+  } catch {
+    return null;
+  } finally {
+    closeDb(db);
+  }
 }
 
 /**

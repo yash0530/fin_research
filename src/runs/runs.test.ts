@@ -312,3 +312,151 @@ describe("OnDemandResearchRunner", () => {
     db.close();
   });
 });
+
+describe("filing_diff run type (P8)", () => {
+  const OLD_DOC = `
+<p>Item 1. Business</p>
+<p>Acme Semiconductor designs memory controllers for data centers and licenses its Turbo Fabric interconnect to twelve hyperscale customers worldwide.</p>
+<p>This report contains forward-looking statements within the meaning of the Private Securities Litigation Reform Act of 1995 and actual results may differ materially.</p>
+<p>Item 1A. Risk Factors</p>
+<p>Our revenue is concentrated among a small number of customers; our top three customers accounted for 45% of revenue in fiscal 2024.</p>
+`;
+  const NEW_DOC = `
+<p>Item 1. Business</p>
+<p>Acme Semiconductor designs memory controllers for data centers and licenses its Turbo Fabric interconnect to twelve hyperscale customers worldwide.</p>
+<p>This report contains forward-looking statements within the meaning of the Private Securities Litigation Reform Act of 1995 and actual results may differ materially.</p>
+<p>Item 1A. Risk Factors</p>
+<p>Customer concentration worsened materially: our top three customers accounted for 68% of revenue in fiscal 2025, and we lost a major hyperscale customer during the fourth quarter.</p>
+`;
+
+  function seedFilingDiffDb(db: Db): void {
+    // ACME: watchlisted, two 10-Ks. BETA: held position, no filings (skip path).
+    db.prepare('INSERT INTO "Ticker" (symbol, active, watchlisted) VALUES (?, ?, ?)').run("ACME", 1, 1);
+    db.prepare('INSERT INTO "Ticker" (symbol, active, watchlisted) VALUES (?, ?, ?)').run("BETA", 1, 0);
+    db.prepare('INSERT INTO "Position" (symbol, qty, avgCost) VALUES (?, ?, ?)').run("BETA", 10, 5);
+    const ins = db.prepare(
+      'INSERT INTO "EdgarFiling" (accessionNo, symbol, cik, form, filedAt, primaryDoc) VALUES (?, ?, ?, ?, ?, ?)'
+    );
+    ins.run("0001-24-000001", "ACME", "0001234567", "10-K", "2025-02-15", "acme-10k-2024.htm");
+    ins.run("0001-25-000002", "ACME", "0001234567", "10-K", "2026-02-15", "acme-10k-2025.htm");
+  }
+
+  const fakeFetch = async (url: string) => ({
+    ok: true,
+    status: 200,
+    text: async () => (url.includes("2025.htm") ? NEW_DOC : OLD_DOC),
+  });
+
+  it("diffs watchlist+portfolio symbols, persists FilingEvent kind filing-diff, writes the artifact", async () => {
+    const db = setupTestDb();
+    seedFilingDiffDb(db);
+    createResearchRun(db as unknown as SqlDb, {
+      id: "run_fdiff",
+      runType: "filing_diff",
+      target: "watchlist",
+      budgetSeconds: 1800,
+      profile: "fast",
+    });
+
+    const provider = new FakeProvider([
+      '{"summary": "Customer concentration worsened: \\"68% of revenue\\" vs \\"45%\\" (0001-25-000002).", "verdict": "thesis-relevant"}',
+    ]);
+    const runner = new OnDemandResearchRunner(db as unknown as SqlDb, "run_fdiff", () => provider, {
+      now: () => 1000,
+      platform: "linux",
+      fetchImpl: fakeFetch as any,
+      userAgent: "test test@example.com",
+    });
+    await runner.execute();
+
+    const run = db.prepare('SELECT * FROM "ResearchRun" WHERE id = ?').get("run_fdiff") as any;
+    expect(run.status).toBe("COMPLETED");
+
+    // One step per symbol (ACME + BETA), both completed
+    const steps = db.prepare('SELECT * FROM "ResearchRunStep" WHERE "runId" = ? ORDER BY "stepIndex"').all("run_fdiff") as any[];
+    expect(steps.map((s) => s.stepName)).toEqual(["filing_diff_symbol", "filing_diff_symbol"]);
+    expect(steps.every((s) => s.status === "COMPLETED")).toBe(true);
+
+    // ACME: FilingEvent persisted with the LLM verdict as severity
+    const evt = db.prepare('SELECT * FROM "FilingEvent" WHERE symbol = ? AND kind = ?').get("ACME", "filing-diff") as any;
+    expect(evt).toBeTruthy();
+    expect(evt.severity).toBe("thesis-relevant");
+    expect(evt.item).toBe("diff");
+    expect(evt.accessionNo).toBe("0001-25-000002");
+    expect(evt.snippet).toContain("68% of revenue");
+
+    // BETA: skipped (no filings), never crashed the run, no FilingEvent
+    const betaStep = steps.find((s) => JSON.parse(s.payload).symbol === "BETA")!;
+    expect(JSON.parse(betaStep.resultCheckpoint).skipped).toContain("fewer than two");
+    expect(db.prepare('SELECT COUNT(*) c FROM "FilingEvent" WHERE symbol = ?').get("BETA") as any).toMatchObject({ c: 0 });
+
+    // The LLM saw ONLY changed paragraphs — boilerplate never reaches the model
+    expect(provider.callCount).toBe(1);
+    expect(provider.calls[0].msg.user).toContain("68%");
+    expect(provider.calls[0].msg.user).not.toContain("forward-looking");
+
+    // Artifact written with the batch table
+    const md = readFileSync("data/research/run_fdiff.md", "utf8");
+    expect(md).toContain("Filing Diff Batch Analysis");
+    expect(md).toContain("ACME");
+    expect(md).toContain("thesis-relevant");
+
+    rmSync("data/research/run_fdiff.md", { force: true });
+    db.close();
+  });
+
+  it("degrades to a deterministic summary when the LLM output never validates", async () => {
+    const db = setupTestDb();
+    seedFilingDiffDb(db);
+    db.prepare('DELETE FROM "Position"').run(); // ACME only
+    createResearchRun(db as unknown as SqlDb, {
+      id: "run_fdiff_bad_llm",
+      runType: "filing_diff",
+      target: "watchlist",
+      budgetSeconds: 1800,
+      profile: "fast",
+    });
+
+    const provider = new FakeProvider(["this is not json at all"]);
+    const runner = new OnDemandResearchRunner(db as unknown as SqlDb, "run_fdiff_bad_llm", () => provider, {
+      now: () => 1000,
+      platform: "linux",
+      fetchImpl: fakeFetch as any,
+      userAgent: "test test@example.com",
+    });
+    await runner.execute();
+
+    const run = db.prepare('SELECT * FROM "ResearchRun" WHERE id = ?').get("run_fdiff_bad_llm") as any;
+    expect(run.status).toBe("COMPLETED");
+    const evt = db.prepare('SELECT * FROM "FilingEvent" WHERE symbol = ? AND kind = ?').get("ACME", "filing-diff") as any;
+    expect(evt.severity).toBe("notable"); // deterministic fallback
+    expect(evt.snippet).toContain("changed paragraph");
+
+    rmSync("data/research/run_fdiff_bad_llm.md", { force: true });
+    db.close();
+  });
+
+  it("handles an empty watchlist with a no-targets step", async () => {
+    const db = setupTestDb();
+    createResearchRun(db as unknown as SqlDb, {
+      id: "run_fdiff_empty",
+      runType: "filing_diff",
+      target: "watchlist",
+      budgetSeconds: 1800,
+      profile: "fast",
+    });
+    const runner = new OnDemandResearchRunner(db as unknown as SqlDb, "run_fdiff_empty", () => new FakeProvider([]), {
+      now: () => 1000,
+      platform: "linux",
+      fetchImpl: fakeFetch as any,
+      userAgent: "test test@example.com",
+    });
+    await runner.execute();
+    const run = db.prepare('SELECT * FROM "ResearchRun" WHERE id = ?').get("run_fdiff_empty") as any;
+    expect(run.status).toBe("COMPLETED");
+    const md = readFileSync("data/research/run_fdiff_empty.md", "utf8");
+    expect(md).toContain("No watchlist or portfolio symbols");
+    rmSync("data/research/run_fdiff_empty.md", { force: true });
+    db.close();
+  });
+});

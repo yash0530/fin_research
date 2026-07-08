@@ -267,6 +267,7 @@ h3 {
 .sev-info { color: var(--accent-blue); }
 .sev-warn { color: var(--amber-text); }
 .sev-critical { color: var(--critical-text); }
+.sev-ok { color: var(--green-text); }
 
 .evidence {
   color: var(--fg-muted);

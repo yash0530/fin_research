@@ -13,7 +13,8 @@ and unit-tested with vitest — no live network or LLM required to run the suite
 | `tools/` | evidence ledger, budget, cache, registry, and the ported quant tools |
 | `screener/` | full-universe screening engine |
 | `screens/` | individual stock screen modules (fscore, accruals, dilution, cohort, earnings-trend, insider-cluster, eightk-classify) |
-| `runs/` | on-demand research runs (budget, safety, reconcile, create, runner) |
+| `monitor/` | thesis-decay monitoring primitives: pure filing-diff core (boilerplate-filtered paragraph Jaccard) + tripwire surfacing shared by dashboard/ticker readers |
+| `runs/` | on-demand research runs (budget, safety, reconcile, create, runner — incl. the `filing_diff` run type's fetch+LLM steps) |
 | `themes/` | theme taxonomy (config) + transparent 3-segment ranking with honest ties and a low-data silo |
 | `dossier/` | multi-agent debate engine (resumable, single-flight) |
 | `research/` | deterministic digest synthesis |

@@ -9,6 +9,7 @@ import { computeDilution } from "@engine/screens/dilution";
 import { computeEarningsTrend } from "@engine/screens/earnings-trend";
 import { checkInsiderCluster } from "@engine/screens/insider-cluster";
 import { TRIPWIRES } from "@engine/config/tripwires";
+import { alertsForSymbol, type FilingEventRow } from "@engine/monitor/tripwires";
 
 // Server-only data loader for tickers, SQLite queries using node:sqlite.
 // Follows the digest-data.ts / dossier-data.ts patterns.
@@ -172,6 +173,8 @@ export interface TickerDetail {
     earningsTrend: any;
     insiderCluster: any;
   };
+  /** Aggregated data-quality warnings from the screen modules (amber-chip fodder). */
+  screenWarnings: string[];
 }
 
 interface SqlDb {
@@ -650,29 +653,28 @@ export async function tickerDetail(
       errorMessage: r.errorMessage as string | null,
     }));
 
-    // 14. Fetch Fired RuleEvents (Tripwires)
-    const ruleEvents = db.prepare("SELECT ruleId, firedAt, severity, message, acked FROM RuleEvent WHERE acked = 0").all() as any[];
-    const activeTripwires = ruleEvents
-      .filter((evt) => {
-        const rule = TRIPWIRES.find((t) => t.id === evt.ruleId);
-        if (!rule) return false;
-        if ("symbol" in rule) {
-          return rule.symbol === symbol;
-        }
-        if (rule.id === "ddr5_two_down" || rule.id === "memory_exit") {
-          return sectors.some((s) => s.code === "ai_memory");
-        }
-        if (rule.id === "capex_guide_cut" || rule.id === "credit_proxy") {
-          return sectors.some((s) => s.taxonomy === "ai_infra");
-        }
-        return false;
-      })
-      .map((evt) => ({
-        ruleId: evt.ruleId,
-        firedAt: evt.firedAt,
-        severity: evt.severity,
-        message: evt.message,
-      }));
+    // 14. Tripwire surfacing for the "WHAT KILLS IT?" quadrant — the tested
+    // @engine/monitor mapping (rule scope + 8-K 4.02 always-critical + non-routine
+    // filing-diff events), instead of ad-hoc reader logic.
+    const ruleEvents = db.prepare("SELECT ruleId, firedAt, severity, message FROM RuleEvent WHERE acked = 0").all() as any[];
+    const activeTripwires = alertsForSymbol(
+      symbol,
+      sectors.map((s) => ({ code: s.code, taxonomy: s.taxonomy })),
+      ruleEvents.map((r) => ({
+        ruleId: r.ruleId as string,
+        severity: r.severity as string,
+        message: r.message as string,
+        firedAt: r.firedAt as string,
+      })),
+      filingEvents.map((e) => ({ ...e, symbol })) as FilingEventRow[],
+      TRIPWIRES,
+    ).map((a) => ({
+      ruleId: a.id,
+      firedAt: a.firedAt,
+      severity: a.severity,
+      message: a.message,
+      source: a.source,
+    }));
 
     // 15. Valuation corridor ladder
     let valuationHistory = null;
@@ -702,6 +704,14 @@ export async function tickerDetail(
         tRow.marketCap !== null ? (tRow.marketCap as number) : null
       ),
     };
+
+    // Thread the screens' data-quality warnings through instead of dropping them.
+    const screenWarnings: string[] = [
+      ...((screens.fscore?.warnings as string[]) ?? []),
+      ...((screens.accruals?.warnings as string[]) ?? []),
+      ...((screens.dilution?.warnings as string[]) ?? []),
+      ...((screens.earningsTrend?.warnings as string[]) ?? []),
+    ];
 
     // 17. Execute DCF, QoE and Technicals tools (old structure)
     const registry = buildProductionRegistry(db as any);
@@ -787,6 +797,7 @@ export async function tickerDetail(
       valuationHistory,
       activeTripwires,
       screens,
+      screenWarnings,
     };
   } catch (err) {
     console.error("Error loading tickerDetail:", err);
