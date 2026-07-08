@@ -30,7 +30,7 @@ export default async function Home() {
     <div className="flex flex-col gap-4">
       <header>
         <h1>Action Center</h1>
-        <p className="muted" style={{ marginTop: "4px" }}>
+        <p className="muted mt-1">
           Daily alerts and the weekly Sourcing Inbox — clear both before moving to Themes.
         </p>
       </header>
@@ -74,7 +74,7 @@ export default async function Home() {
         <div className="dashboard-ideas-inbox">
           <Panel>
             <h2>Sourcing Inbox</h2>
-            <p className="meta-dim" style={{ marginBottom: "8px" }}>
+            <p className="meta-dim mb-2">
               Deduped Candidate rows sourced this week — tier 1 (multi-trigger) and tier 2 (qualified).
             </p>
             <SourcingInbox rows={inbox} killedByQuality={killedByQuality} />
@@ -84,7 +84,7 @@ export default async function Home() {
         <div className="dashboard-action-queue">
           <Panel>
             <h2>Action Queue</h2>
-            <p className="meta-dim" style={{ marginBottom: "8px" }}>Watchlist names in or near the buy band.</p>
+            <p className="meta-dim mb-2">Watchlist names in or near the buy band.</p>
             {watchlistBand.length === 0 ? (
               <EmptyState
                 title="No Watchlist Bands"
@@ -116,7 +116,7 @@ export default async function Home() {
                   </div>
                 ))}
                 {watchlistBand.length > 0 && !watchlistBand.some((r) => r.inBand) && (
-                  <p className="meta-dim" style={{ marginTop: "4px" }}>
+                  <p className="meta-dim mt-1">
                     Closest to trigger: {watchlistBand[0].symbol}{" "}
                     {watchlistBand[0].distancePct !== null ? `+${watchlistBand[0].distancePct}%` : ""}
                   </p>
@@ -136,7 +136,7 @@ export default async function Home() {
                 {alerts.map((a, idx) => (
                   <div key={idx} className="dashboard-alert-row">
                     <Badge variant={severityVariant(a.severity)}>{a.severity.toUpperCase()}</Badge>
-                    <span style={{ fontSize: "0.8125rem" }}>
+                    <span className="text-13">
                       {a.symbol && (
                         <Link href={`/tickers/${a.symbol}`} className="font-mono">
                           {a.symbol}
@@ -148,7 +148,7 @@ export default async function Home() {
                 ))}
               </div>
             )}
-            <h3 style={{ marginTop: "16px" }}>Catalysts (7d)</h3>
+            <h3 className="mt-4">Catalysts (7d)</h3>
             {catalysts.length === 0 ? (
               <p className="meta-dim">Quiet — no dated catalysts in the next 7 days.</p>
             ) : (
@@ -162,9 +162,9 @@ export default async function Home() {
             )}
             {data.capex && (
               <>
-                <h3 style={{ marginTop: "16px" }}>Hyperscaler capex</h3>
-                <div className="flex items-center gap-2" style={{ flexWrap: "wrap" }}>
-                  <span className="font-mono" style={{ fontSize: "0.8125rem", fontWeight: 600 }}>
+                <h3 className="mt-4">Hyperscaler capex</h3>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono text-13 font-weight-600">
                     {data.capex.combinedTtm !== null
                       ? `$${(data.capex.combinedTtm / 1e9).toFixed(0)}B TTM`
                       : "TTM —"}
@@ -178,13 +178,13 @@ export default async function Home() {
                     <Badge variant="warning" title={data.capex.warnings.join("; ")}>YoY unavailable</Badge>
                   )}
                   {data.capex.names.map((n) => (
-                    <span key={n.symbol} className="meta-dim" style={{ fontSize: "0.75rem" }}>
+                    <span key={n.symbol} className="meta-dim text-12">
                       {n.symbol}{" "}
                       {n.yoyGrowthPct !== null ? `${n.yoyGrowthPct >= 0 ? "+" : ""}${n.yoyGrowthPct}%` : "—"}
                     </span>
                   ))}
                 </div>
-                <p className="meta-dim" style={{ marginTop: "4px" }}>
+                <p className="meta-dim mt-1">
                   Shown because an AI-subtheme name is held or watchlisted.{" "}
                   <Link href="/themes/ai">Full scorecard →</Link>
                 </p>
@@ -210,7 +210,7 @@ export default async function Home() {
                   <div key={idx} className="dashboard-insight-row">
                     <Badge variant={severityVariant(i.severity)}>{i.severity.toUpperCase()}</Badge>
                     <div>
-                      <div style={{ fontSize: "0.8125rem" }}>{i.text}</div>
+                      <div className="text-13">{i.text}</div>
                       <div className="evidence">{i.evidence}</div>
                     </div>
                   </div>
@@ -229,13 +229,13 @@ export default async function Home() {
               <div className="flex flex-col gap-2">
                 {governor.tiers.map((t) => (
                   <div key={t.tier} className="flex items-center justify-between">
-                    <span className="font-sans" style={{ fontSize: "0.8125rem" }}>{t.tier}</span>
+                    <span className="font-sans text-13">{t.tier}</span>
                     <Badge variant={t.capLifted ? "success" : "neutral"}>{t.statusLine}</Badge>
                   </div>
                 ))}
               </div>
             )}
-            <Link href="/journal" className="meta-dim" style={{ display: "inline-block", marginTop: "12px" }}>
+            <Link href="/journal" className="meta-dim inline-block mt-3">
               Full governor console →
             </Link>
           </Panel>
@@ -286,7 +286,7 @@ export default async function Home() {
                 </TableBody>
               </DenseTable>
             )}
-            <Link href="/portfolio" className="meta-dim" style={{ display: "inline-block", marginTop: "12px" }}>
+            <Link href="/portfolio" className="meta-dim inline-block mt-3">
               Full portfolio →
             </Link>
           </Panel>

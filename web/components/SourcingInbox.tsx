@@ -30,7 +30,7 @@ function InboxRow({
         </Link>
         <TierTag tier={String(row.tier)} />
         {row.close !== null && <span className="meta-dim">${row.close.toFixed(2)}</span>}
-        <div className="flex items-center gap-1" style={{ flexWrap: "wrap" }}>
+        <div className="flex items-center gap-1 flex-wrap">
           {row.triggerTags.slice(0, 4).map((tag) => (
             <Badge key={tag} variant="neutral">
               {tag}

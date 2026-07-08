@@ -69,7 +69,7 @@ export default function PortfolioClient({ positions, watchlist, harvest, ceremon
     <div className="flex flex-col gap-4">
       <header>
         <h1>Portfolio</h1>
-        <p className="muted" style={{ marginTop: "4px" }}>
+        <p className="muted mt-1">
           Held positions, watchlist buy-band proximity, and the monthly buy ceremony.
         </p>
       </header>
@@ -114,10 +114,10 @@ export default function PortfolioClient({ positions, watchlist, harvest, ceremon
                       <TableRow
                         key={row.symbol}
                         onClick={() => setSelectedSymbol(row.symbol)}
-                        style={{ cursor: "pointer", background: isSelected ? "var(--bg-elevated)" : undefined }}
+                        className={`cursor-pointer ${isSelected ? "table-row-selected" : ""}`}
                       >
                         <TableCell>
-                          <Link href={`/tickers/${row.symbol}`} onClick={(e) => e.stopPropagation()} className="font-mono" style={{ fontWeight: 700 }}>
+                          <Link href={`/tickers/${row.symbol}`} onClick={(e) => e.stopPropagation()} className="font-mono font-weight-700">
                             {row.symbol}
                           </Link>
                         </TableCell>
@@ -136,7 +136,7 @@ export default function PortfolioClient({ positions, watchlist, harvest, ceremon
                           <Badge variant={health.variant}>{health.label}</Badge>
                         </TableCell>
                         <TableCell>
-                          <div className="flex gap-1" style={{ flexWrap: "wrap" }}>
+                          <div className="flex gap-1 flex-wrap">
                             {row.findings.length === 0 ? (
                               <span className="meta-dim">clean</span>
                             ) : (
@@ -165,7 +165,7 @@ export default function PortfolioClient({ positions, watchlist, harvest, ceremon
             <Panel>
               <h3 className="text-table-header">Latest Verdict — {activePosition.symbol}</h3>
               {activePosition.latestVerdict ? (
-                <div className="flex flex-col gap-2" style={{ marginTop: "8px" }}>
+                <div className="flex flex-col gap-2 mt-2">
                   <div className="flex items-center gap-2">
                     <Badge variant={activePosition.latestVerdict.action === "BUY" ? "success" : activePosition.latestVerdict.action === "AVOID" ? "danger" : "neutral"}>
                       {activePosition.latestVerdict.action} · {activePosition.latestVerdict.conviction}
@@ -180,8 +180,8 @@ export default function PortfolioClient({ positions, watchlist, harvest, ceremon
                   </div>
                   {activePosition.latestVerdict.what_would_change_mind.length > 0 && (
                     <div>
-                      <div className="ui-stat-label" style={{ marginBottom: "4px" }}>What would change my mind</div>
-                      <ul style={{ margin: 0, paddingLeft: "18px", fontSize: "0.8125rem", color: "var(--fg-secondary)" }}>
+                      <div className="ui-stat-label mb-1">What would change my mind</div>
+                      <ul className="m-0 pl-18 text-13 text-secondary">
                         {activePosition.latestVerdict.what_would_change_mind.map((c, i) => (
                           <li key={i}>{c}</li>
                         ))}
@@ -212,10 +212,10 @@ export default function PortfolioClient({ positions, watchlist, harvest, ceremon
               onCancel={editingPosition ? () => setEditingPosition(null) : undefined}
             />
             {positions.length > 0 && (
-              <div className="flex flex-col gap-1" style={{ marginTop: "12px" }}>
+              <div className="flex flex-col gap-1 mt-3">
                 {positions.map((p) => (
                   <div key={p.symbol} className="flex items-center justify-between">
-                    <span className="font-mono" style={{ fontSize: "0.75rem" }}>{p.symbol}</span>
+                    <span className="font-mono text-12">{p.symbol}</span>
                     <div className="flex items-center gap-2">
                       <button onClick={() => setEditingPosition(p)} className="ui-runstatusbar-btn">Edit</button>
                       <button onClick={() => handleRemove(p.symbol)} className="ui-runstatusbar-btn">Remove</button>
@@ -290,7 +290,7 @@ export default function PortfolioClient({ positions, watchlist, harvest, ceremon
             <div className="flex items-center justify-between">
               <div>
                 <h2>Monthly Buy Ceremony</h2>
-                <p className="meta-dim" style={{ marginTop: "4px" }}>
+                <p className="meta-dim mt-1">
                   {buyListMonth
                     ? `Last run: ${buyListMonth}`
                     : "No buy list recorded yet."}

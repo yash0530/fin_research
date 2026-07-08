@@ -564,6 +564,10 @@ input[type="range"] {
   color: var(--fg-primary);
 }
 
+.ticker-jump-input--select {
+  height: 36px;
+  background: var(--bg-app);
+}
 .ticker-jump-input::placeholder { color: var(--fg-dim); }
 .ticker-jump-input:hover { border-color: var(--border-muted); }
 .ticker-jump-input:focus { border-color: var(--border-bright); outline: none; }
@@ -1053,6 +1057,9 @@ input[type="range"] {
   color: var(--fg-primary);
   letter-spacing: -0.025em;
 }
+.ui-stat-value--sm {
+  font-size: 1.1rem;
+}
 .ui-stat-subvalue {
   font-size: 0.75rem;
   color: var(--fg-secondary);
@@ -1335,4 +1342,328 @@ input[type="range"] {
   border: 1px solid var(--border-dim);
   border-radius: var(--panel-radius);
   background: var(--bg-app);
+}
+
+/* --- Spacing & misc utilities (P9 density pass) --- */
+.m-0 { margin: 0; }
+.mt-1 { margin-top: 4px; }
+.mt-1-5 { margin-top: 6px; }
+.mt-2 { margin-top: 8px; }
+.mt-3 { margin-top: 12px; }
+.mt-4 { margin-top: 16px; }
+.mt-6 { margin-top: 24px; }
+.mt-10 { margin-top: 40px; }
+.mb-1 { margin-bottom: 4px; }
+.mb-1-5 { margin-bottom: 6px; }
+.mb-2 { margin-bottom: 8px; }
+.mb-3 { margin-bottom: 12px; }
+.mb-4 { margin-bottom: 16px; }
+.mb-6 { margin-bottom: 24px; }
+.mb-10 { margin-bottom: 40px; }
+.mx-auto { margin-left: auto; margin-right: auto; }
+
+.p-1 { padding: 4px; }
+.p-2 { padding: 8px; }
+.p-3 { padding: 12px; }
+.p-4 { padding: 16px; }
+.p-10 { padding: 10px; }
+.p-10-12 { padding: 10px 12px; }
+.px-2 { padding-left: 8px; padding-right: 8px; }
+.pb-2 { padding-bottom: 8px; }
+
+.flex-1 { flex: 1; }
+.flex-2 { flex: 2; }
+.flex-wrap { flex-wrap: wrap; }
+.items-start { align-items: flex-start; }
+.items-end { align-items: flex-end; }
+.self-start { align-self: flex-start; }
+.gap-1-5 { gap: 6px; }
+
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-left { text-align: left; }
+.text-uppercase { text-transform: uppercase; }
+.leading-tight { line-height: 1.4; }
+.italic { font-style: italic; }
+.inline-block { display: inline-block; }
+.whitespace-pre-wrap { white-space: pre-wrap; }
+.resize-vertical { resize: vertical; }
+.resize-none { resize: none; }
+.no-underline { text-decoration: none; }
+.cursor-not-allowed { cursor: not-allowed; }
+
+.max-w-600 { max-width: 600px; }
+.min-w-90 { min-width: 90px; }
+.min-w-100 { min-width: 100px; }
+.min-w-110 { min-width: 110px; }
+.opacity-60 { opacity: 0.6; }
+.opacity-80 { opacity: 0.8; }
+
+/* Font-size scale (px) — matches exact literal sizes already in use */
+.text-10 { font-size: 10px; }
+.text-11 { font-size: 11px; }
+.text-11-5 { font-size: 11.5px; }
+.text-12 { font-size: 12px; }
+.text-13 { font-size: 13px; }
+.text-14 { font-size: 14px; }
+.text-15 { font-size: 15px; }
+.text-18 { font-size: 18px; }
+
+.font-weight-600 { font-weight: 600; }
+.font-weight-700 { font-weight: 700; }
+
+/* Text colors */
+.text-secondary { color: var(--fg-secondary); }
+.text-primary { color: var(--fg-primary); }
+.text-dim { color: var(--fg-dim); }
+.text-accent { color: var(--accent-blue); }
+.text-gold { color: var(--accent-gold); }
+.text-red { color: var(--red-text); }
+.text-green { color: var(--green-text); }
+
+/* Section heading: story-h2 with a bottom rule (ticker cockpit + checklist form) */
+.section-heading {
+  border-bottom: 1px solid var(--border-dim);
+  padding-bottom: 8px;
+}
+.subsection-heading {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+
+/* Selected/highlighted table row (portfolio position picker) */
+.table-row-selected {
+  background-color: var(--bg-elevated);
+}
+
+/* Anomalous financial-statement cell (gross margin / FCF / accrual flags) */
+.cell-anomalous {
+  background-color: var(--amber-bg);
+  color: var(--amber-text);
+  font-weight: 600;
+}
+
+/* Shared form field styling (PositionForm, JournalEditor) */
+.field-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--fg-muted);
+  font-weight: 600;
+}
+.field-input {
+  padding: 8px 12px;
+  border-radius: var(--panel-radius);
+  border: 1px solid var(--border-dim);
+  background: var(--bg-app);
+  color: var(--fg-primary);
+  font-size: 13px;
+  width: 100%;
+  outline: none;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+.field-input--faded {
+  opacity: 0.6;
+}
+.field-textarea {
+  width: 100%;
+  background: var(--bg-app);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--panel-radius);
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--fg-primary);
+  resize: vertical;
+  outline: none;
+}
+.drawer-save--inline {
+  align-self: flex-end;
+  width: auto;
+  padding: 8px 18px;
+  border: none;
+  font-weight: 600;
+}
+.w-fit { width: fit-content; }
+.border-none { border: none; }
+.panel--muted-border { border-color: var(--border-muted); }
+.dossier-transcript {
+  background: var(--bg-app);
+  padding: 12px;
+  border: 1px solid var(--border-dim);
+  border-radius: var(--panel-radius);
+  white-space: pre-wrap;
+  font-size: 11px;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  max-height: 350px;
+  overflow-y: auto;
+}
+.ui-badge--block { display: block; padding: 10px; }
+.drawer-textarea--order-sheet { min-height: 220px; white-space: pre-wrap; }
+.pl-18 { padding-left: 18px; }
+
+/* Inline status/result boxes (research run drawer, inversion checklist form) */
+.run-drawer-status {
+  padding: 10px;
+  border-radius: var(--panel-radius);
+  font-size: 12px;
+  line-height: 1.4;
+  border: 1px solid;
+}
+.run-drawer-status--ok {
+  background: var(--green-bg);
+  border-color: var(--green-border);
+  color: var(--green-text);
+}
+.run-drawer-status--error {
+  background: var(--red-bg);
+  border-color: var(--red-border);
+  color: var(--red-text);
+}
+.checklist-message {
+  padding: 10px 12px;
+  border-radius: var(--panel-radius);
+  font-size: 12px;
+  margin-bottom: 12px;
+  border: 1px solid;
+}
+.checklist-message--ok {
+  background: var(--green-bg);
+  border-color: var(--green-border);
+  color: var(--green-text);
+}
+.checklist-message--error {
+  background: var(--red-bg);
+  border-color: var(--red-border);
+  color: var(--red-text);
+}
+
+/* Watchlist star toggle button (ticker cockpit header) */
+.watchlist-toggle-btn {
+  border: 1px solid var(--border-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: var(--panel-radius);
+  font-size: 11px;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 600;
+}
+.watchlist-star {
+  font-size: 14px;
+}
+.watchlist-star--active { color: var(--accent-gold); }
+.watchlist-star--inactive { color: var(--fg-muted); }
+
+/* Run status pill (sidebar run console — uses legacy story.css tokens on
+   purpose: only the ticker cockpit route imports story.css today, so these
+   vars are undefined elsewhere; preserved as-is, not a redesign). */
+.run-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-family: var(--fmono, monospace);
+}
+.run-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.run-status-dot--idle {
+  background: var(--muted, #888);
+  box-shadow: none;
+}
+.run-status-dot--booting {
+  background: #d98a00;
+  box-shadow: 0 0 6px #d98a00;
+}
+.run-status-dot--running {
+  background: #2a8a2a;
+  box-shadow: 0 0 6px #2a8a2a;
+}
+
+/* Ticker "not found" fallback card — legacy story.css tokens (--line/--surface/
+   --ink/--inset/--fmono), unchanged look from before the P9 pass. */
+.error-card {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 2rem;
+}
+.error-code-block {
+  background: var(--inset);
+  color: var(--ink);
+  padding: 12px;
+  border-radius: 6px;
+  font-family: var(--fmono);
+  font-size: 14px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  text-align: left;
+  margin-bottom: 1rem;
+}
+.error-page { padding: 40px 24px; }
+.error-lead { margin: 0 auto 24px; max-width: 600px; }
+
+/* Ticker cockpit page (P9) */
+.cockpit-page { padding: 24px 0; }
+.cockpit-hero {
+  border-bottom: 1px solid var(--border-dim);
+  padding-bottom: 1.5rem;
+  margin-bottom: 2rem;
+}
+.cockpit-name-heading { margin: 8px 0 12px 0; }
+.cockpit-price-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg-muted);
+  margin-bottom: 4px;
+}
+.cockpit-price-value {
+  font-family: var(--fdisp);
+  font-size: 3.2rem;
+  font-weight: 600;
+}
+.cockpit-price-change {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+.cockpit-sector-badge {
+  margin: 0;
+  font-size: 11px;
+  padding: 4px 10px;
+}
+.cockpit-sector-badge--ai {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  border: 1px solid color-mix(in srgb, var(--accent-deep) 20%, transparent);
+}
+.cockpit-sector-badge--default {
+  background: var(--surface-2);
+  color: var(--muted);
+  border: 1px solid var(--border-dim);
+}
+.cockpit-kill-card {
+  background: var(--red-bg);
+  border-color: var(--red-border);
+  color: var(--red-text);
+}
+.cockpit-kill-label { color: var(--red-text); }
+.cockpit-kill-list { font-size: 11px; }
+.cockpit-kill-item-strong { font-weight: 600; }
+.cockpit-kill-empty { color: var(--red-text); opacity: 0.8; }
+.cockpit-kill-disconfirm {
+  margin-top: 6px;
+  border-top: 1px solid var(--red-border);
+  padding-top: 4px;
+}
+.cockpit-kill-disconfirm-empty {
+  margin-top: 6px;
+  opacity: 0.6;
+  font-size: 10px;
 }

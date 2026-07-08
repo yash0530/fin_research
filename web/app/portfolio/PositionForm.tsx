@@ -12,26 +12,6 @@ interface PositionFormProps {
   onCancel?: () => void;
 }
 
-const FIELD_LABEL: React.CSSProperties = {
-  fontSize: "11px",
-  textTransform: "uppercase",
-  letterSpacing: "0.05em",
-  color: "var(--fg-muted)",
-  fontWeight: 600,
-};
-
-const FIELD_INPUT: React.CSSProperties = {
-  padding: "8px 12px",
-  borderRadius: "var(--panel-radius)",
-  border: "1px solid var(--border-dim)",
-  background: "var(--bg-app)",
-  color: "var(--fg-primary)",
-  fontSize: "13px",
-  width: "100%",
-  outline: "none",
-  fontFamily: "var(--font-sans)",
-};
-
 export default function PositionForm({
   initialSymbol = "",
   initialQty,
@@ -100,32 +80,32 @@ export default function PositionForm({
   const isEdit = !!initialSymbol;
 
   return (
-    <form onSubmit={handleSubmit} className="flex gap-3" style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
-      <div style={{ flex: "1", minWidth: "100px" }} className="flex flex-col gap-1">
-        <label style={FIELD_LABEL}>Symbol</label>
+    <form onSubmit={handleSubmit} className="flex gap-3 flex-wrap items-end">
+      <div className="flex flex-col gap-1 flex-1 min-w-100">
+        <label className="field-label">Symbol</label>
         <input
           type="text"
           value={symbol}
           onChange={(e) => setSymbol(e.target.value)}
           placeholder="e.g. MU"
           disabled={busy || isEdit}
-          style={{ ...FIELD_INPUT, opacity: isEdit ? 0.6 : 1 }}
+          className={`field-input ${isEdit ? "field-input--faded" : ""}`}
         />
       </div>
 
-      <div style={{ flex: "1", minWidth: "90px" }} className="flex flex-col gap-1">
-        <label style={FIELD_LABEL}>Quantity</label>
-        <input type="number" step="any" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="e.g. 50" disabled={busy} style={FIELD_INPUT} />
+      <div className="flex flex-col gap-1 flex-1 min-w-90">
+        <label className="field-label">Quantity</label>
+        <input type="number" step="any" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="e.g. 50" disabled={busy} className="field-input" />
       </div>
 
-      <div style={{ flex: "1", minWidth: "90px" }} className="flex flex-col gap-1">
-        <label style={FIELD_LABEL}>Avg Cost ($)</label>
-        <input type="number" step="any" value={avgCost} onChange={(e) => setAvgCost(e.target.value)} placeholder="e.g. 85.50" disabled={busy} style={FIELD_INPUT} />
+      <div className="flex flex-col gap-1 flex-1 min-w-90">
+        <label className="field-label">Avg Cost ($)</label>
+        <input type="number" step="any" value={avgCost} onChange={(e) => setAvgCost(e.target.value)} placeholder="e.g. 85.50" disabled={busy} className="field-input" />
       </div>
 
-      <div style={{ flex: "1", minWidth: "110px" }} className="flex flex-col gap-1">
-        <label style={FIELD_LABEL}>Opened At</label>
-        <input type="date" value={openedAt} onChange={(e) => setOpenedAt(e.target.value)} disabled={busy} style={FIELD_INPUT} />
+      <div className="flex flex-col gap-1 flex-1 min-w-110">
+        <label className="field-label">Opened At</label>
+        <input type="date" value={openedAt} onChange={(e) => setOpenedAt(e.target.value)} disabled={busy} className="field-input" />
       </div>
 
       <div className="flex gap-2">
@@ -139,7 +119,7 @@ export default function PositionForm({
         )}
       </div>
 
-      {error && <div className="ui-runstatusbar-err" style={{ width: "100%" }}>{error}</div>}
+      {error && <div className="ui-runstatusbar-err w-full">{error}</div>}
     </form>
   );
 }

@@ -6,18 +6,6 @@ import { createJournalEntryAction } from "./actions";
 
 const ACTIONS = ["BUY", "HOLD", "TRIM", "AVOID", "SELL", "NOTE"];
 
-const FIELD_INPUT: React.CSSProperties = {
-  padding: "8px 12px",
-  borderRadius: "var(--panel-radius)",
-  border: "1px solid var(--border-dim)",
-  background: "var(--bg-app)",
-  color: "var(--fg-primary)",
-  fontSize: "13px",
-  width: "100%",
-  outline: "none",
-  fontFamily: "var(--font-sans)",
-};
-
 export function JournalEditor({ initialSymbol = "" }: { initialSymbol?: string }) {
   const router = useRouter();
   const [symbol, setSymbol] = useState(initialSymbol);
@@ -51,13 +39,13 @@ export function JournalEditor({ initialSymbol = "" }: { initialSymbol?: string }
   return (
     <form onSubmit={submit} className="flex flex-col gap-3">
       <div className="flex gap-3">
-        <div className="flex flex-col gap-1" style={{ flex: 1 }}>
+        <div className="flex flex-col gap-1 flex-1">
           <label className="ui-stat-label">Symbol</label>
-          <input value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="e.g. MU" style={FIELD_INPUT} disabled={busy} />
+          <input value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="e.g. MU" className="field-input" disabled={busy} />
         </div>
-        <div className="flex flex-col gap-1" style={{ flex: 1 }}>
+        <div className="flex flex-col gap-1 flex-1">
           <label className="ui-stat-label">Action</label>
-          <select value={action} onChange={(e) => setAction(e.target.value)} style={FIELD_INPUT} disabled={busy}>
+          <select value={action} onChange={(e) => setAction(e.target.value)} className="field-input" disabled={busy}>
             {ACTIONS.map((a) => (
               <option key={a} value={a}>
                 {a}
@@ -72,8 +60,7 @@ export function JournalEditor({ initialSymbol = "" }: { initialSymbol?: string }
           value={thesis}
           onChange={(e) => setThesis(e.target.value)}
           rows={3}
-          className="font-mono"
-          style={{ ...FIELD_INPUT, resize: "vertical" }}
+          className="font-mono field-input resize-vertical"
           placeholder="Why this action, today?"
           disabled={busy}
         />
@@ -84,8 +71,7 @@ export function JournalEditor({ initialSymbol = "" }: { initialSymbol?: string }
           value={invalidation}
           onChange={(e) => setInvalidation(e.target.value)}
           rows={2}
-          className="font-mono"
-          style={{ ...FIELD_INPUT, resize: "vertical" }}
+          className="font-mono field-input resize-vertical"
           placeholder="What would prove this wrong?"
           disabled={busy}
         />

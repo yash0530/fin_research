@@ -44,26 +44,10 @@ export function phaseLabel(s: RunStatus | null): string {
 
 export function RunStatusPill({ status }: { status: RunStatus | null }): React.JSX.Element {
   const busy = !!status?.busy;
-  const color = !busy ? "var(--muted, #888)" : status?.phase === "booting" ? "#d98a00" : "#2a8a2a";
+  const dotVariant = !busy ? "idle" : status?.phase === "booting" ? "booting" : "running";
   return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 8,
-        fontSize: 13,
-        fontFamily: "var(--fmono, monospace)",
-      }}
-    >
-      <span
-        style={{
-          width: 8,
-          height: 8,
-          borderRadius: "50%",
-          background: color,
-          boxShadow: busy ? `0 0 6px ${color}` : "none",
-        }}
-      />
+    <span className="run-status-pill">
+      <span className={`run-status-dot run-status-dot--${dotVariant}`} />
       {phaseLabel(status)}
     </span>
   );

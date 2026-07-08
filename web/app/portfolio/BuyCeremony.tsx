@@ -98,12 +98,12 @@ export function BuyCeremony({ harvest, onClose }: { harvest: HarvestCandidate[];
   return (
     <div className="buy-ceremony-overlay" onClick={onClose}>
       <div className="buy-ceremony-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between" style={{ marginBottom: "12px" }}>
+        <div className="flex items-center justify-between mb-3">
           <h2>Monthly Buy Ceremony</h2>
           <button onClick={onClose} className="drawer-close">✕</button>
         </div>
 
-        <div className="flex items-center gap-2" style={{ marginBottom: "16px" }}>
+        <div className="flex items-center gap-2 mb-4">
           {STEP_LABELS.map((label, idx) => (
             <Badge key={label} variant={idx + 1 === step ? "success" : idx + 1 < step ? "neutral" : "neutral"}>
               {idx + 1}. {label}
@@ -229,15 +229,15 @@ export function BuyCeremony({ harvest, onClose }: { harvest: HarvestCandidate[];
             <p className="meta-dim">Step 3 — Munger inversion checklist: acknowledge each before printing the order sheet.</p>
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={acks.q1} onChange={(e) => setAcks((a) => ({ ...a, q1: e.target.checked }))} />
-              <span style={{ fontSize: "0.8125rem" }}>What would have to be true for this batch to be a mistake a year from now?</span>
+              <span className="text-13">What would have to be true for this batch to be a mistake a year from now?</span>
             </label>
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={acks.q2} onChange={(e) => setAcks((a) => ({ ...a, q2: e.target.checked }))} />
-              <span style={{ fontSize: "0.8125rem" }}>What structural bias (recency, FOMO, sunk cost) might be driving this sizing?</span>
+              <span className="text-13">What structural bias (recency, FOMO, sunk cost) might be driving this sizing?</span>
             </label>
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={acks.q3} onChange={(e) => setAcks((a) => ({ ...a, q3: e.target.checked }))} />
-              <span style={{ fontSize: "0.8125rem" }}>Have the governor caps and skipped/sub-lot items been reviewed and accepted?</span>
+              <span className="text-13">Have the governor caps and skipped/sub-lot items been reviewed and accepted?</span>
             </label>
             <div className="flex flex-col gap-1">
               <label className="ui-stat-label">Disconfirming notes (frozen into each DecisionSnapshot)</label>
@@ -245,17 +245,7 @@ export function BuyCeremony({ harvest, onClose }: { harvest: HarvestCandidate[];
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
-                className="font-mono"
-                style={{
-                  width: "100%",
-                  background: "var(--bg-app)",
-                  border: "1px solid var(--border-dim)",
-                  borderRadius: "var(--panel-radius)",
-                  padding: "8px 12px",
-                  fontSize: "12px",
-                  color: "var(--fg-primary)",
-                  resize: "vertical",
-                }}
+                className="font-mono field-textarea"
                 placeholder="What would prove this month's batch wrong?"
               />
             </div>
@@ -270,10 +260,10 @@ export function BuyCeremony({ harvest, onClose }: { harvest: HarvestCandidate[];
 
         {step === 4 && preview && (
           <div className="flex flex-col gap-3">
-            <div className="ui-badge ui-badge--critical" style={{ display: "block", padding: "10px" }}>
+            <div className="ui-badge ui-badge--critical ui-badge--block">
               MANUAL BROKER ENTRY ONLY — this app never places orders or connects to a broker.
             </div>
-            <pre className="drawer-textarea" style={{ minHeight: "220px", whiteSpace: "pre-wrap" }}>{orderText}</pre>
+            <pre className="drawer-textarea drawer-textarea--order-sheet">{orderText}</pre>
             {commitResult && (
               <div className={commitResult.ok ? "drawer-result-ok" : "drawer-result-error"}>
                 {commitResult.ok

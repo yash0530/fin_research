@@ -29,7 +29,7 @@ export function WelcomeBackBanner({ staleDays }: { staleDays: number }) {
       <div className="flex items-center justify-between gap-4">
         <div>
           <div className="ui-stat-label">Welcome back</div>
-          <div style={{ fontSize: "0.875rem", color: "var(--fg-primary)", marginTop: "4px" }}>
+          <div className="text-primary text-14 mt-1">
             It has been <strong>{staleDays} days</strong> since the last data refresh or digest. Prices, filings, and
             the sourcing inbox are stale.
           </div>
@@ -38,7 +38,7 @@ export function WelcomeBackBanner({ staleDays }: { staleDays: number }) {
           {pending ? "Starting…" : "Run digest now"}
         </button>
       </div>
-      {msg && <div className="meta-dim" style={{ marginTop: "8px" }}>{msg}</div>}
+      {msg && <div className="meta-dim mt-2">{msg}</div>}
     </div>
   );
 }

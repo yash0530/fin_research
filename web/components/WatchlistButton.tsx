@@ -34,21 +34,9 @@ export function WatchlistButton({ symbol, initialWatchlisted }: Props) {
     <button
       onClick={handleToggle}
       disabled={loading}
-      className={`ui-rangetabs-btn ${watchlisted ? "ui-rangetabs-btn--active" : "ui-rangetabs-btn--inactive"}`}
-      style={{
-        border: "1px solid var(--border-muted)",
-        display: "inline-flex",
-        alignItems: "center",
-        gap: "6px",
-        cursor: "pointer",
-        padding: "6px 12px",
-        borderRadius: "var(--panel-radius)",
-        fontSize: "11px",
-        fontFamily: "var(--font-sans)",
-        fontWeight: 600,
-      }}
+      className={`ui-rangetabs-btn watchlist-toggle-btn ${watchlisted ? "ui-rangetabs-btn--active" : "ui-rangetabs-btn--inactive"}`}
     >
-      <span style={{ color: watchlisted ? "var(--accent-gold)" : "var(--fg-muted)", fontSize: "14px" }}>
+      <span className={`watchlist-star ${watchlisted ? "watchlist-star--active" : "watchlist-star--inactive"}`}>
         {watchlisted ? "★" : "☆"}
       </span>
       <span>{watchlisted ? "Watchlisted" : "Watch"}</span>

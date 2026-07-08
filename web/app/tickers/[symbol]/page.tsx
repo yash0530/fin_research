@@ -74,32 +74,21 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
 
   if (!detail) {
     return (
-      <div className="story-page" style={{ padding: "40px 24px" }}>
-        <header className="hero" style={{ textAlign: "center", marginBottom: "40px" }}>
-          <div className="eyebrow" style={{ justifyContent: "center" }}>Workstation Error</div>
+      <div className="story-page error-page">
+        <header className="hero text-center mb-10">
+          <div className="eyebrow justify-center">Workstation Error</div>
           <h1 className="story-h1">Ticker {symbol.toUpperCase()} Not Found</h1>
-          <p className="lead" style={{ margin: "0 auto 24px", maxWidth: "600px" }}>
+          <p className="lead error-lead">
             This asset does not exist in the local SQLite database.
           </p>
         </header>
 
-        <div className="panel" style={{ border: '1px solid var(--line)', background: 'var(--surface)', borderRadius: '12px', padding: '2rem', maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
+        <div className="panel error-card max-w-600 mx-auto text-center">
           <h2 className="story-h2">Populate this ticker</h2>
-          <p className="body" style={{ margin: '1rem 0' }}>
+          <p className="body">
             Run the discovery and backfill commands to fetch market data and populate the database tables:
           </p>
-          <pre style={{
-            background: 'var(--inset)',
-            color: 'var(--ink)',
-            padding: '12px',
-            borderRadius: '6px',
-            fontFamily: 'var(--fmono)',
-            fontSize: '14px',
-            overflowX: 'auto',
-            border: '1px solid var(--line)',
-            textAlign: 'left',
-            marginBottom: '1rem'
-          }}>
+          <pre className="error-code-block">
             npm run job -- backfill --task=prices10y --symbol={symbol.toUpperCase()}
           </pre>
         </div>
@@ -161,33 +150,25 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
   ];
 
   return (
-    <div className="story-page" style={{ padding: "24px 0" }}>
+    <div className="story-page cockpit-page">
       {/* Header Banner */}
-      <header className="hero" style={{ borderBottom: '1px solid var(--border-dim)', paddingBottom: '1.5rem', marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+      <header className="hero cockpit-hero">
+        <div className="flex justify-between items-start flex-wrap gap-4">
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span className="kicker" style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>{detail.symbol}</span>
+            <div className="flex items-center gap-3">
+              <span className="kicker text-18 font-weight-700 m-0">{detail.symbol}</span>
               <WatchlistButton symbol={detail.symbol} initialWatchlisted={detail.watchlisted} />
               {detail.tier && <TierTag tier={detail.tier as any} />}
             </div>
-            <h1 className="story-h1" style={{ margin: '8px 0 12px 0' }}>{detail.name ?? detail.symbol}</h1>
-            
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
+            <h1 className="story-h1 cockpit-name-heading">{detail.name ?? detail.symbol}</h1>
+
+            <div className="flex gap-1-5 flex-wrap mt-2">
               {detail.sectors.map((sec) => {
                 const isAi = sec.taxonomy === "ai_infra";
                 return (
                   <span
                     key={sec.code}
-                    className={`verdict-badge ${isAi ? "buy" : ""}`}
-                    style={{
-                      margin: 0,
-                      fontSize: '11px',
-                      padding: '4px 10px',
-                      background: isAi ? 'var(--accent-soft)' : 'var(--surface-2)',
-                      color: isAi ? 'var(--accent-deep)' : 'var(--muted)',
-                      border: `1px solid ${isAi ? 'color-mix(in srgb, var(--accent-deep) 20%, transparent)' : 'var(--border-dim)'}`
-                    }}
+                    className={`verdict-badge ${isAi ? "buy" : ""} cockpit-sector-badge ${isAi ? "cockpit-sector-badge--ai" : "cockpit-sector-badge--default"}`}
                     title={`${sec.name} (${sec.taxonomy.toUpperCase()})`}
                   >
                     {formatSectorCode(sec.code)}
@@ -197,19 +178,13 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
             </div>
           </div>
 
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--fg-muted)', marginBottom: '4px' }}>Last Close Price</div>
-            <div className="story-h1" style={{ margin: 0, fontFamily: 'var(--fdisp)', fontSize: '3.2rem', fontWeight: 600 }}>
+          <div className="text-right">
+            <div className="cockpit-price-label">Last Close Price</div>
+            <div className="story-h1 m-0 cockpit-price-value">
               {latestPrice ? `$${latestPrice.close.toFixed(2)}` : "—"}
             </div>
             {pctChange1d !== null && (
-              <div style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '15px',
-                fontWeight: 600,
-                color: isPos ? 'var(--green-text)' : 'var(--red-text)',
-                marginTop: '4px'
-              }}>
+              <div className={`cockpit-price-change ${isPos ? "text-green" : "text-red"}`}>
                 {isPos ? "+" : ""}
                 {pctChange1d.toFixed(2)}% (1d)
               </div>
@@ -224,7 +199,7 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
           
           {/* Section 1: Cockpit */}
           <section id="cockpit" className="flex flex-col gap-4">
-            <h2 className="story-h2" style={{ borderBottom: "1px solid var(--border-dim)", paddingBottom: "8px", margin: 0 }}>
+            <h2 className="story-h2 section-heading m-0">
               Workstation Cockpit
             </h2>
             <div className="grid grid-cols-2 gap-4">
@@ -239,7 +214,7 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
                 </div>
                 {detail.valuationHistory?.bands?.pe && latestPrice ? (
                   <div className="flex flex-col gap-2">
-                    <div style={{ fontSize: "11px", color: "var(--fg-secondary)" }}>
+                    <div className="text-11 text-secondary">
                       Current P/E: <strong>{detail.valuationHistory.current?.pe?.toFixed(1) ?? "—"}x</strong>
                     </div>
                     <BandBar
@@ -252,7 +227,7 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
                 ) : (
                   <div className="flex items-center gap-2">
                     <Badge variant="warning">Valuation Bands Suspended</Badge>
-                    <span style={{ fontSize: "10px", color: "var(--fg-muted)" }}>Missing P/E multiple inputs</span>
+                    <span className="text-10 muted">Missing P/E multiple inputs</span>
                   </div>
                 )}
               </Panel>
@@ -298,49 +273,41 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
                 </div>
                 <div className="flex flex-col gap-1">
                   {detail.screens.insiderCluster.clustered ? (
-                    <div style={{ fontSize: "11px", color: "var(--accent-gold)", fontWeight: 600 }}>
+                    <div className="text-11 text-gold font-weight-600">
                       ⚠️ INSIDER CLUSTER: {detail.screens.insiderCluster.insiders.length} buyers (${(detail.screens.insiderCluster.totalValue / 1e3).toFixed(0)}k ttm)
                     </div>
                   ) : (
-                    <div style={{ fontSize: "11px", color: "var(--fg-muted)" }}>No structural insider buying cluster</div>
+                    <div className="text-11 muted">No structural insider buying cluster</div>
                   )}
                   {detail.filingEvents.length > 0 ? (
-                    <div style={{ fontSize: "10px", color: "var(--fg-secondary)" }}>
+                    <div className="text-10 text-secondary">
                       Latest filing: <strong>{detail.filingEvents[0].form}</strong> ({formatDate(detail.filingEvents[0].filedAt)})
                     </div>
                   ) : (
-                    <div style={{ fontSize: "10px", color: "var(--fg-muted)" }}>No recent structural 8-K filings</div>
+                    <div className="text-10 muted">No recent structural 8-K filings</div>
                   )}
                 </div>
               </Panel>
 
               {/* Q4: What Kills It */}
-              <div
-                className="panel flex flex-col gap-3"
-                style={{
-                  background: "var(--red-bg)",
-                  borderColor: "var(--red-border)",
-                  color: "var(--red-text)",
-                  margin: "8px 0"
-                }}
-              >
-                <span className="ui-stat-label" style={{ color: "var(--red-text)" }}>WHAT KILLS IT?</span>
-                <div className="flex flex-col gap-1" style={{ fontSize: "11px" }}>
+              <div className="panel flex flex-col gap-3 cockpit-kill-card">
+                <span className="ui-stat-label cockpit-kill-label">WHAT KILLS IT?</span>
+                <div className="flex flex-col gap-1 cockpit-kill-list">
                   {detail.activeTripwires.length > 0 ? (
                     detail.activeTripwires.map((trip: any, idx: number) => (
-                      <div key={idx} style={{ fontWeight: 600 }}>
+                      <div key={idx} className="cockpit-kill-item-strong">
                         🚨 [{String(trip.severity ?? "warn").toUpperCase()}] {trip.message}
                       </div>
                     ))
                   ) : (
-                    <div style={{ color: "var(--red-text)", opacity: 0.8 }}>No active structural tripwire metrics triggered.</div>
+                    <div className="cockpit-kill-empty">No active structural tripwire metrics triggered.</div>
                   )}
                   {detail.disconfirming ? (
-                    <div style={{ marginTop: "6px", borderTop: "1px solid var(--red-border)", paddingTop: "4px" }}>
+                    <div className="cockpit-kill-disconfirm">
                       <strong>Disconfirming:</strong> {detail.disconfirming}
                     </div>
                   ) : (
-                    <div style={{ marginTop: "6px", opacity: 0.6, fontSize: "10px" }}>No custom invalidation checklist logged yet.</div>
+                    <div className="cockpit-kill-disconfirm-empty">No custom invalidation checklist logged yet.</div>
                   )}
                 </div>
               </div>
@@ -350,7 +317,7 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
 
           {/* Section 2: Interactive Chart */}
           <section id="chart">
-            <h2 className="story-h2" style={{ borderBottom: "1px solid var(--border-dim)", paddingBottom: "8px", margin: "16px 0 0 0" }}>
+            <h2 className="story-h2 section-heading mt-4">
               Technical Charts & Pane Math
             </h2>
             <CandleChart priceSeries={detail.priceSeries} events={chartEvents} />
@@ -358,7 +325,7 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
 
           {/* Section 3: Valuation Corridor Ladder */}
           <section id="valuation" className="flex flex-col gap-3">
-            <h2 className="story-h2" style={{ borderBottom: "1px solid var(--border-dim)", paddingBottom: "8px", margin: "16px 0 0 0" }}>
+            <h2 className="story-h2 section-heading mt-4">
               Valuation Corridor Ladder
             </h2>
             {detail.valuationHistory?.bands ? (
@@ -378,7 +345,7 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
                     {detail.valuationHistory.bands.pe && (
                       <TableRow>
                         <TableCell>P/E (Price-to-Earnings)</TableCell>
-                        <TableCell numeric style={{ fontWeight: 700 }}>
+                        <TableCell numeric className="font-weight-700">
                           {detail.valuationHistory.current?.pe ? `${detail.valuationHistory.current.pe.toFixed(1)}x` : "—"}
                         </TableCell>
                         <TableCell numeric>{detail.valuationHistory.bands.pe.low2.toFixed(1)}x</TableCell>
@@ -391,7 +358,7 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
                     {detail.valuationHistory.bands.pfcf && (
                       <TableRow>
                         <TableCell>P/FCF (Price-to-Free Cash Flow)</TableCell>
-                        <TableCell numeric style={{ fontWeight: 700 }}>
+                        <TableCell numeric className="font-weight-700">
                           {detail.valuationHistory.current?.pfcf ? `${detail.valuationHistory.current.pfcf.toFixed(1)}x` : "—"}
                         </TableCell>
                         <TableCell numeric>{detail.valuationHistory.bands.pfcf.low2.toFixed(1)}x</TableCell>
@@ -404,7 +371,7 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
                     {detail.valuationHistory.bands.ps && (
                       <TableRow>
                         <TableCell>P/S (Price-to-Sales)</TableCell>
-                        <TableCell numeric style={{ fontWeight: 700 }}>
+                        <TableCell numeric className="font-weight-700">
                           {detail.valuationHistory.current?.ps ? `${detail.valuationHistory.current.ps.toFixed(1)}x` : "—"}
                         </TableCell>
                         <TableCell numeric>{detail.valuationHistory.bands.ps.low2.toFixed(1)}x</TableCell>
@@ -415,7 +382,7 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
                   </TableBody>
                 </DenseTable>
                 {detail.valuationHistory.verdict === "suspended" && (
-                  <div style={{ alignSelf: "flex-start", marginTop: "8px" }}>
+                  <div className="self-start mt-2">
                     <Badge variant="warning">
                       Notice: Valuation bands are suspended due to insufficient multiple data.
                     </Badge>
@@ -429,7 +396,7 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
 
           {/* Section 4: Fundamentals */}
           <section id="fundamentals" className="flex flex-col gap-3">
-            <h2 className="story-h2" style={{ borderBottom: "1px solid var(--border-dim)", paddingBottom: "8px", margin: "16px 0 0 0" }}>
+            <h2 className="story-h2 section-heading mt-4">
               Quarterly Financials & Accrual Quality
             </h2>
             {detail.quarters.length > 0 ? (
@@ -457,15 +424,11 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
 
                       return (
                         <TableRow key={q.periodEnd}>
-                          <TableCell style={{ fontWeight: 600 }}>{q.periodEnd}</TableCell>
+                          <TableCell className="font-weight-600">{q.periodEnd}</TableCell>
                           <TableCell numeric>{formatFinancialAmount(q.revenue)}</TableCell>
                           <TableCell
                             numeric
-                            style={{
-                              background: isGrossAnomalous ? "var(--amber-bg)" : undefined,
-                              color: isGrossAnomalous ? "var(--amber-text)" : undefined,
-                              fontWeight: isGrossAnomalous ? 600 : undefined
-                            }}
+                            className={isGrossAnomalous ? "cell-anomalous" : ""}
                           >
                             {q.grossMargin !== null ? `${q.grossMargin.toFixed(1)}%` : "—"}
                           </TableCell>
@@ -473,21 +436,13 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
                           <TableCell numeric>{formatFinancialAmount(q.netIncome)}</TableCell>
                           <TableCell
                             numeric
-                            style={{
-                              background: isFcfDivergent ? "var(--amber-bg)" : undefined,
-                              color: isFcfDivergent ? "var(--amber-text)" : undefined,
-                              fontWeight: isFcfDivergent ? 600 : undefined
-                            }}
+                            className={isFcfDivergent ? "cell-anomalous" : ""}
                           >
                             {formatFinancialAmount(q.fcf)}
                           </TableCell>
                           <TableCell
                             numeric
-                            style={{
-                              background: isAccrualAnomalous ? "var(--amber-bg)" : undefined,
-                              color: isAccrualAnomalous ? "var(--amber-text)" : undefined,
-                              fontWeight: isAccrualAnomalous ? 600 : undefined
-                            }}
+                            className={isAccrualAnomalous ? "cell-anomalous" : ""}
                           >
                             {accrual !== null ? `${(accrual * 100).toFixed(1)}%` : "—"}
                           </TableCell>
@@ -511,15 +466,11 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
 
                           return (
                             <TableRow key={q.periodEnd}>
-                              <TableCell style={{ fontWeight: 600 }}>{q.periodEnd}</TableCell>
+                              <TableCell className="font-weight-600">{q.periodEnd}</TableCell>
                               <TableCell numeric>{formatFinancialAmount(q.revenue)}</TableCell>
                               <TableCell
                                 numeric
-                                style={{
-                                  background: isGrossAnomalous ? "var(--amber-bg)" : undefined,
-                                  color: isGrossAnomalous ? "var(--amber-text)" : undefined,
-                                  fontWeight: isGrossAnomalous ? 600 : undefined
-                                }}
+                                className={isGrossAnomalous ? "cell-anomalous" : ""}
                               >
                                 {q.grossMargin !== null ? `${q.grossMargin.toFixed(1)}%` : "—"}
                               </TableCell>
@@ -527,21 +478,13 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
                               <TableCell numeric>{formatFinancialAmount(q.netIncome)}</TableCell>
                               <TableCell
                                 numeric
-                                style={{
-                                  background: isFcfDivergent ? "var(--amber-bg)" : undefined,
-                                  color: isFcfDivergent ? "var(--amber-text)" : undefined,
-                                  fontWeight: isFcfDivergent ? 600 : undefined
-                                }}
+                                className={isFcfDivergent ? "cell-anomalous" : ""}
                               >
                                 {formatFinancialAmount(q.fcf)}
                               </TableCell>
                               <TableCell
                                 numeric
-                                style={{
-                                  background: isAccrualAnomalous ? "var(--amber-bg)" : undefined,
-                                  color: isAccrualAnomalous ? "var(--amber-text)" : undefined,
-                                  fontWeight: isAccrualAnomalous ? 600 : undefined
-                                }}
+                                className={isAccrualAnomalous ? "cell-anomalous" : ""}
                               >
                                 {accrual !== null ? `${(accrual * 100).toFixed(1)}%` : "—"}
                               </TableCell>
@@ -560,7 +503,7 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
 
           {/* Section 5: SEC Filings */}
           <section id="filings" className="flex flex-col gap-4">
-            <h2 className="story-h2" style={{ borderBottom: "1px solid var(--border-dim)", paddingBottom: "8px", margin: "16px 0 0 0" }}>
+            <h2 className="story-h2 section-heading mt-4">
               Classified SEC Filings & Severity
             </h2>
             
@@ -577,23 +520,23 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
                     : "neutral";
 
                   return (
-                    <div className="panel" key={evt.id} style={{ border: "1px solid var(--border-dim)", padding: "12px", background: "var(--bg-surface)", margin: "8px 0" }}>
+                    <div className="panel p-3" key={evt.id}>
                       <div className="flex justify-between items-start gap-4">
                         <div>
                           <div className="flex items-center gap-2">
                             <Badge variant={badgeVariant}>
                               {evt.form} - Item {evt.item}
                             </Badge>
-                            <span style={{ fontSize: "11px", color: "var(--fg-muted)" }}>{formatDate(evt.filedAt)}</span>
+                            <span className="text-11 muted">{formatDate(evt.filedAt)}</span>
                           </div>
-                          <h4 style={{ fontSize: "13px", fontWeight: 600, marginTop: "6px", color: "var(--fg-primary)" }}>{evt.headline}</h4>
-                          <p style={{ fontSize: "11px", color: "var(--fg-secondary)", margin: "4px 0 0 0" }}>{evt.snippet}</p>
+                          <h4 className="text-13 font-weight-600 mt-1-5 text-primary">{evt.headline}</h4>
+                          <p className="text-11 text-secondary m-0 mt-1">{evt.snippet}</p>
                         </div>
                         <a
                           href={getFilingUrl(detail.cik || "", evt.accessionNo, "doc.html")}
                           target="_blank"
                           rel="noopener noreferrer"
-                          style={{ fontSize: "11px", color: "var(--accent-blue)" }}
+                          className="text-11 text-accent"
                         >
                           View SEC Document ↗
                         </a>
@@ -607,8 +550,8 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
             )}
 
             {/* 10-K/Q Diff monitor — FilingEvent rows kind "filing-diff" written by the filing_diff research run */}
-            <div style={{ marginTop: "8px" }} className="flex flex-col gap-2">
-              <h3 className="story-h2" style={{ fontSize: "0.85rem", textTransform: "uppercase" }}>10-K/Q Diff Monitor</h3>
+            <div className="flex flex-col gap-2 mt-2">
+              <h3 className="story-h2 subsection-heading">10-K/Q Diff Monitor</h3>
               {detail.filingEvents.filter((e: any) => e.kind === "filing-diff").length > 0 ? (
                 detail.filingEvents
                   .filter((e: any) => e.kind === "filing-diff")
@@ -616,13 +559,13 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
                     const diffVariant =
                       evt.severity === "thesis-relevant" ? "critical" : evt.severity === "notable" ? "warning" : "neutral";
                     return (
-                      <div className="panel" key={evt.id} style={{ border: "1px solid var(--border-dim)", padding: "12px", background: "var(--bg-surface)", margin: "4px 0" }}>
+                      <div className="panel p-3 mt-1 mb-1" key={evt.id}>
                         <div className="flex items-center gap-2">
                           <Badge variant={diffVariant}>{evt.severity.toUpperCase()}</Badge>
-                          <span style={{ fontSize: "11px", color: "var(--fg-muted)" }}>{formatDate(evt.filedAt)} · {evt.accessionNo}</span>
+                          <span className="text-11 muted">{formatDate(evt.filedAt)} · {evt.accessionNo}</span>
                         </div>
-                        <h4 style={{ fontSize: "13px", fontWeight: 600, marginTop: "6px", color: "var(--fg-primary)" }}>{evt.headline}</h4>
-                        <p style={{ fontSize: "11px", color: "var(--fg-secondary)", margin: "4px 0 0 0" }}>{evt.snippet}</p>
+                        <h4 className="text-13 font-weight-600 mt-1-5 text-primary">{evt.headline}</h4>
+                        <p className="text-11 text-secondary m-0 mt-1">{evt.snippet}</p>
                       </div>
                     );
                   })
@@ -637,17 +580,17 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
 
           {/* Section 6: Research Consensus */}
           <section id="consensus" className="flex flex-col gap-4">
-            <h2 className="story-h2" style={{ borderBottom: "1px solid var(--border-dim)", paddingBottom: "8px", margin: "16px 0 0 0" }}>
+            <h2 className="story-h2 section-heading mt-4">
               Research Consensus Dossiers
             </h2>
 
             {/* Verdict consensus card */}
             {detail.dossiers.length > 0 && detail.dossiers[0].verdict ? (
-              <div className="panel" style={{ border: "1px solid var(--border-muted)", background: "var(--bg-surface)", padding: "16px", margin: "8px 0" }}>
+              <div className="panel panel--muted-border">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="story-h1" style={{ margin: 0 }}>consensus dossier recommendation</h3>
-                    <div style={{ fontSize: "11px", color: "var(--fg-muted)", marginTop: "4px" }}>
+                    <h3 className="story-h1">consensus dossier recommendation</h3>
+                    <div className="text-11 muted mt-1">
                       Updated: {new Date(detail.dossiers[0].updatedAt).toLocaleDateString()}
                     </div>
                   </div>
@@ -655,26 +598,14 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
                     {detail.dossiers[0].verdict.recommendation} ({detail.dossiers[0].verdict.conviction})
                   </Badge>
                 </div>
-                <p style={{ fontSize: "13px", marginTop: "12px", color: "var(--fg-primary)", lineHeight: 1.5 }}>
+                <p className="text-13 text-primary mt-3">
                   {detail.dossiers[0].verdict.summary}
                 </p>
 
                 {/* Transcript Disclosure */}
-                <div style={{ marginTop: "12px" }}>
+                <div className="mt-3">
                   <Disclosure title="Inspect Full Dossier Transcript">
-                    <div
-                      style={{
-                        background: "var(--bg-app)",
-                        padding: "12px",
-                        border: "1px solid var(--border-dim)",
-                        borderRadius: "var(--panel-radius)",
-                        whiteSpace: "pre-wrap",
-                        fontSize: "11px",
-                        fontFamily: "var(--font-mono)",
-                        maxHeight: "350px",
-                        overflowY: "auto",
-                      }}
-                    >
+                    <div className="dossier-transcript">
                       {detail.dossiers[0].verdict.summary}
                       {"\n\n[Debate transcript available via agy cli deep-dives]"}
                     </div>
@@ -687,7 +618,7 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
 
             {/* Research run logs */}
             <div className="flex flex-col gap-2">
-              <h3 className="story-h2" style={{ fontSize: "0.85rem", textTransform: "uppercase" }}>Research Run History</h3>
+              <h3 className="story-h2 subsection-heading">Research Run History</h3>
               {detail.researchRuns.length > 0 ? (
                 <DenseTable>
                   <TableHead>
@@ -702,7 +633,7 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
                   <TableBody>
                     {detail.researchRuns.map((run) => (
                       <TableRow key={run.id}>
-                        <TableCell style={{ fontFamily: "var(--font-mono)", fontSize: "11px" }}>{run.id}</TableCell>
+                        <TableCell className="font-mono text-11">{run.id}</TableCell>
                         <TableCell>{run.runType}</TableCell>
                         <TableCell>
                           <Badge variant={run.status === "COMPLETED" ? "success" : run.status === "FAILED" ? "danger" : "warning"}>
@@ -710,13 +641,13 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
                           </Badge>
                         </TableCell>
                         <TableCell numeric>{run.elapsedSeconds}s / {run.budgetSeconds}s</TableCell>
-                        <TableCell style={{ fontSize: "11px" }}>
+                        <TableCell className="text-11">
                           {run.artifactPath ? (
-                            <a href={`file://${run.artifactPath}`} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-blue)" }}>
+                            <a href={`file://${run.artifactPath}`} target="_blank" rel="noopener noreferrer" className="text-accent">
                               inspect artifact ↗
                             </a>
                           ) : (
-                            <span style={{ color: "var(--fg-dim)" }}>none</span>
+                            <span className="text-dim">none</span>
                           )}
                         </TableCell>
                       </TableRow>
@@ -724,39 +655,39 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
                   </TableBody>
                 </DenseTable>
               ) : (
-                <div style={{ fontStyle: "italic", fontSize: "11px", color: "var(--fg-muted)" }}>No background runs recorded.</div>
+                <div className="italic text-11 muted">No background runs recorded.</div>
               )}
             </div>
           </section>
 
           {/* Section 7: Inversion checklist form */}
           <section id="journal">
-            <h2 className="story-h2" style={{ borderBottom: "1px solid var(--border-dim)", paddingBottom: "8px", margin: "16px 0 0 0" }}>
+            <h2 className="story-h2 section-heading mt-4">
               Timeline & Checklist Inversion
             </h2>
             
             <InversionChecklistForm symbol={detail.symbol} payload={decisionPayload} />
 
             {/* Rec Call history / timeline */}
-            <div style={{ marginTop: "16px" }} className="flex flex-col gap-2">
-              <h3 className="story-h2" style={{ fontSize: "0.85rem", textTransform: "uppercase" }}>Recommendation Timeline Log</h3>
+            <div className="flex flex-col gap-2 mt-4">
+              <h3 className="story-h2 subsection-heading">Recommendation Timeline Log</h3>
               {detail.recCalls.length > 0 ? (
                 <div className="flex flex-col gap-2">
                   {detail.recCalls.map((rc) => (
-                    <div className="panel" key={rc.id} style={{ padding: "10px 12px", border: "1px solid var(--border-dim)", background: "var(--bg-surface)", margin: "8px 0" }}>
+                    <div className="panel p-10-12" key={rc.id}>
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2">
                           <Badge variant={rc.action === "BUY" ? "success" : rc.action === "AVOID" ? "danger" : "warning"}>
                             {rc.action} ({rc.conviction})
                           </Badge>
-                          <span style={{ fontSize: "11px", color: "var(--fg-muted)" }}>{formatDate(rc.createdAt)}</span>
+                          <span className="text-11 muted">{formatDate(rc.createdAt)}</span>
                         </div>
-                        <div style={{ fontSize: "11px", fontWeight: 600 }}>
+                        <div className="text-11 font-weight-600">
                           Price: ${rc.priceAtCall.toFixed(2)}
                         </div>
                       </div>
                       {rc.governorReason && (
-                        <div style={{ fontSize: "11px", color: "var(--fg-secondary)", marginTop: "4px" }}>
+                        <div className="text-11 text-secondary mt-1">
                           <strong>Reason:</strong> {rc.governorReason}
                         </div>
                       )}
@@ -764,7 +695,7 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
                   ))}
                 </div>
               ) : (
-                <div style={{ fontStyle: "italic", fontSize: "11px", color: "var(--fg-muted)" }}>No structural recommendation calls logged.</div>
+                <div className="italic text-11 muted">No structural recommendation calls logged.</div>
               )}
             </div>
           </section>
@@ -774,10 +705,10 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
         {/* Sidebar: 3fr */}
         <aside className="ticker-sticky-sidebar">
           {/* User state status panel */}
-          <div className="panel flex flex-col gap-2" style={{ border: "1px solid var(--border-muted)", margin: "8px 0" }}>
+          <div className="panel flex flex-col gap-2 panel--muted-border">
             <span className="ui-stat-label">Asset State Status</span>
-            <div className="flex justify-between items-center" style={{ marginTop: "4px" }}>
-              <span className="ui-stat-value" style={{ fontSize: "1.1rem" }}>
+            <div className="flex justify-between items-center mt-1">
+              <span className="ui-stat-value ui-stat-value--sm">
                 {detail.userState ?? "UNIVERSE"}
               </span>
               <Badge variant={detail.userState === "WATCHLIST" ? "success" : "neutral"}>
@@ -788,17 +719,17 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
 
           {/* Navigation links rail */}
           <Panel className="flex flex-col gap-2">
-            <span className="ui-stat-label" style={{ marginBottom: "6px" }}>Cockpit Navigation</span>
+            <span className="ui-stat-label mb-1-5">Cockpit Navigation</span>
             <SectionNav sections={navSections} />
           </Panel>
 
           {/* Quick Checklist Shortcut stub */}
           <Panel className="flex flex-col gap-2">
             <span className="ui-stat-label">Inversion Quick Check</span>
-            <p style={{ fontSize: "11px", color: "var(--fg-secondary)", margin: 0 }}>
+            <p className="text-11 text-secondary m-0">
               Use the timeline checklist below to invalidate thesis drivers before making a transaction.
             </p>
-            <a href="#journal" style={{ fontSize: "11px", color: "var(--accent-blue)", fontWeight: 600, marginTop: "4px" }}>
+            <a href="#journal" className="text-11 text-accent font-weight-600 mt-1">
               Jump to Checklist Inversion ↓
             </a>
           </Panel>
@@ -806,15 +737,15 @@ export default async function TickerDetailPage({ params, searchParams }: Props) 
           {/* Launch background run client drawer */}
           <Panel className="flex flex-col gap-2">
             <span className="ui-stat-label">Agent Automation</span>
-            <p style={{ fontSize: "11px", color: "var(--fg-secondary)", margin: 0, marginBottom: "8px" }}>
+            <p className="text-11 text-secondary m-0 mb-2">
               Boot a new multi-agent consensus run and save a fresh thesis consensus report.
             </p>
             <ResearchRunDrawer symbol={detail.symbol} />
           </Panel>
 
           {/* Return to universe */}
-          <div style={{ padding: "0 8px" }}>
-            <Link href="/tickers" style={{ color: "var(--fg-muted)", fontSize: "11.5px", textDecoration: "none" }}>
+          <div className="px-2">
+            <Link href="/tickers" className="muted text-11-5 no-underline">
               ← Return to Universe Index
             </Link>
           </div>

@@ -35,7 +35,7 @@ fakes/mocks. See `TASKS.md` for the full build checklist and `docs/dev_guide.md`
 ## Stack
 
 TypeScript (strict) · zod · vitest · tsx. (The full product also targets
-Next.js 16 / Prisma 6 / SQLite (WAL) / recharts — see `prisma/` and `docs/`.)
+Next.js 15 / Prisma 6 / SQLite (WAL) — see `prisma/` and `docs/`.)
 
 ## Commands
 

@@ -40,29 +40,14 @@ export function ResearchRunDrawer({ symbol }: Props) {
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="drawer-save"
-        style={{
-          width: "100%",
-          padding: "10px",
-          fontWeight: 700,
-          background: "var(--accent-blue)",
-          border: "none",
-          color: "#fff",
-          cursor: "pointer",
-          borderRadius: "var(--panel-radius)",
-          fontSize: "12px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "8px",
-        }}
+        className="drawer-save border-none w-full flex items-center justify-center gap-2 p-10"
       >
-        <span style={{ fontSize: "14px" }}>⚙</span>
+        <span className="text-14">⚙</span>
         <span>Launch Research Run</span>
       </button>
 
       {isOpen && (
-        <div className="capture-drawer" style={{ display: "flex" }}>
+        <div className="capture-drawer">
           <div className="drawer-header">
             <h3 className="drawer-title">
               <span className="drawer-title-icon">⚙</span>
@@ -77,15 +62,14 @@ export function ResearchRunDrawer({ symbol }: Props) {
             Spawn a detached multi-agent debate and research run. The job executes asynchronously in the background.
           </p>
 
-          <div className="flex flex-col gap-4" style={{ flex: 1 }}>
+          <div className="flex flex-col gap-4 flex-1">
             {/* Run Type */}
             <div className="flex flex-col gap-1">
               <label className="ui-stat-label">Run Type</label>
               <select
                 value={runType}
                 onChange={(e) => setRunType(e.target.value)}
-                className="ticker-jump-input"
-                style={{ width: "100%", height: "36px", background: "var(--bg-app)" }}
+                className="ticker-jump-input ticker-jump-input--select"
               >
                 <option value="dossier">Dossier (Full consensus synthesis & debate)</option>
                 <option value="quick-scan">Quick Scan (Rapid technicals & filings digest)</option>
@@ -99,8 +83,7 @@ export function ResearchRunDrawer({ symbol }: Props) {
               <select
                 value={budgetMinutes}
                 onChange={(e) => setBudgetMinutes(Number(e.target.value))}
-                className="ticker-jump-input"
-                style={{ width: "100%", height: "36px", background: "var(--bg-app)" }}
+                className="ticker-jump-input ticker-jump-input--select"
               >
                 <option value={10}>10 Minutes (Quick, light model usage)</option>
                 <option value={20}>20 Minutes (Standard details scan)</option>
@@ -115,8 +98,7 @@ export function ResearchRunDrawer({ symbol }: Props) {
               <select
                 value={profile}
                 onChange={(e) => setProfile(e.target.value)}
-                className="ticker-jump-input"
-                style={{ width: "100%", height: "36px", background: "var(--bg-app)" }}
+                className="ticker-jump-input ticker-jump-input--select"
               >
                 <option value="default">Default Balanced Profile</option>
                 <option value="aggressive">Aggressive (Maximum model steps)</option>
@@ -126,17 +108,7 @@ export function ResearchRunDrawer({ symbol }: Props) {
 
             {statusText && (
               <div
-                className="drawer-result"
-                style={{
-                  fontSize: "12px",
-                  lineHeight: 1.4,
-                  padding: "10px",
-                  borderRadius: "var(--panel-radius)",
-                  border: "1px solid",
-                  background: statusText.type === "success" ? "var(--green-bg)" : "var(--red-bg)",
-                  borderColor: statusText.type === "success" ? "var(--green-border)" : "var(--red-border)",
-                  color: statusText.type === "success" ? "var(--green-text)" : "var(--red-text)",
-                }}
+                className={`drawer-result run-drawer-status ${statusText.type === "success" ? "run-drawer-status--ok" : "run-drawer-status--error"}`}
               >
                 {statusText.text}
               </div>
@@ -144,10 +116,10 @@ export function ResearchRunDrawer({ symbol }: Props) {
           </div>
 
           <div className="drawer-actions">
-            <button disabled={loading} onClick={handleLaunch} className="drawer-save" style={{ flex: 2 }}>
+            <button disabled={loading} onClick={handleLaunch} className="drawer-save flex-2">
               {loading ? "Triggering..." : "Execute Run Process"}
             </button>
-            <button onClick={() => setIsOpen(false)} className="drawer-clear" style={{ flex: 1 }}>
+            <button onClick={() => setIsOpen(false)} className="drawer-clear flex-1">
               Cancel
             </button>
           </div>

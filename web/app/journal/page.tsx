@@ -61,11 +61,11 @@ export default async function JournalPage({ searchParams }: Props) {
     <div className="flex flex-col gap-4">
       <header>
         <h1>Journal</h1>
-        <p className="muted" style={{ marginTop: "4px" }}>
+        <p className="muted mt-1">
           Decision log with frozen provenance, post-trade outcomes, mistake taxonomy, and the governor console.
         </p>
         {filterSymbol && (
-          <p className="meta-dim" style={{ marginTop: "4px" }}>
+          <p className="meta-dim mt-1">
             Filtered to {filterSymbol} · <Link href="/journal">clear filter</Link>
           </p>
         )}
@@ -91,18 +91,18 @@ export default async function JournalPage({ searchParams }: Props) {
                           <div key={e.id} className="journal-entry-row">
                             <div className="flex items-center gap-2">
                               <span className="meta-dim">{e.createdAt.slice(0, 10)}</span>
-                              <Link href={`/tickers/${e.symbol}`} className="font-mono" style={{ fontWeight: 700 }}>
+                              <Link href={`/tickers/${e.symbol}`} className="font-mono font-weight-700">
                                 {e.symbol}
                               </Link>
                               <Badge variant={actionVariant(e.action)}>{e.action}</Badge>
                             </div>
-                            <p style={{ fontSize: "0.8125rem", color: "var(--fg-secondary)", margin: "4px 0" }}>{e.thesis}</p>
+                            <p className="text-13 text-secondary mt-1 mb-1">{e.thesis}</p>
                             {e.invalidation && (
-                              <p className="meta-dim" style={{ margin: 0 }}>Invalidation: {e.invalidation}</p>
+                              <p className="meta-dim m-0">Invalidation: {e.invalidation}</p>
                             )}
                             {e.snapshot ? (
                               <Disclosure title="Frozen snapshot">
-                                <pre style={{ margin: 0, fontSize: "0.6875rem", whiteSpace: "pre-wrap" }}>
+                                <pre className="m-0 text-11 whitespace-pre-wrap">
                                   {JSON.stringify(e.snapshot, null, 2)}
                                 </pre>
                               </Disclosure>
@@ -121,13 +121,13 @@ export default async function JournalPage({ searchParams }: Props) {
 
           <Panel>
             <h2>Mistake Taxonomy</h2>
-            <p className="meta-dim" style={{ marginBottom: "8px" }}>
+            <p className="meta-dim mb-2">
               Journal entries whose nearest prior RecCall resolved with a falsified thesis, grouped by action.
             </p>
             {mistakes.length === 0 ? (
               <EmptyState title="No Falsified Theses Logged" body="Mechanical cross-reference of JournalEntry × RecCall.thesisFalsified — clean so far." />
             ) : (
-              <div className="flex gap-2" style={{ flexWrap: "wrap" }}>
+              <div className="flex gap-2 flex-wrap">
                 {mistakes.map((m) => (
                   <Badge key={m.action} variant="warning">
                     {m.action}: {m.count}
@@ -154,7 +154,7 @@ export default async function JournalPage({ searchParams }: Props) {
                   <div key={c.id} className="journal-outcome-card">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Link href={`/tickers/${c.symbol}`} className="font-mono" style={{ fontWeight: 700 }}>
+                        <Link href={`/tickers/${c.symbol}`} className="font-mono font-weight-700">
                           {c.symbol}
                         </Link>
                         <Badge variant={actionVariant(c.action)}>{c.action}</Badge>
@@ -166,7 +166,7 @@ export default async function JournalPage({ searchParams }: Props) {
                         </Badge>
                       )}
                     </div>
-                    <div className="flex gap-3" style={{ marginTop: "4px" }}>
+                    <div className="flex gap-3 mt-1">
                       <span className="meta-dim">1M <TrendNumber value={c.outcome1mPct} /></span>
                       <span className="meta-dim">3M <TrendNumber value={c.outcome3mPct} /></span>
                       <span className="meta-dim">6M <TrendNumber value={c.outcome6mPct} /></span>
@@ -180,7 +180,7 @@ export default async function JournalPage({ searchParams }: Props) {
 
           <Panel>
             <h2>Calibration / Governor Console</h2>
-            <p className="meta-dim" style={{ marginBottom: "8px" }}>
+            <p className="meta-dim mb-2">
               The sizing governor caps the Judge&apos;s recommended position size to 2% until a conviction tier earns
               calibration — at least 5 resolved calls with a 50%+ favorable rate lifts the cap.
             </p>
