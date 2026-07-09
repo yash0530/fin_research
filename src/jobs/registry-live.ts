@@ -79,6 +79,7 @@ import { detectSpinoff } from "../screens/spinoff-detect";
 import { SUPERINVESTORS } from "../config/superinvestors";
 import { fetch13FLatest } from "../net/edgar-13f";
 import { computeSuperinvestorOverlap } from "../screens/superinvestor-overlap";
+import { extractCustomerConcentration } from "../monitor/customer-concentration";
 
 
 function normalizeCompanyName(name: string): string {
@@ -1028,6 +1029,124 @@ const JOB_DEFS: JobDef[] = [
         ok: errors === 0,
         detail: `holdings_13f: superinvestors_done=${done} errors=${errors}`,
       };
+    },
+  },
+  {
+    name: "customer_concentration",
+    describe: "Extract customer concentration disclosures from the most recent 10-K filing in the last 400 days.",
+    run: async (db, symbols) => {
+      const syms = symbols ?? activeSymbols(db);
+      const ua = requireUserAgent();
+      let done = 0;
+      let errors = 0;
+      let highCount = 0;
+
+      const fourHundredDaysAgo = new Date(Date.now() - 400 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+      for (const symbol of syms) {
+        try {
+          const filing = db.prepare(
+            'SELECT "accessionNo", "cik", "primaryDoc", "filedAt" ' +
+            'FROM "EdgarFiling" ' +
+            'WHERE "symbol" = ? AND "form" = \'10-K\' AND "filedAt" >= ? AND "primaryDoc" IS NOT NULL ' +
+            'ORDER BY "filedAt" DESC LIMIT 1'
+          ).get(symbol, fourHundredDaysAgo) as { accessionNo: string; cik: string; primaryDoc: string; filedAt: string } | undefined;
+
+          if (!filing) {
+            continue;
+          }
+
+          const cleanCik = filing.cik.replace(/\D/g, "").replace(/^0+/, "");
+          const accessionNoNoDashes = filing.accessionNo.replace(/-/g, "");
+          const url = `https://www.sec.gov/Archives/edgar/data/${cleanCik}/${accessionNoNoDashes}/${filing.primaryDoc}`;
+
+          const res = await EDGAR_LIMITER.throttle(() =>
+            httpFetch(url, { headers: { "User-Agent": ua, "Accept-Encoding": "gzip" } })
+          );
+          if (!res.ok) {
+            throw new Error(`EDGAR 10-K fetch ${filing.accessionNo}: HTTP ${res.status}`);
+          }
+          let text = await res.text();
+          const MAX_DOC_LEN = 400 * 1024;
+          if (text.length > MAX_DOC_LEN) {
+            text = text.slice(0, MAX_DOC_LEN);
+          }
+
+          const extractResult = extractCustomerConcentration(text);
+
+          if (extractResult.disclosed) {
+            const severity = extractResult.concentrationLevel === "high" ? "notable" : "info";
+            const snippet = extractResult.evidence[0] ?? "";
+
+            db.prepare(
+              'INSERT INTO "FilingEvent" ' +
+              '("symbol", "accessionNo", "form", "item", "kind", "headline", "snippet", "severity", "filedAt") ' +
+              'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ' +
+              'ON CONFLICT("accessionNo", "item") DO UPDATE SET ' +
+              '"kind"=excluded.kind, "headline"=excluded.headline, "snippet"=excluded.snippet, "severity"=excluded.severity, "filedAt"=excluded.filedAt'
+            ).run(
+              symbol,
+              filing.accessionNo,
+              "10-K",
+              "customer-concentration",
+              "customer-concentration",
+              `Customer Concentration: ${extractResult.concentrationLevel}`,
+              snippet,
+              severity,
+              filing.filedAt
+            );
+
+            if (extractResult.concentrationLevel === "high") {
+              highCount++;
+              const existing = db.prepare('SELECT * FROM "Candidate" WHERE "symbol"=?').get(symbol) as any;
+              let triggerTags: string[] = [];
+              let qualification: any = {};
+              let userState = "INBOX";
+              let tier = 3;
+
+              if (existing) {
+                try {
+                  triggerTags = JSON.parse(existing.triggerTags);
+                } catch {
+                  triggerTags = [];
+                }
+                try {
+                  qualification = JSON.parse(existing.qualification);
+                } catch {
+                  qualification = {};
+                }
+                userState = existing.userState;
+                tier = existing.tier;
+              }
+
+              if (!triggerTags.includes("customer-concentration-high")) {
+                triggerTags.push("customer-concentration-high");
+              }
+
+              db.prepare(
+                'INSERT INTO "Candidate" ("symbol", "tier", "triggerTags", "qualification", "computedAt", "userState") ' +
+                'VALUES (?, ?, ?, ?, ?, ?) ' +
+                'ON CONFLICT("symbol") DO UPDATE SET ' +
+                '"tier"=excluded.tier, "triggerTags"=excluded.triggerTags, "qualification"=excluded.qualification, "computedAt"=excluded.computedAt'
+              ).run(
+                symbol,
+                tier,
+                JSON.stringify(triggerTags),
+                JSON.stringify(qualification),
+                new Date().toISOString(),
+                userState
+              );
+            }
+          }
+
+          done++;
+        } catch (e) {
+          errors++;
+          console.warn(`[customer_concentration] Failed to process 10-K for ${symbol}:`, e);
+        }
+      }
+
+      return { ok: errors === 0, detail: `customer_concentration: done=${done} errors=${errors} high=${highCount}` };
     },
   },
   {

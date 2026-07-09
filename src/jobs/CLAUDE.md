@@ -65,7 +65,7 @@ injected dependencies → fully tested with fakes (no network).
   `edgar_index`, `stats`, `news`, `earnings`, `rules`, `digest`, `overnight`,
   `refresh_data` (the data chain minus the model: prices-heal→stats→news→earnings→rules,
   the no-model "Refresh data" button target), `dossier`, `backup`, `integrity_check`,
-  `backtest`, `portfolio_check`, `form4`, `events8k`, `holdings_13f` (ingests 13F filings for superinvestors, computes overlaps, and merges Candidate tags), `screens` (runs GICS sector-specific quality screens, including bank-quality and reit-quality). Importing it stays offline; only each `run` touches the wire.
+  `backtest`, `portfolio_check`, `form4`, `events8k`, `holdings_13f` (ingests 13F filings for superinvestors, computes overlaps, and merges Candidate tags), `customer_concentration` (extracts customer concentration disclosures from 10-Ks and marks Candidate/FilingEvents), `screens` (runs GICS sector-specific quality screens, including bank-quality and reit-quality). Importing it stays offline; only each `run` touches the wire.
 
 ## Tests
 
@@ -82,7 +82,7 @@ earnings (upsert dedupe), the overnight order + failure-resilience + one-JobRun-
 earnings cluster the old 7-day window missed now surfaces).
 `registry-live.test.ts` — the live-registry ASSEMBLY offline: `jobCatalog()` lists every
   job (incl. `backup`) with a describe and no DB; `buildLiveRegistry(db)` binds the db in,
-  preserves names/order, and is single-sourced with the catalog. Also tests the `events8k` job including guidance changes and spinoff detection.
+  preserves names/order, and is single-sourced with the catalog. Also tests the `events8k` job including guidance changes and spinoff detection, and the `customer_concentration` job for 10-K text extraction and Candidate/FilingEvent persistence.
 `backup.test.ts` — retention (`listBackups` filters+sorts dated files, `pruneBackups`
 keeps the newest N and deletes the oldest, no-op under the limit) with temp files, and
 `runBackupJob` (VACUUM INTO writes a real SQLite backup; same-day re-run overwrites).

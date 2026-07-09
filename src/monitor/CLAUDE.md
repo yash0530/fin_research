@@ -16,6 +16,9 @@ research-run type), never here.
   numbers). Near-verbatim pairs (≥ 0.9) count as unchanged shared boilerplate.
   Returns the top-3 changed pairs `{section, before, after, jaccard}` + honest
   counts. This filter-first design is the "diff alert fatigue" mitigation.
+- `customer-concentration.ts` — pure extraction of customer concentration disclosures
+  from 10-K filings using regex/keyword matching. Computes concentration levels
+  (high, moderate, low, diversified, none-disclosed) and extracts named customers.
 - `tripwires.ts` — tripwire surfacing shared by the `/` Action Center and the
   ticker cockpit "WHAT KILLS IT?" quadrant: `ruleAppliesToSymbol` (symbol rules
   direct; ddr5/memory-exit → `ai_memory`; capex/credit proxies → `ai_infra`),
@@ -29,6 +32,7 @@ research-run type), never here.
 ## Tests
 
 `filing-diff.test.ts` (synthetic 10-K pairs: boilerplate strip, Jaccard
-threshold, token gate, top-3 cap, <3 changes OK) and `tripwires.test.ts`
-(scoping matrix, 4.02 hard rule, severity mapping, pure evaluation with
+threshold, token gate, top-3 cap, <3 changes OK), `customer-concentration.test.ts`
+(tests various customer-concentration disclosures like Apple/Amazon, diversified, boilerplate),
+and `tripwires.test.ts` (scoping matrix, 4.02 hard rule, severity mapping, pure evaluation with
 fixture closes/series).

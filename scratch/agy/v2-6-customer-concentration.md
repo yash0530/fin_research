@@ -19,3 +19,13 @@ This extracts DISCLOSED concentration only (what the filer chose to state) — i
 
 ## Gates (fix until green)
 `npm run typecheck` · `npm test` · `npm run check:claude`. Append `## Result`. Do NOT commit. Touch only: src/monitor/customer-concentration*, src/jobs/registry-live*, affected CLAUDE.md. If filing-diff's stripHtml/splitParagraphs aren't exported, export them (that's allowed) rather than duplicating.
+
+## Result
+
+Successfully completed the implementation:
+1. Created `src/monitor/customer-concentration.ts` containing the pure regex/keyword customer-concentration extractor over 10-K filings.
+2. Created unit tests in `src/monitor/customer-concentration.test.ts` covering high concentration, diversified disclosure, named customers (Apple/Amazon), and boilerplate.
+3. Registered and implemented the `customer_concentration` job in `src/jobs/registry-live.ts`. It queries the latest 10-K filing in the last 400 days, fetches the document using the EDGAR limiter, limits the text size to 400KB, extracts customer concentration, inserts/updates a `FilingEvent` row, and updates/inserts `Candidate` tags when high.
+4. Added integration test in `src/jobs/registry-live.test.ts` checking candidate and filing event creation.
+5. Ran all check gates (`npm run typecheck`, `npm test`, `npm run check:claude`) successfully with 100% green tests (651 tests passing, types matching, and CLAUDE.md present in all directories).
+6. Left all modifications as uncommitted edits, strictly obeying the hard rule of not running any git commands.

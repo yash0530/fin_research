@@ -57,6 +57,7 @@ describe("live registry assembly", () => {
     "form4",
     "events8k",
     "holdings_13f",
+    "customer_concentration",
     "research_run",
     "research_create",
   ];
@@ -485,6 +486,60 @@ describe("live registry assembly", () => {
       expect(qual.superinvestor).toBeDefined();
       expect(qual.superinvestor.count).toBe(9); // 9 filers held it in our mock
       expect(qual.superinvestor.holders[0].name).toBe("Berkshire Hathaway Inc");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("customer_concentration job should fetch 10-K, extract concentration, and insert FilingEvent/Candidate", async () => {
+    const db = migratedDb();
+    const reg = buildLiveRegistry(db);
+    const job = reg.find((j) => j.name === "customer_concentration");
+    expect(job).toBeDefined();
+
+    // Seed mock Ticker
+    db.prepare('INSERT INTO "Ticker" ("symbol", "class", "active", "cik") VALUES (?, ?, ?, ?)').run("MSFT", "stock", 1, "12345");
+    
+    // Seed mock EdgarFiling 10-K in last 400 days
+    const today = new Date().toISOString().slice(0, 10);
+    db.prepare(
+      'INSERT INTO "EdgarFiling" ("accessionNo", "symbol", "cik", "form", "filedAt", "primaryDoc") VALUES (?, ?, ?, ?, ?, ?)'
+    ).run("0001-10k", "MSFT", "12345", "10-K", today, "primary.htm");
+
+    // Mock 10-K html content
+    const mockHtml = `
+      <html>
+        <body>
+          During fiscal 2025, one customer accounted for 25% of our revenue.
+        </body>
+      </html>
+    `;
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => mockHtml,
+    } as any);
+
+    try {
+      const outcome = await job!.run(["MSFT"]);
+      expect(outcome.ok).toBe(true);
+
+      // Verify FilingEvent
+      const events = db.prepare('SELECT * FROM "FilingEvent" WHERE "symbol"=?').all("MSFT") as any[];
+      expect(events).toHaveLength(1);
+      expect(events[0].item).toBe("customer-concentration");
+      expect(events[0].kind).toBe("customer-concentration");
+      expect(events[0].severity).toBe("notable"); // because level is high (25% >= 20%)
+      expect(events[0].headline).toBe("Customer Concentration: high");
+      expect(events[0].snippet).toContain("one customer accounted for 25% of our revenue");
+
+      // Verify Candidate
+      const candidates = db.prepare('SELECT * FROM "Candidate" WHERE "symbol"=?').all("MSFT") as any[];
+      expect(candidates).toHaveLength(1);
+      const tags = JSON.parse(candidates[0].triggerTags);
+      expect(tags).toContain("customer-concentration-high");
     } finally {
       globalThis.fetch = originalFetch;
     }
