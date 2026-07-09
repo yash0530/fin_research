@@ -56,6 +56,7 @@ describe("live registry assembly", () => {
     "screens",
     "form4",
     "events8k",
+    "holdings_13f",
     "research_run",
     "research_create",
   ];
@@ -378,6 +379,112 @@ describe("live registry assembly", () => {
       expect(candidates).toHaveLength(1);
       const tags = JSON.parse(candidates[0].triggerTags);
       expect(tags).toContain("spinoff");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("holdings_13f job should fetch, parse, and insert holdings, and update candidate tags", async () => {
+    const db = migratedDb();
+    const reg = buildLiveRegistry(db);
+    const holdingsJob = reg.find((j) => j.name === "holdings_13f");
+    expect(holdingsJob).toBeDefined();
+
+    // Seed mock Ticker AAPL
+    db.prepare('INSERT INTO "Ticker" ("symbol", "class", "active", "name") VALUES (?, ?, ?, ?)').run("AAPL", "stock", 1, "Apple Inc.");
+
+    // Seed Candidate for AAPL
+    db.prepare(
+      'INSERT INTO "Candidate" ("symbol", "tier", "triggerTags", "qualification", "computedAt", "userState") VALUES (?, ?, ?, ?, ?, ?)'
+    ).run("AAPL", 2, JSON.stringify(["Cheap Cohort"]), JSON.stringify({ cohort: { cheap: true } }), new Date().toISOString(), "INBOX");
+
+    const submissionsMock = {
+      filings: {
+        recent: {
+          accessionNumber: ["0001067983-23-000001"],
+          form: ["13F-HR"],
+          filingDate: ["2023-05-15"],
+          reportDate: ["2023-03-31"],
+        },
+      },
+    };
+
+    const indexMock = {
+      directory: {
+        item: [
+          { name: "form13f.xml", type: "file" },
+          { name: "infotable.xml", type: "file" },
+        ],
+      },
+    };
+
+    const xmlMock = `<?xml version="1.0" encoding="utf-8"?>
+<informationTable xmlns="http://www.sec.gov/document/threedimensional/infotable">
+  <infoTable>
+    <nameOfIssuer>APPLE INC</nameOfIssuer>
+    <titleOfClass>COM</titleOfClass>
+    <cusip>037833100</cusip>
+    <value>1500000</value>
+    <shrsOrPrnAmt>
+      <sshPrnamt>10000</sshPrnamt>
+      <sshPrnamtType>SH</sshPrnamtType>
+    </shrsOrPrnAmt>
+  </infoTable>
+</informationTable>`;
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes("submissions")) {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => JSON.stringify(submissionsMock),
+          json: async () => submissionsMock,
+        } as any;
+      }
+      if (url.includes("index.json")) {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => JSON.stringify(indexMock),
+          json: async () => indexMock,
+        } as any;
+      }
+      if (url.includes("infotable.xml")) {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => xmlMock,
+          json: async () => ({}),
+        } as any;
+      }
+      return { ok: false, status: 404, text: async () => "" } as any;
+    });
+
+    try {
+      const outcome = await holdingsJob!.run();
+      expect(outcome.ok).toBe(true);
+
+      const stored = db.prepare('SELECT * FROM "InstitutionalHolding"').all() as any[];
+
+      // Verify holdings are inserted
+      expect(stored).toHaveLength(9);
+      expect(stored[0].filerCik).toBe("0001067983"); // Berkshire
+      expect(stored[0].cusip).toBe("037833100");
+      expect(stored[0].value).toBe(1500); // 1500000 / 1000 (divided since post 2023)
+
+      // Verify Candidate AAPL is updated with superinvestor tag and qualification
+      const candidate = db.prepare('SELECT * FROM "Candidate" WHERE "symbol"=?').get("AAPL") as any;
+      expect(candidate).toBeDefined();
+      
+      const tags = JSON.parse(candidate.triggerTags);
+      expect(tags).toContain("superinvestor");
+      expect(tags).toContain("Cheap Cohort"); // shouldn't be overwritten
+
+      const qual = JSON.parse(candidate.qualification);
+      expect(qual.superinvestor).toBeDefined();
+      expect(qual.superinvestor.count).toBe(9); // 9 filers held it in our mock
+      expect(qual.superinvestor.holders[0].name).toBe("Berkshire Hathaway Inc");
     } finally {
       globalThis.fetch = originalFetch;
     }

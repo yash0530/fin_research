@@ -4,7 +4,7 @@
 `npx prisma validate` (✅). 30 models spanning the plan's migration groups:
 
 - **full_market**: `Sector` (+taxonomy), `Ticker` (+source/watchlisted/cik),
-  `TickerSector`, `Price`, `FundamentalsQuarter`, `EdgarFiling`, `BackfillProgress`.
+  `TickerSector`, `Price`, `FundamentalsQuarter`, `EdgarFiling`, `BackfillProgress`, `InstitutionalHolding`.
 - **news/series**: `NewsItem`, `Catalyst`, `ManualSeries`, `Digest`.
 - **tools_screener**: `ToolCacheEntry`, `ScreenerConfig`, `DiscoveryCandidate`.
 - **dossiers**: `Dossier`, `DossierStage` (@@unique dossierId+name), `ToolCall`, `Memo`,

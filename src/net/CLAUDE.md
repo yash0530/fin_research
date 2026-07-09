@@ -13,6 +13,7 @@ calls are thin wrappers over these; everything here is tested with fakes/fixture
   `parseSubmissions(cik, symbol, json)` → typed filing rows, filtered to
   10-K/10-Q/8-K/4/DEF 14A. Pure parser → fixture-tested, no network.
 - `edgar-form4.ts` — `fetchForm4` and `parseForm4Xml` to fetch and parse Form 4 XML filings, extracting only open-market purchases (code "P"), identifying 10b5-1 plan references via footnote analysis, and capturing owner role / 10% ownership status.
+- `edgar-13f.ts` — `fetch13FLatest` and `parse13FXml` to fetch and parse Form 13F-HR filings for a small set of curated superinvestors, extracting security CUSIPs, issuer names, values (scaled to thousands of USD), and share counts.
 - `yahoo.ts` — `parseChart` (unix ts → YYYY-MM-DD, null-close filtering → Price rows) +
   `parseQuoteBatch` (per-symbol stats). Pure parsers → fixture-tested; the live fetch is a
   thin wrapper. (Legacy hand-rolled mappers, kept as a tested fallback reference.)

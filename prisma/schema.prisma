@@ -550,4 +550,20 @@ model ResearchRunStep {
   @@index([runId])
 }
 
+model InstitutionalHolding {
+  id             Int    @id @default(autoincrement())
+  filerCik       String
+  filerName      String
+  periodOfReport String
+  cusip          String
+  nameOfIssuer   String
+  value          Float
+  shares         Float
+  filedAt        String
+
+  @@unique([filerCik, cusip, periodOfReport])
+  @@index([filerCik, periodOfReport])
+  @@index([cusip])
+}
+
 

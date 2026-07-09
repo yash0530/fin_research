@@ -76,7 +76,29 @@ import { classify8k } from "../screens/eightk-classify";
 import { computeBankQuality } from "../screens/bank-quality";
 import { computeReitQuality } from "../screens/reit-quality";
 import { detectSpinoff } from "../screens/spinoff-detect";
+import { SUPERINVESTORS } from "../config/superinvestors";
+import { fetch13FLatest } from "../net/edgar-13f";
+import { computeSuperinvestorOverlap } from "../screens/superinvestor-overlap";
 
+
+function normalizeCompanyName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\b(inc|co|corp|corporation|incorporated|ltd|limited|llc|lp|plc|class a|class b|class c|shares|shs|common stock|common|and)\b/g, "")
+    .replace(/[^a-z0-9]/g, "")
+    .trim();
+}
+
+function matchesFuzzy(name1: string, name2: string): boolean {
+  const n1 = normalizeCompanyName(name1);
+  const n2 = normalizeCompanyName(name2);
+  if (!n1 || !n2) return false;
+  if (n1 === n2) return true;
+  if (n1.length >= 4 && n2.length >= 4) {
+    if (n1.startsWith(n2) || n2.startsWith(n1)) return true;
+  }
+  return false;
+}
 
 function computeEvToEbit(quarters: any[], marketCap: number | null): number | null {
   return evToEbit(quarters, marketCap).evToEbit;
@@ -842,6 +864,170 @@ const JOB_DEFS: JobDef[] = [
       }
 
       return { ok: errors === 0, detail: `events8k: done=${done} errors=${errors} events=${eventsCount}` };
+    },
+  },
+  {
+    name: "holdings_13f",
+    describe: "Ingest latest 13F filings for curated superinvestors, compute overlaps, and tag candidates.",
+    run: async (db) => {
+      const ua = requireUserAgent();
+      let done = 0;
+      let errors = 0;
+
+      for (const s of SUPERINVESTORS) {
+        try {
+          const result = await fetch13FLatest(s.cik, httpFetch, ua);
+          if (!result) {
+            console.warn(`[holdings_13f] No 13F found for ${s.name} (${s.cik})`);
+            continue;
+          }
+
+          const { holdings, periodOfReport, filedAt } = result;
+
+          const insertStmt = db.prepare(
+            'INSERT OR IGNORE INTO "InstitutionalHolding" ' +
+            '("filerCik", "filerName", "periodOfReport", "cusip", "nameOfIssuer", "value", "shares", "filedAt") ' +
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+          );
+
+          db.exec("BEGIN");
+          try {
+            for (const h of holdings) {
+              insertStmt.run(
+                s.cik,
+                s.name,
+                periodOfReport,
+                h.cusip,
+                h.nameOfIssuer,
+                h.value,
+                h.sshPrnamt,
+                filedAt
+              );
+            }
+            db.exec("COMMIT");
+          } catch (dbErr) {
+            db.exec("ROLLBACK");
+            throw dbErr;
+          }
+
+          done++;
+        } catch (e) {
+          errors++;
+          console.warn(`[holdings_13f] Failed to process 13F for superinvestor ${s.name} (${s.cik}):`, e);
+        }
+      }
+
+      // Now run the overlap screen across all stored holdings
+      try {
+        const allStored = db.prepare('SELECT * FROM "InstitutionalHolding"').all() as any[];
+        const activeTickers = db.prepare('SELECT "symbol", "name" FROM "Ticker" WHERE "active" = 1').all() as { symbol: string; name: string | null }[];
+
+        // Map CUSIP -> symbol using fuzzy name matching
+        const cusipToSymbol = new Map<string, string>();
+        const uniqueCusips = new Map<string, string>(); // CUSIP -> nameOfIssuer
+        for (const h of allStored) {
+          uniqueCusips.set(h.cusip, h.nameOfIssuer);
+        }
+
+        for (const [cusip, nameOfIssuer] of uniqueCusips) {
+          const matched = activeTickers.find((t) => t.name && matchesFuzzy(nameOfIssuer, t.name));
+          if (matched) {
+            cusipToSymbol.set(cusip, matched.symbol);
+          }
+        }
+
+        const overlapResults = computeSuperinvestorOverlap(allStored, cusipToSymbol);
+        const overlapSymbols = new Set(overlapResults.map((r) => r.symbol));
+
+        // Merge tags into Candidates
+        for (const res of overlapResults) {
+          try {
+            const existing = db.prepare('SELECT * FROM "Candidate" WHERE "symbol"=?').get(res.symbol) as any;
+            if (existing) {
+              let triggerTags: string[] = [];
+              try {
+                triggerTags = JSON.parse(existing.triggerTags);
+              } catch {
+                triggerTags = [];
+              }
+
+              let qualification: any = {};
+              try {
+                qualification = JSON.parse(existing.qualification);
+              } catch {
+                qualification = {};
+              }
+
+              const tag = "superinvestor";
+              if (!triggerTags.includes(tag)) {
+                triggerTags.push(tag);
+              }
+
+              qualification.superinvestor = {
+                holders: res.holders,
+                count: res.holderCount,
+                newThisQuarter: res.newThisQuarter,
+              };
+
+              db.prepare(
+                'UPDATE "Candidate" SET "triggerTags" = ?, "qualification" = ?, "computedAt" = ? WHERE "symbol" = ?'
+              ).run(
+                JSON.stringify(triggerTags),
+                JSON.stringify(qualification),
+                new Date().toISOString(),
+                res.symbol
+              );
+            }
+          } catch (candErr) {
+            console.warn(`[holdings_13f] Failed to update candidate for ${res.symbol}:`, candErr);
+          }
+        }
+
+        // Clean up candidates that no longer have superinvestor holdings
+        const allCandidates = db.prepare('SELECT * FROM "Candidate"').all() as any[];
+        for (const cand of allCandidates) {
+          try {
+            let triggerTags: string[] = [];
+            try {
+              triggerTags = JSON.parse(cand.triggerTags);
+            } catch {
+              continue;
+            }
+
+            const hasTag = triggerTags.includes("superinvestor");
+            if (hasTag && !overlapSymbols.has(cand.symbol)) {
+              triggerTags = triggerTags.filter((t) => t !== "superinvestor");
+              let qualification: any = {};
+              try {
+                qualification = JSON.parse(cand.qualification);
+              } catch {
+                qualification = {};
+              }
+              delete qualification.superinvestor;
+
+              db.prepare(
+                'UPDATE "Candidate" SET "triggerTags" = ?, "qualification" = ?, "computedAt" = ? WHERE "symbol" = ?'
+              ).run(
+                JSON.stringify(triggerTags),
+                JSON.stringify(qualification),
+                new Date().toISOString(),
+                cand.symbol
+              );
+            }
+          } catch (candErr) {
+            console.warn(`[holdings_13f] Failed to clean candidate for ${cand.symbol}:`, candErr);
+          }
+        }
+
+      } catch (overlapErr) {
+        errors++;
+        console.warn(`[holdings_13f] Failed to compute overlap screen:`, overlapErr);
+      }
+
+      return {
+        ok: errors === 0,
+        detail: `holdings_13f: superinvestors_done=${done} errors=${errors}`,
+      };
     },
   },
   {

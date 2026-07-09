@@ -65,7 +65,7 @@ injected dependencies → fully tested with fakes (no network).
   `edgar_index`, `stats`, `news`, `earnings`, `rules`, `digest`, `overnight`,
   `refresh_data` (the data chain minus the model: prices-heal→stats→news→earnings→rules,
   the no-model "Refresh data" button target), `dossier`, `backup`, `integrity_check`,
-  `backtest`, `portfolio_check`, `form4`, `events8k`, `screens` (runs GICS sector-specific quality screens, including bank-quality and reit-quality). Importing it stays offline; only each `run` touches the wire.
+  `backtest`, `portfolio_check`, `form4`, `events8k`, `holdings_13f` (ingests 13F filings for superinvestors, computes overlaps, and merges Candidate tags), `screens` (runs GICS sector-specific quality screens, including bank-quality and reit-quality). Importing it stays offline; only each `run` touches the wire.
 
 ## Tests
 

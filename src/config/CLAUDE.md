@@ -28,6 +28,8 @@ budgets, or add a sector.
   are the sector-less HYG/IEF proxies.
 - `tripwires.ts` — the `TRIPWIRES` rule table (config DATA) the `src/rules/` engine
   interprets: drawdown / consecutive-monthly / flag-equals / ratio-change / compound.
+- `superinvestors.ts` — curated list of superinvestor CIKs (Warren Buffett, Michael Burry, etc.)
+  and helper functions for lookups.
 
 ## Invariants
 
