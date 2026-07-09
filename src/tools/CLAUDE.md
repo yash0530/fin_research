@@ -33,6 +33,7 @@ that agents cite from.
 - `qoe.ts` — Quality-of-Earnings forensics: Beneish M-Score, Altman Z, Piotroski F,
   accrual ratio, SBC%. Canonical formulas, golden-tested against hand-derived values.
 - `technicals.ts` — SMA/EMA/RSI/MACD, golden-cross, 52-week breakout over despiked closes.
+- `chart-patterns.ts` — 11 pure chart-pattern detectors (H&S, tops/bottoms, triangles, flags, wedges, cup & handle) over closes.
 - `financial-trends.ts` — multi-quarter revenue/margin/FCF trajectory.
 - `relative-rank.ts` — percentile ranks + spotlight tags across a universe.
 - `sector-heat.ts` — sector return aggregation across both taxonomies.
