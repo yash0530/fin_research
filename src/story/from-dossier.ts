@@ -33,10 +33,14 @@ const round = (v: number, dp = 0): number => {
   return Math.round(v * f) / f;
 };
 
-/** Compact money label ($B when large, else $M). Inputs are $M. */
-function money(m: number): string {
-  if (Math.abs(m) >= 1000) return `$${round(m / 1000, 1)}B`;
-  return `$${round(m, 0)}M`;
+/** Compact money label from a raw USD amount (FundamentalsQuarter fields are
+ *  stored in actual dollars, e.g. 39_648_000_000 → "$39.6B"). */
+export function money(usd: number): string {
+  const a = Math.abs(usd);
+  if (a >= 1e9) return `$${round(usd / 1e9, 1)}B`;
+  if (a >= 1e6) return `$${round(usd / 1e6, 0)}M`;
+  if (a >= 1e3) return `$${round(usd / 1e3, 0)}K`;
+  return `$${round(usd, 0)}`;
 }
 
 type Targets = { low: number; mid: number; high: number };
