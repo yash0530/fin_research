@@ -196,6 +196,14 @@ export function parseForm4Xml(
 }
 
 /** Fetch and parse Form 4 XML using the standard/shared rate limiter. */
+/** Resolve a Form 4 primaryDoc to the RAW XML path, stripping SEC's XSL viewer
+ *  prefix (`xslF345X0N/…`). A doc that is already raw XML passes through. */
+export function rawForm4Doc(primaryDoc: string): string {
+  // "xslF345X06/form4.xml" → "form4.xml"; leave a bare "form4.xml" alone.
+  const stripped = primaryDoc.replace(/^xsl[^/]*\//i, "");
+  return stripped;
+}
+
 export async function fetchForm4(
   cik: string,
   accessionNo: string,
@@ -209,7 +217,12 @@ export async function fetchForm4(
 ): Promise<InsiderTxRow[]> {
   const cleanCik = cik.replace(/\D/g, "").replace(/^0+/, "");
   const accessionNoNoDashes = accessionNo.replace(/-/g, "");
-  const url = `https://www.sec.gov/Archives/edgar/data/${cleanCik}/${accessionNoNoDashes}/${primaryDoc}`;
+  // EDGAR indexes Form 4 primaryDoc as the XSL-styled VIEWER path
+  // (e.g. "xslF345X06/form4.xml"), which serves HTML-rendered output with no
+  // <ownershipDocument> root. Strip the leading "xsl…/" segment to hit the raw
+  // XML in the same directory — otherwise every parse yields [] (no insider data).
+  const rawDoc = rawForm4Doc(primaryDoc);
+  const url = `https://www.sec.gov/Archives/edgar/data/${cleanCik}/${accessionNoNoDashes}/${rawDoc}`;
 
   const res = await limiter.throttle(
     () => fetchImpl(url, { headers: { "User-Agent": userAgent, "Accept-Encoding": "gzip" } }),

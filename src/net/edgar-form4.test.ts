@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseForm4Xml, fetchForm4 } from "./edgar-form4";
+import { parseForm4Xml, fetchForm4, rawForm4Doc } from "./edgar-form4";
 import { RateLimiter } from "./rate-limiter";
 import type { HttpResponse } from "./fetchers";
 
@@ -195,5 +195,16 @@ describe("Edgar Form 4 Parser", () => {
     expect(txs).toHaveLength(1);
     expect(txs[0].symbol).toBe("AAPL");
     expect(txs[0].filerName).toBe("Cook Tim");
+  });
+});
+
+describe("rawForm4Doc", () => {
+  it("strips the SEC XSL viewer prefix to reach the raw XML", () => {
+    expect(rawForm4Doc("xslF345X06/form4.xml")).toBe("form4.xml");
+    expect(rawForm4Doc("xslF345X05/wk-form4_123.xml")).toBe("wk-form4_123.xml");
+  });
+  it("passes through a doc that is already raw XML", () => {
+    expect(rawForm4Doc("form4.xml")).toBe("form4.xml");
+    expect(rawForm4Doc("edgardoc.xml")).toBe("edgardoc.xml");
   });
 });
