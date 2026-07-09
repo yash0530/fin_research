@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { listJournalEntriesWithSnapshots, mistakeTaxonomy } from "@/lib/journal-data";
-import { listRecCalls, tierSummary } from "@/lib/calibration-data";
+import { listRecCalls, tierSummary, loadScorecard } from "@/lib/calibration-data";
 import { Panel } from "@/components/ui/Panel";
 import { Badge } from "@/components/ui/Badge";
 import { TrendNumber } from "@/components/ui/TrendNumber";
 import { Disclosure } from "@/components/ui/Disclosure";
 import { DenseTable, TableHead, TableBody, TableRow, TableCell } from "@/components/ui/DenseTable";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { StatStrip } from "@/components/ui/StatStrip";
+import { Stat } from "@/components/ui/Stat";
 import { JournalEditor } from "./JournalEditor";
 
 export const dynamic = "force-dynamic";
@@ -36,11 +38,12 @@ export default async function JournalPage({ searchParams }: Props) {
   const { symbol } = await searchParams;
   const filterSymbol = symbol?.trim().toUpperCase();
 
-  const [allEntries, mistakes, tiers, calls] = await Promise.all([
+  const [allEntries, mistakes, tiers, calls, scorecard] = await Promise.all([
     listJournalEntriesWithSnapshots(),
     mistakeTaxonomy(),
     tierSummary(),
     listRecCalls(),
+    loadScorecard("3m"),
   ]);
 
   const entries = filterSymbol ? allEntries.filter((e) => e.symbol === filterSymbol) : allEntries;
@@ -184,6 +187,74 @@ export default async function JournalPage({ searchParams }: Props) {
               The sizing governor caps the Judge&apos;s recommended position size to 2% until a conviction tier earns
               calibration — at least 5 resolved calls with a 50%+ favorable rate lifts the cap.
             </p>
+
+            {scorecard.insufficient ? (
+              <EmptyState
+                className="mb-4"
+                title="Insufficient Calibration Data"
+                body="At least 5 resolved calls are required to compute the Brier score, avoid ledger, and streak statistics."
+              />
+            ) : (
+              <>
+                <StatStrip className="mb-4">
+                  <Stat
+                    label="Brier Score"
+                    value={scorecard.brier.brier !== null ? scorecard.brier.brier.toFixed(4) : "—"}
+                    subValue={
+                      scorecard.brier.meanForecast !== null && scorecard.brier.meanOutcome !== null
+                        ? `gap: ${Math.abs(scorecard.brier.meanForecast - scorecard.brier.meanOutcome).toFixed(3)} (F: ${scorecard.brier.meanForecast.toFixed(2)} vs O: ${scorecard.brier.meanOutcome.toFixed(2)})`
+                        : "—"
+                    }
+                  />
+                  <Stat
+                    label="Avoid Hit Rate"
+                    value={`${Math.round(scorecard.avoidLedger.hitRate * 100)}%`}
+                    subValue={`${scorecard.avoidLedger.goodAvoids} / ${scorecard.avoidLedger.total} good avoids`}
+                  />
+                  <Stat
+                    label="Current Streak"
+                    value={`${scorecard.streaks.current.length} ${scorecard.streaks.current.kind}`}
+                    subValue={`longest: ${scorecard.streaks.longestCorrect} correct / ${scorecard.streaks.longestIncorrect} incorrect`}
+                  />
+                </StatStrip>
+
+                {scorecard.avoidLedger.entries.length > 0 && (
+                  <div className="mb-4">
+                    <Disclosure title={`Avoid Ledger Log (${scorecard.avoidLedger.entries.length})`}>
+                      <DenseTable>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell isHeader>Symbol</TableCell>
+                            <TableCell isHeader>Avoided At</TableCell>
+                            <TableCell isHeader numeric>Outcome</TableCell>
+                            <TableCell isHeader>Verdict</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {scorecard.avoidLedger.entries.map((entry, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell>
+                                <Link href={`/tickers/${entry.symbol}`} className="font-mono">
+                                  {entry.symbol}
+                                </Link>
+                              </TableCell>
+                              <TableCell>{entry.createdAt.slice(0, 10)}</TableCell>
+                              <TableCell numeric><TrendNumber value={entry.outcomePct} /></TableCell>
+                              <TableCell>
+                                <Badge variant={entry.correct ? "success" : "danger"}>
+                                  {entry.correct ? "Good Avoid" : "Bad Avoid"}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </DenseTable>
+                    </Disclosure>
+                  </div>
+                )}
+              </>
+            )}
+
             <DenseTable>
               <TableHead>
                 <TableRow>

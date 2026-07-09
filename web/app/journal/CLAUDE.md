@@ -17,8 +17,9 @@ here from the old `/calibration` page, which now redirects here).
   `JournalEditor` (new entries only — history is immutable, a correction is a
   new entry), **Post-Trade Outcome cards** (resolved `RecCall` rows via
   `listRecCalls()`, 1m/3m/6m/1y `TrendNumber`s + thesis-falsified badge), and
-  the **Calibration/Governor Console** (per-tier cap-status table via
-  `tierSummary()` + the full recommendation log in a `Disclosure`, restyled
+  the **Calibration/Governor Console** (scorecard metrics via `loadScorecard()` —
+  Brier score/calibration gap, avoid-ledger hit rate with detail log disclosure, and decision streaks —
+  plus the per-tier cap-status table via `tierSummary()` + the full recommendation log in a `Disclosure`, restyled
   from the old `/calibration` page with `DenseTable`/`Badge` primitives —
   dossier links now point at `/tickers/[symbol]#consensus` since `/dossiers`
   was deleted).

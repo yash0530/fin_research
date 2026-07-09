@@ -33,6 +33,7 @@ missing — a fresh install must never crash a page.
   cross-reference, bucketed by action).
 - `calibration-data.ts` — SQLite reader for `RecCall` rows and conviction tier
   summaries/governor status line builders (mirrors `src/calibration/governor.ts`).
+  Also exports `loadScorecard(horizon)` returning the full `Scorecard` (Brier, avoid ledger, streaks).
 - `buylist-data.ts` — SQLite reader for `BuyList`/`BuyListItem` + a BUY-verdict
   `RecCall` candidates preview (`getCandidatesPreview`, reused by
   `buy-ceremony-data.ts`'s harvest step).

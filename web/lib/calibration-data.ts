@@ -2,6 +2,9 @@
 // Server-only; routes using this are force-dynamic + nodejs runtime.
 // Returns null/[] gracefully when the DB or table is missing.
 
+import { buildScorecard, type Scorecard, type Horizon } from "@engine/calibration/scorecard";
+import { type CalRec } from "@engine/calibration/governor";
+
 export interface RecCallData {
   id: number;
   dossierId: string;
@@ -187,3 +190,12 @@ export async function tierSummary(): Promise<TierSummary[]> {
     };
   });
 }
+
+/**
+ * Load the calibration scorecard from the database.
+ */
+export async function loadScorecard(horizon: Horizon = "3m"): Promise<Scorecard> {
+  const calls = await listRecCalls();
+  return buildScorecard(calls as unknown as CalRec[], horizon);
+}
+

@@ -15,6 +15,10 @@ export type CalRec = {
   conviction: Conviction | string;
   outcome1mPct: number | null;
   outcome3mPct: number | null;
+  outcome6mPct?: number | null;
+  outcome1yPct?: number | null;
+  createdAt?: string | Date | null;
+  symbol?: string;
 };
 
 /**
