@@ -29,6 +29,7 @@ that agents cite from.
 ## Quant tools (pure math, golden-tested)
 
 - `dcf.ts` — 3-scenario discounted-cash-flow fair value.
+- `earnings-yield.ts` — pure earnings yield E/P bands (Median ± 1x/2x MAD bands over trailing 5y) with optional spread calculations.
 - `qoe.ts` — Quality-of-Earnings forensics: Beneish M-Score, Altman Z, Piotroski F,
   accrual ratio, SBC%. Canonical formulas, golden-tested against hand-derived values.
 - `technicals.ts` — SMA/EMA/RSI/MACD, golden-cross, 52-week breakout over despiked closes.

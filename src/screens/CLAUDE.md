@@ -5,6 +5,8 @@ Pure modules evaluating individual tickers over historical quarterly fundamental
 ## Modules
 
 - `fscore.ts` — Piotroski 9-test profitability, leverage, and efficiency score comparing current TTM (last 4 quarters) vs prior TTM (quarters 5-8).
+- `bank-quality.ts` — quality screen for GICS Financials (`g_financials`). Over the freshest 4 complete quarters, tests ROA, ROE, capital ratio, and efficiency proxy.
+- `reit-quality.ts` — quality screen for GICS Real Estate (`g_real_estate`). Over the freshest 4 complete quarters, computes FFO TTM, FFO per share, and cheapness based on P/FFO.
 - `accruals.ts` — Sloan accruals calculated as `(TTM Net Income - TTM CFO) / average Total Assets` over the TTM quarters.
 - `dilution.ts` — 3-year (12-quarter) net share count change percentage.
 - `cohort.ts` — Sector-relative cohort cheapness based on EV/EBIT (selects the bottom 25% within each sector).

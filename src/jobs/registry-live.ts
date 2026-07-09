@@ -73,6 +73,8 @@ import { computeEarningsTrend } from "../screens/earnings-trend";
 import { fetchForm4 } from "../net/edgar-form4";
 import { checkInsiderCluster } from "../screens/insider-cluster";
 import { classify8k } from "../screens/eightk-classify";
+import { computeBankQuality } from "../screens/bank-quality";
+import { computeReitQuality } from "../screens/reit-quality";
 
 
 function computeEvToEbit(quarters: any[], marketCap: number | null): number | null {
@@ -491,30 +493,60 @@ const JOB_DEFS: JobDef[] = [
           const cheap = cheapSymbols.has(symbol);
 
           // Quality gates check
-          const passesGates =
-            applicability.applicable &&
-            fscore.score >= 7 &&
-            accruals.verdict === "pass" &&
-            dilution.verdict === "pass" &&
-            cheap;
+          let passesGates = false;
+          let sectorScreen: any = null;
+          let sectorTag: string | null = null;
+          let passesSectorScreen = false;
+
+          if (sectorCode === "g_financials") {
+            const bankRes = computeBankQuality(quarters);
+            sectorScreen = bankRes;
+            passesSectorScreen = bankRes.score >= 3;
+            passesGates = passesSectorScreen;
+            sectorTag = "bank-quality";
+          } else if (sectorCode === "g_real_estate") {
+            const reitRes = computeReitQuality(quarters, marketCap);
+            sectorScreen = reitRes;
+            passesSectorScreen = reitRes.verdict === "cheap";
+            passesGates = passesSectorScreen;
+            sectorTag = "reit-quality";
+          } else {
+            passesGates =
+              applicability.applicable &&
+              fscore.score >= 7 &&
+              accruals.verdict === "pass" &&
+              dilution.verdict === "pass" &&
+              cheap;
+          }
 
           const tier = passesGates ? 2 : 3;
 
           const triggerTags: string[] = [];
-          if (fscore.score >= 7) triggerTags.push("High F-Score");
-          if (accruals.verdict === "pass") triggerTags.push("Low Accruals");
-          if (dilution.verdict === "pass") triggerTags.push("No Dilution");
-          if (cheap) triggerTags.push("Cheap Cohort");
+          if (sectorCode === "g_financials" || sectorCode === "g_real_estate") {
+            if (passesSectorScreen && sectorTag) {
+              triggerTags.push(sectorTag);
+            }
+          } else {
+            if (fscore.score >= 7) triggerTags.push("High F-Score");
+            if (accruals.verdict === "pass") triggerTags.push("Low Accruals");
+            if (dilution.verdict === "pass") triggerTags.push("No Dilution");
+            if (cheap) triggerTags.push("Cheap Cohort");
+          }
+
           if (earningsTrend.verdict === "improvingConfirmed") triggerTags.push("YoY Earnings Improving");
           else if (earningsTrend.verdict === "deteriorating") triggerTags.push("YoY Earnings Deteriorating");
 
-          const qualification = {
+          const qualification: any = {
             fscore: { score: fscore.score, maxComputable: fscore.maxComputable, verdict: fscore.score >= 7 ? "pass" : "fail" },
             accruals: { value: accruals.value, verdict: accruals.verdict },
             dilution: { value: dilution.value, verdict: dilution.verdict },
             earningsTrend: { zScore: earningsTrend.zScore, verdict: earningsTrend.verdict },
             cohort: { evToEbit, cheap }
           };
+
+          if (sectorScreen) {
+            qualification.sectorScreen = sectorScreen;
+          }
 
           const computedAt = new Date().toISOString();
 

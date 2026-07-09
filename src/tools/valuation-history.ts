@@ -29,7 +29,7 @@ export type ValuationHistoryOutput = {
   verdict: "cheap" | "fair" | "rich" | "suspended";
 };
 
-function median(arr: number[]): number {
+export function median(arr: number[]): number {
   if (arr.length === 0) return 0;
   const sorted = [...arr].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
@@ -39,13 +39,13 @@ function median(arr: number[]): number {
   return (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-function computeMad(arr: number[], med: number): number {
+export function computeMad(arr: number[], med: number): number {
   if (arr.length === 0) return 0;
   const devs = arr.map((x) => Math.abs(x - med));
   return median(devs);
 }
 
-function getFiveYearsAgo(dateStr: string): string {
+export function getFiveYearsAgo(dateStr: string): string {
   const parts = dateStr.split("-");
   if (parts.length !== 3) return "0000-00-00";
   const year = parseInt(parts[0], 10);
