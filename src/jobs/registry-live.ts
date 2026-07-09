@@ -75,6 +75,7 @@ import { checkInsiderCluster } from "../screens/insider-cluster";
 import { classify8k } from "../screens/eightk-classify";
 import { computeBankQuality } from "../screens/bank-quality";
 import { computeReitQuality } from "../screens/reit-quality";
+import { detectSpinoff } from "../screens/spinoff-detect";
 
 
 function computeEvToEbit(quarters: any[], marketCap: number | null): number | null {
@@ -769,6 +770,67 @@ const JOB_DEFS: JobDef[] = [
                 db.exec("ROLLBACK");
                 throw e;
               }
+            }
+
+            const spinoffSignal = detectSpinoff(text, undefined, symbol);
+            if (spinoffSignal) {
+              db.prepare(
+                'INSERT INTO "FilingEvent" ' +
+                '("symbol", "accessionNo", "form", "item", "kind", "headline", "snippet", "severity", "filedAt") ' +
+                'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ' +
+                'ON CONFLICT("accessionNo", "item") DO UPDATE SET ' +
+                '"kind"=excluded.kind, "headline"=excluded.headline, "snippet"=excluded.snippet, "severity"=excluded.severity, "filedAt"=excluded.filedAt'
+              ).run(
+                symbol,
+                f.accessionNo,
+                "8-K",
+                "spinoff",
+                "spinoff",
+                spinoffSignal.headline,
+                spinoffSignal.snippet,
+                "notable",
+                f.filedAt
+              );
+              eventsCount++;
+
+              const existing = db.prepare('SELECT * FROM "Candidate" WHERE "symbol"=?').get(symbol) as any;
+              let triggerTags: string[] = [];
+              let qualification: any = {};
+              let userState = "INBOX";
+              let tier = 3;
+
+              if (existing) {
+                try {
+                  triggerTags = JSON.parse(existing.triggerTags);
+                } catch {
+                  triggerTags = [];
+                }
+                try {
+                  qualification = JSON.parse(existing.qualification);
+                } catch {
+                  qualification = {};
+                }
+                userState = existing.userState;
+                tier = existing.tier;
+              }
+
+              if (!triggerTags.includes("spinoff")) {
+                triggerTags.push("spinoff");
+              }
+
+              db.prepare(
+                'INSERT INTO "Candidate" ("symbol", "tier", "triggerTags", "qualification", "computedAt", "userState") ' +
+                'VALUES (?, ?, ?, ?, ?, ?) ' +
+                'ON CONFLICT("symbol") DO UPDATE SET ' +
+                '"tier"=excluded.tier, "triggerTags"=excluded.triggerTags, "qualification"=excluded.qualification, "computedAt"=excluded.computedAt'
+              ).run(
+                symbol,
+                tier,
+                JSON.stringify(triggerTags),
+                JSON.stringify(qualification),
+                new Date().toISOString(),
+                userState
+              );
             }
           }
 

@@ -12,3 +12,14 @@ Read first: `src/screens/eightk-classify.ts` (the pure 8-K item classifier + its
 
 ## Gates (fix until green)
 `npm run typecheck` · `npm test` · `npm run check:claude`. Append `## Result`. Do NOT commit. Touch only: src/screens/spinoff-detect*, src/jobs/registry-live*, affected CLAUDE.md.
+
+## Result
+
+Implemented a robust pure regex/keyword classifier for spin-offs in [spinoff-detect.ts](file:///Users/yash/Desktop/Programming/fin_research/src/screens/spinoff-detect.ts) and integrated it into the `events8k` job in [registry-live.ts](file:///Users/yash/Desktop/Programming/fin_research/src/jobs/registry-live.ts) to record `FilingEvent` records with kind `spinoff` and merge the `spinoff` trigger tag into the symbol's `Candidate.triggerTags` without overwriting the userState or throwing job-level errors.
+
+All verification steps successfully completed:
+- `npm run typecheck`: Green.
+- `npm test`: Green (630 / 630 tests passed, including `spinoff-detect.test.ts` and the new test suite for `events8k` spinoff job integration).
+- `npm run check:claude`: Green.
+- No git commands were executed. All changes have been left as uncommitted working-tree changes.
+

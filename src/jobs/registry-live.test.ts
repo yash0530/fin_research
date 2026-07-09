@@ -332,5 +332,56 @@ describe("live registry assembly", () => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  it("events8k job should detect spinoff and merge spinoff trigger tag", async () => {
+    const db = migratedDb();
+    const reg = buildLiveRegistry(db);
+    const events8kJob = reg.find((j) => j.name === "events8k");
+    expect(events8kJob).toBeDefined();
+
+    // Seed mock Ticker
+    db.prepare('INSERT INTO "Ticker" ("symbol", "class", "active") VALUES (?, ?, ?)').run("SPIN", "stock", 1);
+    // Seed mock EdgarFiling 8-K in last 30 days
+    const today = new Date().toISOString().slice(0, 10);
+    db.prepare(
+      'INSERT INTO "EdgarFiling" ("accessionNo", "symbol", "cik", "form", "filedAt", "primaryDoc") VALUES (?, ?, ?, ?, ?, ?)'
+    ).run("0002-8k", "SPIN", "54321", "8-K", today, "primary.htm");
+
+    const spinoffHtml = `
+      <html>
+        <body>
+          Item 2.01 Completion of Acquisition or Disposition of Assets.
+          The company completed the distribution and spinoff of its business.
+        </body>
+      </html>
+    `;
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => spinoffHtml,
+    } as any);
+
+    try {
+      const outcome = await events8kJob!.run(["SPIN"]);
+      expect(outcome.ok).toBe(true);
+
+      const events = db.prepare('SELECT * FROM "FilingEvent" WHERE "symbol"=?').all("SPIN") as any[];
+      expect(events).toHaveLength(1);
+      expect(events[0].item).toBe("spinoff");
+      expect(events[0].kind).toBe("spinoff");
+      expect(events[0].severity).toBe("notable");
+      expect(events[0].headline).toBe("Spin-off Completed");
+
+      const candidates = db.prepare('SELECT * FROM "Candidate" WHERE "symbol"=?').all("SPIN") as any[];
+      expect(candidates).toHaveLength(1);
+      const tags = JSON.parse(candidates[0].triggerTags);
+      expect(tags).toContain("spinoff");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });
+
 
