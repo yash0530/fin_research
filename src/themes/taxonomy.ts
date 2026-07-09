@@ -28,17 +28,49 @@ export const THEMES: Theme[] = [
   },
 ];
 
-export function getTheme(code: string): Theme | undefined {
-  return THEMES.find((t) => t.code === code);
+export type UserTheme = {
+  code: string;
+  name: string;
+  subthemesJson: string;
+  createdAt: string;
+};
+
+export function allThemes(userThemes: UserTheme[]): Theme[] {
+  const merged: Theme[] = [...THEMES];
+  for (const ut of userThemes) {
+    let subthemes: Subtheme[] = [];
+    try {
+      const parsed = JSON.parse(ut.subthemesJson);
+      if (Array.isArray(parsed)) {
+        subthemes = parsed.map((s, idx) => ({
+          code: s.code || `${ut.code}_${idx}`,
+          name: s.name || "",
+          sectorCodes: s.sectorCodes || [],
+        }));
+      }
+    } catch (e) {
+      console.error(`Failed to parse subthemesJson for user theme ${ut.code}:`, e);
+    }
+    merged.push({
+      code: ut.code,
+      name: ut.name,
+      subthemes,
+    });
+  }
+  return merged;
 }
 
-export function getSubtheme(themeCode: string, subthemeCode: string): Subtheme | undefined {
-  return getTheme(themeCode)?.subthemes.find((s) => s.code === subthemeCode);
+export function getTheme(code: string, userThemes: UserTheme[] = []): Theme | undefined {
+  return allThemes(userThemes).find((t) => t.code === code);
+}
+
+export function getSubtheme(themeCode: string, subthemeCode: string, userThemes: UserTheme[] = []): Subtheme | undefined {
+  return getTheme(themeCode, userThemes)?.subthemes.find((s) => s.code === subthemeCode);
 }
 
 /** Reverse lookup: which theme/subtheme (if any) covers a sector code. */
-export function themeForSector(sectorCode: string): { theme: Theme; subtheme: Subtheme } | null {
-  for (const theme of THEMES) {
+export function themeForSector(sectorCode: string, userThemes: UserTheme[] = []): { theme: Theme; subtheme: Subtheme } | null {
+  for (const theme of allThemes(userThemes)) {
     for (const subtheme of theme.subthemes) {
       if (subtheme.sectorCodes.includes(sectorCode)) return { theme, subtheme };
     }
@@ -47,8 +79,8 @@ export function themeForSector(sectorCode: string): { theme: Theme; subtheme: Su
 }
 
 /** All sector codes a theme spans (deduped, insertion order). */
-export function themeSectorCodes(themeCode: string): string[] {
-  const theme = getTheme(themeCode);
+export function themeSectorCodes(themeCode: string, userThemes: UserTheme[] = []): string[] {
+  const theme = getTheme(themeCode, userThemes);
   if (!theme) return [];
   const seen = new Set<string>();
   const out: string[] = [];
@@ -62,3 +94,4 @@ export function themeSectorCodes(themeCode: string): string[] {
   }
   return out;
 }
+

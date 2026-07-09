@@ -6,7 +6,8 @@ injected rows (same contract as `src/screens/`).
 - `taxonomy.ts` — themes are **config**: `THEMES` (v1: one `ai` theme whose 12
   subthemes map 1:1 onto the `ai_*` sector codes from `src/config/sectors`),
   plus lookups (`getTheme`, `getSubtheme`, `themeForSector`, `themeSectorCodes`).
-  Adding a theme is adding a config entry, never new branching.
+  `allThemes(userThemes)` merges built-in themes and human-accepted custom user themes.
+- `propose.ts` — `buildThemeProposal(clusters, evidence)` shapes emerging theme proposals and subthemes deterministically, using LLM-assisted naming and rationale generation.
 - `rank.ts` — `rankTheme(inputs)`: three transparent 0-100 segments per name —
   **quality** (F-Score 60% + accruals 20% + dilution 20%, reusing `src/screens/*`),
   **valuation** (sector-relative EV/EBIT percentile inverted; P/S fallback when the
@@ -20,6 +21,8 @@ injected rows (same contract as `src/screens/`).
 
 ## Tests
 
-`rank.test.ts` — taxonomy shape + reverse lookup, 12-1 math, full-segment ranking,
-tie flags, silo behavior, P/S fallback provenance, financials quality exclusion,
-cohort-size warning, sector-neutral momentum.
+- `rank.test.ts` — taxonomy shape + reverse lookup, 12-1 math, full-segment ranking,
+  tie flags, silo behavior, P/S fallback provenance, financials quality exclusion,
+  cohort-size warning, sector-neutral momentum.
+- `propose.test.ts` — cluster→proposal shaping, LLM-naming via FakeProvider, evidence
+  provenance preserved, and taxonomy `allThemes` merge.

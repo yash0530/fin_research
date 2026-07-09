@@ -459,4 +459,66 @@ describe("filing_diff run type (P8)", () => {
     rmSync("data/research/run_fdiff_empty.md", { force: true });
     db.close();
   });
+
+  it("executes a theme_proposal run and inserts a ThemeProposal", async () => {
+    const db = setupTestDb();
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS "ThemeProposal" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "status" TEXT NOT NULL CHECK ("status" IN ('PENDING', 'ACCEPTED', 'REJECTED')),
+        "proposedName" TEXT NOT NULL,
+        "proposedCode" TEXT NOT NULL,
+        "rationale" TEXT NOT NULL,
+        "subthemesJson" TEXT NOT NULL,
+        "evidenceJson" TEXT NOT NULL,
+        "createdAt" TEXT NOT NULL,
+        "decidedAt" TEXT
+      );
+      CREATE TABLE IF NOT EXISTS "UserTheme" (
+        "code" TEXT NOT NULL PRIMARY KEY,
+        "name" TEXT NOT NULL,
+        "subthemesJson" TEXT NOT NULL,
+        "createdAt" TEXT NOT NULL
+      );
+    `);
+
+    createResearchRun(db as unknown as SqlDb, {
+      id: "run_theme_proposal",
+      runType: "theme_proposal",
+      target: "all",
+      budgetSeconds: 1800,
+      profile: "fast",
+    });
+
+    const fakeLlmResponse = JSON.stringify({
+      themeName: "NextGen Storage",
+      rationale: "Rapid expansion of SSD storage demand.",
+      subthemeNames: ["Solid State Drives"]
+    });
+    const provider = new FakeProvider([fakeLlmResponse]);
+    const providerFor = () => provider;
+
+    const runner = new OnDemandResearchRunner(db as unknown as SqlDb, "run_theme_proposal", providerFor, {
+      now: () => 1000,
+      platform: "linux",
+    });
+
+    await runner.execute();
+
+    const run = db.prepare('SELECT * FROM "ResearchRun" WHERE id = ?').get("run_theme_proposal") as any;
+    expect(run.status).toBe("COMPLETED");
+
+    const proposal = db.prepare('SELECT * FROM "ThemeProposal"').get() as any;
+    expect(proposal).toBeDefined();
+    expect(proposal.status).toBe("PENDING");
+    expect(proposal.proposedName).toBe("NextGen Storage");
+    expect(proposal.proposedCode).toBe("nextgen_storage");
+
+    const md = readFileSync("data/research/run_theme_proposal.md", "utf8");
+    expect(md).toContain("Theme Proposal: NextGen Storage");
+    expect(md).toContain("Solid State Drives");
+
+    rmSync("data/research/run_theme_proposal.md", { force: true });
+    db.close();
+  });
 });

@@ -13,6 +13,7 @@
 - **buylist**: `BuyList`, `BuyListItem`.
 - **capture**: `PromptTemplate`, `Capture`.
 - **ops**: `JournalEntry`, `Position`, `JobRun`.
+- **theme_proposals**: `ThemeProposal`, `UserTheme`.
 
 ## Conventions
 

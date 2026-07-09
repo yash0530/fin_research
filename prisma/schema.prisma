@@ -566,4 +566,24 @@ model InstitutionalHolding {
   @@index([cusip])
 }
 
+model ThemeProposal {
+  id            String  @id
+  status        String
+  proposedName  String
+  proposedCode  String
+  rationale     String
+  subthemesJson String
+  evidenceJson  String
+  createdAt     String
+  decidedAt     String?
+}
+
+model UserTheme {
+  code          String  @id
+  name          String
+  subthemesJson String
+  createdAt     String
+}
+
+
 

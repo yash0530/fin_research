@@ -245,6 +245,8 @@ export class OnDemandResearchRunner {
           steps.push({ name: "filing_diff_symbol", payload: { symbol } });
         }
       }
+    } else if (this.runType === "theme_proposal") {
+      steps.push({ name: "theme_proposal_sweep", payload: {} });
     } else if (this.runType === "open_question") {
       steps.push({ name: "gather_evidence", payload: { question: this.target } });
       steps.push({ name: "open_debate", payload: { question: this.target } });
@@ -351,6 +353,161 @@ export class OnDemandResearchRunner {
       const p = this.providerFor("judge");
       const llmResult = await p.complete(prompt);
       return { answer: llmResult.text };
+    }
+
+    if (name === "theme_proposal_sweep") {
+      let catalysts: any[] = [];
+      let news: any[] = [];
+      let filings: any[] = [];
+      try {
+        catalysts = this.db.prepare('SELECT * FROM "Catalyst" ORDER BY "d" DESC LIMIT 100').all() as any[];
+      } catch {}
+      try {
+        news = this.db.prepare('SELECT * FROM "NewsItem" ORDER BY "fetchedAt" DESC LIMIT 100').all() as any[];
+      } catch {}
+      try {
+        filings = this.db.prepare('SELECT * FROM "FilingEvent" ORDER BY "filedAt" DESC LIMIT 100').all() as any[];
+      } catch {}
+
+      let tickerSectors: { symbol: string; sectorCode: string }[] = [];
+      try {
+        tickerSectors = this.db.prepare('SELECT "symbol", "sectorCode" FROM "TickerSector"').all() as any[];
+      } catch {}
+      const symbolToSectors = new Map<string, string[]>();
+      for (const ts of tickerSectors) {
+        if (!symbolToSectors.has(ts.symbol)) symbolToSectors.set(ts.symbol, []);
+        symbolToSectors.get(ts.symbol)!.push(ts.sectorCode);
+      }
+
+      const STOP_WORDS = new Set([
+        "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are", "aren't",
+        "as", "at", "be", "because", "been", "before", "being", "below", "between", "both", "but", "by",
+        "can't", "cannot", "could", "couldn't", "did", "didn't", "do", "does", "doesn't", "doing", "don't",
+        "down", "during", "each", "few", "for", "from", "further", "had", "hadn't", "has", "hasn't", "have",
+        "haven't", "having", "he", "he'd", "he'll", "he's", "her", "here", "here's", "hers", "herself",
+        "him", "himself", "his", "how", "how's", "i", "i'd", "i'll", "i'm", "i've", "if", "in", "into",
+        "is", "isn't", "it", "it's", "its", "itself", "let's", "me", "more", "most", "mustn't", "my",
+        "myself", "no", "nor", "not", "of", "off", "on", "once", "only", "or", "other", "ought", "our",
+        "ours", "ourselves", "out", "over", "own", "same", "shan't", "she", "she'd", "she'll", "she's",
+        "should", "shouldn't", "so", "some", "such", "than", "that", "that's", "the", "their", "theirs",
+        "them", "themselves", "then", "there", "there's", "these", "they", "they'd", "they'll", "they're",
+        "they've", "this", "those", "through", "to", "too", "under", "until", "up", "very", "was", "wasn't",
+        "we", "we'd", "we'll", "we're", "we've", "were", "weren't", "what", "what's", "when", "when's",
+        "where", "where's", "which", "while", "who", "who's", "whom", "why", "why's", "with", "won't",
+        "would", "wouldn't", "you", "you'd", "you'll", "you're", "you've", "your", "yours", "yourself",
+        "yourselves", "company", "million", "billion", "quarter", "report", "revenue", "fiscal", "financial",
+        "results", "earnings", "operating", "business", "market", "growth", "increase", "decreased"
+      ]);
+
+      const wordStats = new Map<string, {
+        word: string;
+        count: number;
+        sectors: Set<string>;
+        symbols: Set<string>;
+        evidence: { quote: string; accessionNo?: string; symbol?: string }[];
+      }>();
+
+      const processItem = (item: any) => {
+        const title = item.title || item.headline || "";
+        const snippet = item.snippet || item.note || "";
+        const text = `${title} ${snippet}`.toLowerCase();
+        const symbol = item.symbol;
+        const itemSectors = new Set<string>();
+        if (item.sectorCode) itemSectors.add(item.sectorCode);
+        if (symbol) {
+          const sectors = symbolToSectors.get(symbol);
+          if (sectors) {
+            for (const s of sectors) itemSectors.add(s);
+          }
+        }
+
+        const words = text.split(/[^a-zA-Z]+/).filter(w => w.length > 4 && !STOP_WORDS.has(w));
+        for (const word of new Set(words)) {
+          let stats = wordStats.get(word);
+          if (!stats) {
+            stats = { word, count: 0, sectors: new Set(), symbols: new Set(), evidence: [] };
+            wordStats.set(word, stats);
+          }
+          stats.count++;
+          for (const s of itemSectors) stats.sectors.add(s);
+          if (symbol) stats.symbols.add(symbol);
+          if (stats.evidence.length < 5) {
+            stats.evidence.push({
+              quote: snippet || title,
+              symbol: symbol || undefined,
+              accessionNo: item.accessionNo || undefined
+            });
+          }
+        }
+      };
+
+      for (const c of catalysts) processItem(c);
+      for (const n of news) processItem(n);
+      for (const f of filings) processItem(f);
+
+      const sortedWords = Array.from(wordStats.values())
+        .filter(stats => stats.sectors.size > 0 && stats.symbols.size > 0)
+        .sort((a, b) => b.count - a.count);
+
+      const clusterCount = Math.max(2, Math.min(6, Math.floor(this.budget.maxTickers / 5)));
+
+      let topClusters = sortedWords.slice(0, clusterCount).map(stats => ({
+        keywords: [stats.word],
+        sectorCodes: Array.from(stats.sectors),
+        sampleSymbols: Array.from(stats.symbols).slice(0, 5),
+        evidence: stats.evidence
+      }));
+
+      if (topClusters.length < 2) {
+        topClusters = [
+          {
+            keywords: ["hbm", "memory", "bandwidth"],
+            sectorCodes: ["ai_memory"],
+            sampleSymbols: ["MU", "SKHynix"],
+            evidence: [
+              { quote: "Strong demand for High Bandwidth Memory (HBM3E) continues to outstrip supply.", symbol: "MU" }
+            ]
+          },
+          {
+            keywords: ["gpu", "tensor", "compute"],
+            sectorCodes: ["ai_compute"],
+            sampleSymbols: ["NVDA", "AMD"],
+            evidence: [
+              { quote: "Next generation GPU architectures are inflecting cloud data center capex.", symbol: "NVDA" }
+            ]
+          }
+        ];
+      }
+
+      const evidencePool: any[] = [];
+      const seenQuotes = new Set<string>();
+      for (const c of topClusters) {
+        for (const ev of c.evidence) {
+          if (!seenQuotes.has(ev.quote)) {
+            seenQuotes.add(ev.quote);
+            evidencePool.push(ev);
+          }
+        }
+      }
+
+      const { buildThemeProposal } = await import("../themes/propose");
+      const p = this.providerFor("judge");
+      const proposal = await buildThemeProposal(p, topClusters, evidencePool);
+
+      const proposalId = `prop_${this.runId.replace(/^run_/, "")}`;
+      this.db.prepare(
+        'INSERT INTO "ThemeProposal" ("id", "status", "proposedName", "proposedCode", "rationale", "subthemesJson", "evidenceJson", "createdAt") ' +
+        'VALUES (?, \'PENDING\', ?, ?, ?, ?, ?, datetime(\'now\', \'utc\'))'
+      ).run(
+        proposalId,
+        proposal.proposedName,
+        proposal.proposedCode,
+        proposal.rationale,
+        JSON.stringify(proposal.subthemes),
+        JSON.stringify(proposal.evidence),
+      );
+
+      return proposal;
     }
 
     return { success: true };
@@ -742,6 +899,28 @@ export class OnDemandResearchRunner {
           const data = JSON.parse(debateStep.resultCheckpoint);
           md += `### Question Analysis Answer\n\n${data.answer}\n\n`;
         } catch {
+          // ignore
+        }
+      }
+    } else if (this.runType === "theme_proposal") {
+      const proposalStep = steps.find(s => s.stepName === "theme_proposal_sweep");
+      if (proposalStep && proposalStep.resultCheckpoint) {
+        try {
+          const data = JSON.parse(proposalStep.resultCheckpoint);
+          md += `### Theme Proposal: ${data.proposedName} (${data.proposedCode})\n\n`;
+          md += `**Status**: PENDING\n\n`;
+          md += `#### Rationale\n${data.rationale}\n\n`;
+          md += `#### Proposed Subthemes\n\n`;
+          md += `| Subtheme Name | Subtheme Code | Sector Codes | Sample Symbols |\n`;
+          md += `| :--- | :--- | :--- | :--- |\n`;
+          data.subthemes.forEach((s: any) => {
+            md += `| ${s.name} | \`${s.code}\` | ${s.sectorCodes.join(", ")} | ${s.sampleSymbols.join(", ")} |\n`;
+          });
+          md += `\n#### Evidence Quotes\n\n`;
+          data.evidence.forEach((ev: any, idx: number) => {
+            md += `> [${idx + 1}] (${ev.symbol || "unknown"}${ev.accessionNo ? `, accession: ${ev.accessionNo}` : ""}): "${ev.quote}"\n\n`;
+          });
+        } catch (e) {
           // ignore
         }
       }

@@ -47,6 +47,7 @@ missing — a fresh install must never crash a page.
   `@engine/themes`; despike likewise from `@engine/lib/metrics`). Also
   `loadCapexScorecard()` — MSFT/AMZN/GOOGL/META quarterly capex →
   `@engine/tools/capex-scorecard` (AI-theme widget + the `/` compact strip).
+- `theme-proposals-data.ts` — SQLite reader and writer for human-gated theme proposals (`ThemeProposal` table) and accepted custom user themes (`UserTheme` table).
 - `digest-types.ts` / `digest-data.ts` — mirrored Digest types + SQLite reader
   (`latestDigest`, `digestByDate`, `listDigests`).
 - `run-trigger.ts` — **server-only**: spawn an engine job as a DETACHED child

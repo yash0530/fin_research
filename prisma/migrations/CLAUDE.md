@@ -19,6 +19,7 @@ ENGINE convention — we do NOT run `prisma migrate dev` against the live SQLite
 - `0008_edgar_events.sql` — create InsiderTx and FilingEvent tables with required unique constraints and indexes to support the Form 4 cluster screen and 8-K regex classifier.
 - `0010_research_runs.sql` — create ResearchRun and ResearchRunStep tables to support checkpointed, budgeted research execution loops. (Note: 0009 is intentionally reserved).
 - `0011_holdings.sql` — create InstitutionalHolding table with indexes and unique constraint to support 13F holdings ingestion.
+- `0012_theme_proposals.sql` — create ThemeProposal and UserTheme tables to support the human-gated theme creation sandbox.
 
 New migrations are numbered and additive (ALTER/CREATE only); never destructive without
 an explicit backup step first.

@@ -1,5 +1,5 @@
 import { despike } from "@engine/lib/metrics";
-import { getTheme, THEMES, type Theme, type Subtheme } from "@engine/themes/taxonomy";
+import { getTheme, THEMES, allThemes, type Theme, type Subtheme, type UserTheme } from "@engine/themes/taxonomy";
 import {
   rankTheme,
   themeIntelligence,
@@ -207,8 +207,23 @@ function subthemeNav(db: SqlDb, theme: Theme): SubthemeNav[] {
   });
 }
 
-export function listThemes(): Theme[] {
-  return THEMES;
+export async function listThemes(): Promise<Theme[]> {
+  const db = await openDb();
+  if (!db) return THEMES;
+  try {
+    const rows = db.prepare('SELECT * FROM "UserTheme" ORDER BY "createdAt" DESC').all() as any[];
+    const userThemes: UserTheme[] = rows.map((r) => ({
+      code: r.code as string,
+      name: r.name as string,
+      subthemesJson: r.subthemesJson as string,
+      createdAt: r.createdAt as string,
+    }));
+    return allThemes(userThemes);
+  } catch {
+    return THEMES;
+  } finally {
+    closeDb(db);
+  }
 }
 
 export type { CapexScorecard };
@@ -258,9 +273,28 @@ export async function themeView(
   themeCode: string,
   opts: { subtheme?: string; compare?: string[] } = {},
 ): Promise<ThemeView | null> {
-  const theme = getTheme(themeCode);
-  if (!theme) return null;
   const db = await openDb();
+  let userThemes: UserTheme[] = [];
+  if (db) {
+    try {
+      const rows = db.prepare('SELECT * FROM "UserTheme"').all() as any[];
+      userThemes = rows.map((r: any) => ({
+        code: r.code as string,
+        name: r.name as string,
+        subthemesJson: r.subthemesJson as string,
+        createdAt: r.createdAt as string,
+      }));
+    } catch {
+      // ignore
+    }
+  }
+
+  const theme = getTheme(themeCode, userThemes);
+  if (!theme) {
+    if (db) closeDb(db);
+    return null;
+  }
+
   if (!db) {
     return {
       theme,

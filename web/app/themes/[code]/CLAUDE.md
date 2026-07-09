@@ -14,4 +14,4 @@ main ranked table.
   missing/warning notes for the top 10.
 - Insufficient-data silo renders as its own labeled table — never ranked last.
 - Query params: `?sub=<subtheme>` scopes the ranking; `?compare=subA,subB`
-  renders two subthemes side-by-side.
+  renders two subthemes side-by-side; `?sandbox=1` renders the human-gated Theme Proposals Sandbox.

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { themeView, loadCapexScorecard, type CapexScorecard, type RankedDisplayRow } from "@/lib/themes-data";
+import { themeView, listThemes, loadCapexScorecard, type CapexScorecard, type RankedDisplayRow } from "@/lib/themes-data";
+import { listPendingProposals } from "@/lib/theme-proposals-data";
+import { ThemeProposalsSandbox } from "../ThemeProposalsSandbox";
 import { Panel } from "@/components/ui/Panel";
 import { Stat } from "@/components/ui/Stat";
 import { StatStrip } from "@/components/ui/StatStrip";
@@ -17,13 +19,15 @@ export const dynamic = "force-dynamic";
 
 interface Props {
   params: Promise<{ code: string }>;
-  searchParams: Promise<{ sub?: string; compare?: string }>;
+  searchParams: Promise<{ sub?: string; compare?: string; sandbox?: string }>;
 }
 
 function scoreOf(row: RankedDisplayRow, key: "quality" | "valuation" | "momentum"): string {
   const v = row.segments[key];
   return v === null ? "—" : String(v);
 }
+// Note: BreakdownBar, fscoreFromProvenance, formatCapex, CapexScorecardPanel, RankedTable are omitted here as we're replacing from Props definition down to the beginning of ThemePage. We will keep them exactly as they are.
+
 
 function BreakdownBar({ row }: { row: RankedDisplayRow }) {
   const segs: { key: "quality" | "valuation" | "momentum"; cls: string }[] = [
@@ -207,7 +211,7 @@ function RankedTable({ rows, title }: { rows: RankedDisplayRow[]; title?: string
 
 export default async function ThemePage({ params, searchParams }: Props) {
   const { code } = await params;
-  const { sub, compare } = await searchParams;
+  const { sub, compare, sandbox } = await searchParams;
   const compareCodes = compare?.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 2);
 
   const view = await themeView(code, {
@@ -219,6 +223,9 @@ export default async function ThemePage({ params, searchParams }: Props) {
   const capex = code === "ai" ? await loadCapexScorecard() : null;
 
   const { theme, subthemes, intelligence, ranked, silo, warnings, catalysts } = view;
+
+  const allActiveThemes = await listThemes();
+  const pendingProposals = await listPendingProposals();
 
   return (
     <div>
@@ -248,10 +255,26 @@ export default async function ThemePage({ params, searchParams }: Props) {
 
       <div className="themes-grid">
         <aside className="themes-tree-navigation">
+          {allActiveThemes.length > 1 && (
+            <Panel>
+              <div className="text-table-header">Active Themes</div>
+              <nav className="themes-tree">
+                {allActiveThemes.map((t) => (
+                  <Link
+                    key={t.code}
+                    href={`/themes/${t.code}`}
+                    className={`themes-tree-item${code === t.code ? " themes-tree-active" : ""}`}
+                  >
+                    <span>{t.name}</span>
+                  </Link>
+                ))}
+              </nav>
+            </Panel>
+          )}
           <Panel>
             <div className="text-table-header">Subthemes</div>
             <nav className="themes-tree">
-              <Link href={`/themes/${theme.code}`} className={`themes-tree-item${!sub ? " themes-tree-active" : ""}`}>
+              <Link href={`/themes/${theme.code}`} className={`themes-tree-item${!sub && !sandbox ? " themes-tree-active" : ""}`}>
                 <span>All ({subthemes.reduce((a, s) => a + s.tickerCount, 0)})</span>
               </Link>
               {subthemes.map((s) => (
@@ -264,6 +287,13 @@ export default async function ThemePage({ params, searchParams }: Props) {
                   {s.spark.length > 1 && <Sparkline data={s.spark} width={44} height={14} />}
                 </Link>
               ))}
+              <div style={{ margin: "8px 0", borderTop: "1px solid var(--border-dim)" }} />
+              <Link
+                href={`/themes/${theme.code}?sandbox=1`}
+                className={`themes-tree-item${sandbox ? " themes-tree-active" : ""}`}
+              >
+                <span>Theme Sandbox ({pendingProposals.length})</span>
+              </Link>
             </nav>
             <div className="themes-compare-hint meta-dim">
               Compare: append ?compare=subA,subB
@@ -292,7 +322,12 @@ export default async function ThemePage({ params, searchParams }: Props) {
         </aside>
 
         <main className="themes-ranked-table">
-          {view.compare ? (
+          {sandbox ? (
+            <Panel>
+              <h2 style={{ marginBottom: "16px" }}>Theme Proposals Sandbox</h2>
+              <ThemeProposalsSandbox proposals={pendingProposals} />
+            </Panel>
+          ) : view.compare ? (
             <div className="themes-compare-grid">
               {view.compare.map((c) => (
                 <Panel key={c.code}>
